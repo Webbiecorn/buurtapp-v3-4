@@ -1,0 +1,8 @@
+{
+  "name": "Copy of Buurtconciërge App V3-3",
+  "description": "Een robuuste, offline-compatibele Progressive Web App (PWA) voor buurtconciërges, beheerders en wijkmanagers om efficiënt problemen te signaleren, projecten te beheren en werkuren te registreren.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "prompt": ""
+}
