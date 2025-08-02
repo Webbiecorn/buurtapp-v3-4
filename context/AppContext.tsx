@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User, UserRole, AppContextType, Melding, MeldingStatus, Project, ProjectStatus, Urenregistratie, Taak, Notificatie, ProjectContribution, MeldingUpdate } from '../types';
-import { db } from '../firebase';
+import { db, storage } from '../firebase';
 import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, Timestamp, arrayUnion, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-// Helper function to safely convert Firestore Timestamps to JS Dates
 const convertTimestamps = (data: any) => {
   const convertedData = { ...data };
   for (const key in convertedData) {
@@ -22,7 +22,6 @@ const convertTimestamps = (data: any) => {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const savedTheme = typeof window !== 'undefined'
       ? localStorage.getItem('theme') as 'light' | 'dark' | null
@@ -30,16 +29,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return savedTheme || 'dark';
   });
 
-  // Auth State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-
-  // Data State
   const [users, setUsers] = useState<User[]>([]);
   const [meldingen, setMeldingen] = useState<Melding[]>([]);
   const [projecten, setProjecten] = useState<Project[]>([]);
   const [urenregistraties, setUrenregistraties] = useState<Urenregistratie[]>([]);
   const [taken, setTaken] = useState<Taak[]>([]);
   const [notificaties, setNotificaties] = useState<Notificatie[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -48,10 +45,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // --- Firestore Data Listeners ---
   useEffect(() => {
     const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as User)));
+      setIsInitialLoading(false); 
     });
     
     const unsubscribeMeldingen = onSnapshot(collection(db, 'meldingen'), (snapshot) => {
@@ -95,6 +92,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   }, [currentUser]);
 
+  const uploadFile = useCallback(async (file: File, path: string): Promise<string> => {
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(storageRef);
+    return downloadURL;
+  }, []);
+
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
@@ -111,10 +115,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const logout = () => {
     setCurrentUser(null);
   };
-
-  // --- Data Mutatie Functies ---
-
-  const addMelding = useCallback(async (newMelding: Omit<Melding, 'id' | 'timestamp' | 'gebruikerId' | 'updates' | 'status'>) => {
+  
+  // CORRECTIE: De functie accepteert nu de 'status' van het formulier.
+  const addMelding = useCallback(async (newMelding: Omit<Melding, 'id' | 'timestamp' | 'gebruikerId' | 'updates'>) => {
     if (!currentUser) return;
     try {
       const docRef = await addDoc(collection(db, 'meldingen'), {
@@ -122,7 +125,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         timestamp: serverTimestamp(),
         gebruikerId: currentUser.id,
         updates: [],
-        status: MeldingStatus.InBehandeling,
       });
 
       const admins = users.filter(u => u.role === UserRole.Beheerder);
@@ -282,21 +284,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [currentUser]);
 
-  // CORRECTIE: Nieuwe functie toegevoegd voor het wisselen van taken
   const switchUrenregistratie = useCallback(async (data: Omit<Urenregistratie, 'id' | 'gebruikerId' | 'starttijd' | 'eindtijd'>) => {
     if (!currentUser) return;
     try {
         const batch = writeBatch(db);
-        const now = new Date(); // Gebruik een consistente tijd voor beide operaties
+        const now = new Date(); 
 
-        // 1. Vind de actieve taak om te stoppen
         const q = query(collection(db, 'urenregistraties'), where("gebruikerId", "==", currentUser.id), where("eindtijd", "==", null));
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach(doc => {
             batch.update(doc.ref, { eindtijd: Timestamp.fromDate(now) });
         });
 
-        // 2. Maak de nieuwe taak aan
         const newEntryRef = doc(collection(db, 'urenregistraties'));
         batch.set(newEntryRef, {
             ...data,
@@ -320,7 +319,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             await updateDoc(docSnap.ref, { eindtijd: serverTimestamp() });
         }
     } catch (error) {
-        console.error("Error stopping urenregistratie:", error);
+      console.error("Error stopping urenregistratie:", error);
     }
   }, [currentUser]);
 
@@ -371,6 +370,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [currentUser]);
 
   const value: AppContextType = {
+    isInitialLoading,
     theme,
     toggleTheme,
     currentUser,
@@ -382,6 +382,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     urenregistraties,
     taken,
     notificaties,
+    uploadFile,
     addMelding,
     updateMeldingStatus,
     addMeldingUpdate,
@@ -391,7 +392,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addProjectContribution,
     joinProject,
     startUrenregistratie,
-    switchUrenregistratie, // CORRECTIE: Nieuwe functie toegevoegd aan de context
+    switchUrenregistratie,
     stopUrenregistratie,
     getActiveUrenregistratie,
     addUser,
@@ -410,4 +411,3 @@ export const useAppContext = (): AppContextType => {
   }
   return context;
 };
-

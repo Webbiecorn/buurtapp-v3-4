@@ -1,7 +1,7 @@
 import React, { ReactNode, useState, useRef } from 'react';
 import { MeldingStatus, ProjectStatus } from '../types';
-import type { StatCardProps, ModalProps, Melding, Project, User } from '../types';
-import { useAppContext } from '../context/AppContext'; 
+import type { StatCardProps, ModalProps, Melding, Project } from '../types';
+import { useAppContext } from '../context/AppContext';
 import { MapPinIcon, XIcon, PaperclipIcon, TrashIcon } from './Icons';
 import { format } from 'date-fns';
 import nl from 'date-fns/locale/nl';
@@ -104,22 +104,19 @@ export const ProjectCard: React.FC<{ project: Project, isUnseen?: boolean }> = (
 };
 
 export const NewProjectForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-    const { addProject } = useAppContext();
+    const { addProject, uploadFile } = useAppContext();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [endDateUnknown, setEndDateUnknown] = useState(false);
-    const [attachments, setAttachments] = useState<{name: string, url: string}[]>([]);
+    const [attachments, setAttachments] = useState<File[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
-            const newFiles = Array.from(e.target.files).map(file => ({
-                name: file.name,
-                url: `https://picsum.photos/seed/${Math.random()}/800/600`
-            }));
-            setAttachments(prev => [...prev, ...newFiles]);
+            setAttachments(prev => [...prev, ...Array.from(e.target.files)]);
         }
     };
     
@@ -127,55 +124,56 @@ export const NewProjectForm: React.FC<{ onClose: () => void }> = ({ onClose }) =
         setAttachments(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title || !description || !startDate) {
             alert("Titel, omschrijving en startdatum zijn verplicht.");
             return;
         }
-        
         if (!endDateUnknown && !endDate) {
             alert("Selecteer een einddatum of vink 'Einddatum nog niet bekend' aan.");
             return;
         }
-        
-        const combinedStartDate = new Date(startDate);
-        const combinedEndDate = endDateUnknown ? undefined : new Date(endDate);
-        
-        addProject({ 
-            title, 
-            description,
-            status: ProjectStatus.Lopend,
-            startDate: combinedStartDate,
-            endDate: combinedEndDate,
-            attachments: attachments.map(a => a.url),
-        });
-        onClose();
+        setIsUploading(true);
+
+        try {
+            const attachmentURLs = await Promise.all(
+                attachments.map(file => {
+                    const filePath = `projecten/${Date.now()}_${file.name}`;
+                    return uploadFile(file, filePath);
+                })
+            );
+
+            const combinedStartDate = new Date(startDate);
+            const combinedEndDate = endDateUnknown ? undefined : new Date(endDate);
+            
+            await addProject({ 
+                title, 
+                description,
+                status: ProjectStatus.Lopend,
+                startDate: combinedStartDate,
+                endDate: combinedEndDate,
+                attachments: attachmentURLs,
+            });
+            onClose();
+
+        } catch (error) {
+            console.error("Upload mislukt:", error);
+            alert("Er is iets misgegaan bij het uploaden van de afbeeldingen.");
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
                 <label htmlFor="project-title" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Titel *</label>
-                <input
-                    type="text"
-                    id="project-title"
-                    value={title}
-                    onChange={e => setTitle(e.target.value)}
-                    required
-                    className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
-                />
+                <input type="text" id="project-title" value={title} onChange={e => setTitle(e.target.value)} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary" />
             </div>
             <div>
                 <label htmlFor="project-description" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Omschrijving *</label>
-                <textarea
-                    id="project-description"
-                    value={description}
-                    onChange={e => setDescription(e.target.value)}
-                    rows={4}
-                    required
-                    className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
-                ></textarea>
+                <textarea id="project-description" value={description} onChange={e => setDescription(e.target.value)} rows={4} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"></textarea>
             </div>
             <div>
                 <label htmlFor="project-start-date" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Startdatum *</label>
@@ -184,29 +182,13 @@ export const NewProjectForm: React.FC<{ onClose: () => void }> = ({ onClose }) =
             <div>
                 <label htmlFor="project-end-date" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Einddatum</label>
                 {!endDateUnknown && (
-                    <input 
-                        type="date" 
-                        id="project-end-date" 
-                        value={endDate} 
-                        onChange={e => setEndDate(e.target.value)} 
-                        min={startDate} 
-                        className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary" 
-                    />
+                    <input type="date" id="project-end-date" value={endDate} onChange={e => setEndDate(e.target.value)} min={startDate} className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary" />
                 )}
                 <div className="mt-2 flex items-center">
-                    <input 
-                        id="endDateUnknown" 
-                        type="checkbox" 
-                        checked={endDateUnknown}
-                        onChange={(e) => setEndDateUnknown(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-brand-primary focus:ring-brand-primary"
-                    />
-                    <label htmlFor="endDateUnknown" className="ml-2 block text-sm text-gray-900 dark:text-dark-text-secondary">
-                        Einddatum nog niet bekend
-                    </label>
+                    <input id="endDateUnknown" type="checkbox" checked={endDateUnknown} onChange={(e) => setEndDateUnknown(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand-primary focus:ring-brand-primary" />
+                    <label htmlFor="endDateUnknown" className="ml-2 block text-sm text-gray-900 dark:text-dark-text-secondary">Einddatum nog niet bekend</label>
                 </div>
             </div>
-
             <div>
                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Bijlagen (optioneel)</label>
                  <div className="mt-2">
@@ -214,14 +196,7 @@ export const NewProjectForm: React.FC<{ onClose: () => void }> = ({ onClose }) =
                         <PaperclipIcon className="h-5 w-5 mr-2" />
                         Bestanden kiezen
                     </button>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        multiple
-                        accept="image/*,video/*"
-                        className="hidden"
-                    />
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />
                  </div>
                  {attachments.length > 0 && (
                      <div className="mt-4 space-y-2">
@@ -236,13 +211,9 @@ export const NewProjectForm: React.FC<{ onClose: () => void }> = ({ onClose }) =
                      </div>
                  )}
             </div>
-
             <div className="flex justify-end pt-4">
-                <button
-                    type="submit"
-                    className="inline-flex items-center px-6 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary"
-                >
-                    Project Aanmaken
+                <button type="submit" disabled={isUploading} className="inline-flex items-center px-6 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary disabled:bg-gray-400">
+                    {isUploading ? 'Bezig met uploaden...' : 'Project Aanmaken'}
                 </button>
             </div>
         </form>

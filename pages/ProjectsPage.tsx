@@ -1,22 +1,19 @@
-
-
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Project, ProjectStatus, UserRole } from '../types';
 import { ProjectCard, Modal, NewProjectForm } from '../components/ui';
-import { PlusCircleIcon, UsersIcon, CameraIcon, PaperclipIcon, TrashIcon, EditIcon, XIcon } from '../components/Icons';
+import { PlusCircleIcon, UsersIcon, PaperclipIcon, EditIcon, XIcon } from '../components/Icons';
 import { format } from 'date-fns';
 import nl from 'date-fns/locale/nl';
 
 type Tab = 'Lopend' | 'Afgerond';
 
 const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = ({ project, onClose }) => {
-    const { users, currentUser, joinProject, addProjectContribution, updateProject } = useAppContext();
+    const { users, currentUser, joinProject, addProjectContribution, updateProject, uploadFile } = useAppContext();
 
     const participants = users.filter(u => project.participantIds.includes(u.id));
     const isParticipant = currentUser ? project.participantIds.includes(currentUser.id) : false;
 
-    // State for editing project
     const [isEditing, setIsEditing] = useState(false);
     const [editedTitle, setEditedTitle] = useState(project.title);
     const [editedDescription, setEditedDescription] = useState(project.description);
@@ -24,13 +21,12 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
     const [editedEndDate, setEditedEndDate] = useState(project.endDate ? format(project.endDate, 'yyyy-MM-dd') : '');
     const [editedStatus, setEditedStatus] = useState(project.status);
 
-    // State for new contribution
     const [newContributionText, setNewContributionText] = useState("");
-    const [newContributionAttachments, setNewContributionAttachments] = useState<{name: string, url: string}[]>([]);
+    const [newContributionAttachments, setNewContributionAttachments] = useState<File[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
     const contributionFileInputRef = React.useRef<HTMLInputElement>(null);
 
-    // Permissions
     const canEditProject = currentUser?.role === UserRole.Beheerder || currentUser?.id === project.creatorId;
     const canAddContribution = isParticipant && currentUser?.role !== UserRole.Viewer;
 
@@ -40,11 +36,7 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
     
     const handleContributionFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
-            const newFiles = Array.from(e.target.files).map(file => ({
-                name: file.name,
-                url: `https://picsum.photos/seed/${Math.random()}/400/300` // Placeholder
-            }));
-            setNewContributionAttachments(prev => [...prev, ...newFiles]);
+            setNewContributionAttachments(prev => [...prev, ...Array.from(e.target.files)]);
         }
     };
 
@@ -52,19 +44,37 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
         setNewContributionAttachments(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleAddContribution = (e: React.FormEvent) => {
+    const handleAddContribution = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newContributionText.trim() && newContributionAttachments.length === 0) return;
-        addProjectContribution(project.id, { 
-            text: newContributionText, 
-            attachments: newContributionAttachments.map(a => a.url) 
-        });
-        setNewContributionText("");
-        setNewContributionAttachments([]);
-        setShowSuccessMessage(true);
-        setTimeout(() => {
-            setShowSuccessMessage(false);
-        }, 3000);
+        
+        setIsUploading(true);
+        try {
+            const attachmentURLs = await Promise.all(
+                newContributionAttachments.map(file => {
+                    // CORRECTIE: Gebruik een willekeurige ID om unieke bestandsnamen te garanderen.
+                    const randomId = Math.random().toString(36).substring(2);
+                    const filePath = `contributions/${project.id}/${randomId}_${file.name}`;
+                    return uploadFile(file, filePath);
+                })
+            );
+
+            await addProjectContribution(project.id, { 
+                text: newContributionText, 
+                attachments: attachmentURLs 
+            });
+
+            setNewContributionText("");
+            setNewContributionAttachments([]);
+            setShowSuccessMessage(true);
+            setTimeout(() => setShowSuccessMessage(false), 3000);
+
+        } catch (error) {
+            console.error("Contribution upload failed:", error);
+            alert("Fout bij het uploaden van de bijlagen.");
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     const handleUpdateProject = (e: React.FormEvent) => {
@@ -169,7 +179,7 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
                     <div>
                         <h3 className="font-semibold text-lg text-gray-900 dark:text-dark-text-primary mb-2">Activiteiten</h3>
                         <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
-                            {[...project.contributions].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()).map(c => {
+                            {[...project.contributions].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).map(c => {
                                 const user = users.find(u => u.id === c.userId);
                                 return (
                                     <div key={c.id} className="flex space-x-3">
@@ -207,7 +217,7 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
                                  <div className="mt-2 grid grid-cols-3 gap-2">
                                      {newContributionAttachments.map((file, index) => (
                                          <div key={index} className="relative">
-                                             <img src={file.url} alt={file.name} className="h-20 w-full object-cover rounded-md"/>
+                                             <img src={URL.createObjectURL(file)} alt={file.name} className="h-20 w-full object-cover rounded-md"/>
                                              <button type="button" onClick={() => removeContributionAttachment(index)} className="absolute top-1 right-1 bg-black/50 rounded-full text-white p-0.5">
                                                  <XIcon className="h-3 w-3" />
                                              </button>
@@ -220,17 +230,14 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
                                      <button type="button" onClick={() => contributionFileInputRef.current?.click()} className="flex items-center text-sm font-medium text-brand-primary hover:underline">
                                         <PaperclipIcon className="h-4 w-4 mr-1" /> Bijlage toevoegen
                                      </button>
-                                     <input type="file" ref={contributionFileInputRef} onChange={handleContributionFileChange} multiple accept="image/*,video/*" className="hidden" />
+                                     <input type="file" ref={contributionFileInputRef} onChange={handleContributionFileChange} multiple accept="image/*" className="hidden" />
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     {showSuccessMessage && (
-                                       <span className="text-sm text-green-500">Update succesvol geplaatst!</span>
+                                       <span className="text-sm text-green-500">Update geplaatst!</span>
                                     )}
-                                    <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-300 dark:border-dark-border text-sm font-medium rounded-md text-gray-700 dark:text-dark-text-secondary bg-white dark:bg-dark-bg hover:bg-gray-100 dark:hover:bg-dark-border">
-                                        Sluiten
-                                    </button>
-                                    <button type="submit" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary">
-                                        Plaatsen
+                                    <button type="submit" disabled={isUploading} className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary disabled:bg-gray-400">
+                                        {isUploading ? 'Plaatsen...' : 'Plaatsen'}
                                     </button>
                                 </div>
                              </div>
@@ -270,10 +277,8 @@ const ProjectsPage: React.FC = () => {
 
     const filteredProjects = projecten
         .filter(p => p.status === activeTab)
-        .sort((a,b) => (isUnseen(b.id) ? 1 : 0) - (isUnseen(a.id) ? 1: 0)); // Sort unseen projects to the top
+        .sort((a,b) => (isUnseen(b.id) ? 1 : 0) - (isUnseen(a.id) ? 1: 0));
 
-    // Find the up-to-date project object from the main `projecten` state to pass to the modal
-    // This ensures the modal always shows the latest data after an update (e.g., joining a project)
     const projectForModal = selectedProject ? projecten.find(p => p.id === selectedProject.id) : null;
 
     const tabs: Tab[] = ['Lopend', 'Afgerond'];

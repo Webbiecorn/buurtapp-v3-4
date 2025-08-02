@@ -62,7 +62,7 @@ export interface Urenregistratie {
   starttijd: Date;
   eindtijd?: Date;
   activiteit: string;
-  details: string; // e.g., wijk name or project name
+  details: string;
 }
 
 export interface ProjectContribution {
@@ -109,22 +109,21 @@ export interface Notificatie {
 
 // Context Types
 export interface AppContextType {
-  // Theme
+  isInitialLoading: boolean;
   theme: 'light' | 'dark';
   toggleTheme: () => void;
-  // Auth
   currentUser: User | null;
   login: (role: UserRole) => void;
   logout: () => void;
-  // Data
   users: User[];
   meldingen: Melding[];
   projecten: Project[];
   urenregistraties: Urenregistratie[];
   taken: Taak[];
   notificaties: Notificatie[];
-  // Data Actions
-  addMelding: (melding: Omit<Melding, 'id' | 'timestamp' | 'gebruikerId' | 'updates' | 'status'>) => void;
+  uploadFile: (file: File, path: string) => Promise<string>;
+  // CORRECTIE: De 'status' kan nu worden meegegeven bij het aanmaken van een melding.
+  addMelding: (melding: Omit<Melding, 'id' | 'timestamp' | 'gebruikerId' | 'updates'>) => void;
   updateMeldingStatus: (id: string, status: MeldingStatus) => void;
   addMeldingUpdate: (meldingId: string, update: Omit<MeldingUpdate, 'id' | 'timestamp' | 'userId'>) => void;
   markNotificationsAsRead: (targetType: 'melding' | 'project', targetId: string) => void;
@@ -133,6 +132,7 @@ export interface AppContextType {
   addProjectContribution: (projectId: string, contribution: Omit<ProjectContribution, 'id' | 'timestamp' | 'userId'>) => void;
   joinProject: (projectId: string) => void;
   startUrenregistratie: (data: Omit<Urenregistratie, 'id' | 'gebruikerId' | 'starttijd' | 'eindtijd'>) => void;
+  switchUrenregistratie: (data: Omit<Urenregistratie, 'id' | 'gebruikerId' | 'starttijd' | 'eindtijd'>) => void;
   stopUrenregistratie: () => void;
   getActiveUrenregistratie: () => Urenregistratie | undefined;
   addUser: (user: Omit<User, 'id' | 'avatarUrl' | 'phone'>) => void;

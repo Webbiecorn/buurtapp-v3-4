@@ -1,5 +1,3 @@
-
-
 import React, { useState, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Melding, MeldingStatus, UserRole } from '../types';
@@ -12,12 +10,14 @@ import { MOCK_WIJKEN } from '../data/mockData';
 type Tab = 'Lopende' | 'Fixi Meldingen' | 'Afgeronde';
 
 const NewMeldingForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-    const { addMelding } = useAppContext();
+    const { addMelding, uploadFile } = useAppContext();
     const [titel, setTitel] = useState('');
     const [omschrijving, setOmschrijving] = useState('');
     const [wijk, setWijk] = useState('');
     const [locatie, setLocatie] = useState<any>(null);
-    const [attachments, setAttachments] = useState<{name: string, url: string}[]>([]);
+    const [attachments, setAttachments] = useState<File[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
+    const [status, setStatus] = useState<MeldingStatus>(MeldingStatus.InBehandeling);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleGetLocation = () => {
@@ -34,11 +34,7 @@ const NewMeldingForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
-            const newFiles = Array.from(e.target.files).map(file => ({
-                name: file.name,
-                url: `https://picsum.photos/seed/${Math.random()}/800/600` // Placeholder
-            }));
-            setAttachments(prev => [...prev, ...newFiles]);
+            setAttachments(prev => [...prev, ...Array.from(e.target.files)]);
         }
     };
     
@@ -46,18 +42,38 @@ const NewMeldingForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         setAttachments(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const newMelding = {
-            titel,
-            omschrijving,
-            locatie,
-            attachments: attachments.length > 0 ? attachments.map(a => a.url) : ['https://picsum.photos/seed/new_melding/800/600'],
-            wijk: wijk,
-            categorie: 'Overig'
-        };
-        addMelding(newMelding);
-        onClose();
+        // CORRECTIE: De verplichte foto-check is hier verwijderd.
+        setIsUploading(true);
+
+        try {
+            const attachmentURLs = await Promise.all(
+                attachments.map(file => {
+                    const randomId = Math.random().toString(36).substring(2);
+                    const filePath = `meldingen/${randomId}_${file.name}`;
+                    return uploadFile(file, filePath);
+                })
+            );
+
+            const newMelding = {
+                titel,
+                omschrijving,
+                locatie,
+                attachments: attachmentURLs,
+                wijk: wijk,
+                categorie: 'Overig',
+                status: status,
+            };
+            await addMelding(newMelding);
+            onClose();
+
+        } catch (error) {
+            console.error("Upload mislukt:", error);
+            alert("Er is iets misgegaan bij het uploaden van de afbeeldingen.");
+        } finally {
+            setIsUploading(false);
+        }
     };
     
     return (
@@ -71,6 +87,12 @@ const NewMeldingForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 <select id="wijk" value={wijk} onChange={e => setWijk(e.target.value)} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary">
                     <option value="" disabled>Kies een wijk</option>
                     {MOCK_WIJKEN.map(w => <option key={w} value={w} className="bg-white dark:bg-dark-surface">{w}</option>)}
+                </select>
+            </div>
+            <div>
+                <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Status</label>
+                <select id="status" value={status} onChange={e => setStatus(e.target.value as MeldingStatus)} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary">
+                    {Object.values(MeldingStatus).map(s => <option key={s} value={s} className="bg-white dark:bg-dark-surface">{s}</option>)}
                 </select>
             </div>
             <div>
@@ -91,7 +113,7 @@ const NewMeldingForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     ref={fileInputRef}
                     onChange={handleFileChange}
                     multiple
-                    accept="image/*,video/*"
+                    accept="image/*"
                     className="hidden"
                 />
                  {attachments.length > 0 && (
@@ -109,8 +131,8 @@ const NewMeldingForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                  )}
             </div>
             <div className="flex justify-end pt-4">
-                 <button type="submit" className="inline-flex items-center px-6 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary">
-                    Melding Aanmaken
+                 <button type="submit" disabled={isUploading} className="inline-flex items-center px-6 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary disabled:bg-gray-400">
+                    {isUploading ? 'Bezig met uploaden...' : 'Melding Aanmaken'}
                 </button>
             </div>
         </form>
@@ -118,18 +140,15 @@ const NewMeldingForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 };
 
 const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = ({ melding, onClose }) => {
-    const { users, currentUser, updateMeldingStatus, addMeldingUpdate } = useAppContext();
+    const { users, currentUser, updateMeldingStatus, addMeldingUpdate, uploadFile } = useAppContext();
     const [newUpdateText, setNewUpdateText] = useState('');
-    const [newUpdateAttachments, setNewUpdateAttachments] = useState<{name: string, url: string}[]>([]);
+    const [newUpdateAttachments, setNewUpdateAttachments] = useState<File[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
     const updateFileInputRef = useRef<HTMLInputElement>(null);
 
     const handleUpdateFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
-            const newFiles = Array.from(e.target.files).map(file => ({
-                name: file.name,
-                url: `https://picsum.photos/seed/${Math.random()}/400/300` // Placeholder
-            }));
-            setNewUpdateAttachments(prev => [...prev, ...newFiles]);
+            setNewUpdateAttachments(prev => [...prev, ...Array.from(e.target.files)]);
         }
     };
 
@@ -137,12 +156,30 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
         setNewUpdateAttachments(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleUpdateSubmit = (e: React.FormEvent) => {
+    const handleUpdateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newUpdateText.trim() && newUpdateAttachments.length === 0) return;
         
-        addMeldingUpdate(melding.id, { text: newUpdateText, attachments: newUpdateAttachments.map(a => a.url) });
-        onClose();
+        setIsUploading(true);
+        try {
+            const attachmentURLs = await Promise.all(
+                newUpdateAttachments.map(file => {
+                    const randomId = Math.random().toString(36).substring(2);
+                    const filePath = `updates/${melding.id}/${randomId}_${file.name}`;
+                    return uploadFile(file, filePath);
+                })
+            );
+
+            await addMeldingUpdate(melding.id, { text: newUpdateText, attachments: attachmentURLs });
+            setNewUpdateText('');
+            setNewUpdateAttachments([]);
+
+        } catch (error) {
+            console.error("Update upload mislukt:", error);
+            alert("Fout bij uploaden van bijlagen voor update.");
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -155,7 +192,6 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
     return (
         <Modal isOpen={true} onClose={onClose} title={melding.titel}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Left Column: Image & Details */}
                 <div className="space-y-4">
                     <img src={melding.attachments[0]} alt={melding.titel} className="w-full h-64 object-cover rounded-lg" />
                     <div>
@@ -169,7 +205,6 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
                     </div>
                 </div>
 
-                {/* Right Column: Status, Updates, Form */}
                 <div className="space-y-4 flex flex-col">
                     <div>
                         <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-1">Status</label>
@@ -187,7 +222,7 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
                     <div className="flex-grow flex flex-col min-h-0">
                         <h3 className="font-semibold text-lg text-gray-900 dark:text-dark-text-primary mb-2">Updates</h3>
                         <div className="space-y-4 flex-grow overflow-y-auto pr-2 max-h-60 bg-gray-50 dark:bg-dark-bg p-2 rounded-md">
-                            {[...melding.updates].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()).map(update => {
+                            {[...melding.updates].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).map(update => {
                                 const user = users.find(u => u.id === update.userId);
                                 return (
                                     <div key={update.id} className="flex space-x-3">
@@ -253,8 +288,8 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
                                    <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-300 dark:border-dark-border text-sm font-medium rounded-md text-gray-700 dark:text-dark-text-secondary bg-white dark:bg-dark-bg hover:bg-gray-100 dark:hover:bg-dark-border">
                                        Sluiten
                                    </button>
-                                   <button type="submit" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary">
-                                       <SendIcon className="h-4 w-4 mr-2" /> Plaatsen
+                                   <button type="submit" disabled={isUploading} className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary disabled:bg-gray-400">
+                                       <SendIcon className="h-4 w-4 mr-2" /> {isUploading ? 'Plaatsen...' : 'Plaatsen'}
                                    </button>
                                 </div>
                              </div>
@@ -363,3 +398,4 @@ const IssuesPage: React.FC = () => {
 };
 
 export default IssuesPage;
+
