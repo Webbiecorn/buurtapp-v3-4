@@ -1,5 +1,3 @@
-
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { MessageSquareIcon, PhoneIcon, SparklesIcon, AlertTriangleIcon, CheckCircleIcon, ClockIcon, XIcon } from '../components/Icons';
@@ -85,14 +83,18 @@ const WijkRapport: React.FC<{ wijk: string }> = ({ wijk }) => {
         setError('');
         setAiSummary('');
 
-        if (!process.env.API_KEY) {
+        // CORRECTIE: De API-sleutel wordt nu veilig uit de omgevingsvariabelen gehaald.
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+        if (!apiKey) {
             setError('API key is niet ingesteld. Kan de samenvatting niet genereren.');
             setIsLoading(false);
             return;
         }
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            const ai = new GoogleGenAI(apiKey);
+            const model = ai.getGenerativeModel({ model: "gemini-1.5-flash"});
             
             const prompt = `
 Je bent een data-analist voor een gemeente. Analyseer de volgende data over meldingen in wijk '${wijk}' en genereer een korte, duidelijke managementsamenvatting in het Nederlands.
@@ -115,12 +117,11 @@ ${trendData.map(t => `- ${t.maand}: ${t.nieuw} nieuw, ${t.opgelost} opgelost`).j
 3.  **Aanbevelingen:** Concrete, uitvoerbare aanbevelingen voor de wijkmanager.
 `;
             
-            const response = await ai.models.generateContent({
-              model: 'gemini-2.5-flash',
-              contents: prompt,
-            });
+            const result = await model.generateContent(prompt);
+            const response = result.response;
+            const text = response.text();
             
-            setAiSummary(response.text);
+            setAiSummary(text);
 
         } catch (err) {
             console.error(err);
@@ -183,7 +184,7 @@ ${trendData.map(t => `- ${t.maand}: ${t.nieuw} nieuw, ${t.opgelost} opgelost`).j
                 )}
                 {error && <p className="text-red-500">{error}</p>}
                 {aiSummary && (
-                    <div className="prose prose-invert prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: aiSummary.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}></div>
+                    <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: aiSummary.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}></div>
                 )}
             </div>
         </div>
@@ -291,7 +292,9 @@ export const ReportsPage: React.FC = () => {
         setIsGeneratingPdf(true);
         setPdfError('');
 
-        if (!process.env.API_KEY) {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+        if (!apiKey) {
             setPdfError('API key is niet ingesteld. Kan het rapport niet genereren.');
             setIsGeneratingPdf(false);
             return;
@@ -358,12 +361,16 @@ Je bent een expert data-analist voor een gemeente. Jouw taak is om een professio
 `;
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-            const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+            const ai = new GoogleGenAI(apiKey);
+            const model = ai.getGenerativeModel({ model: "gemini-1.5-flash"});
+            const result = await model.generateContent(prompt);
+            const response = result.response;
+            const text = response.text();
+
             setGeneratedReport({
                 reportPeriod,
                 generatedAt: new Date(),
-                summary: response.text,
+                summary: text,
                 stats: stats
             });
         } catch(err) {

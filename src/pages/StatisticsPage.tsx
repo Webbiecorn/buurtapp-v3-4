@@ -1,30 +1,32 @@
-
-
 import React from 'react';
 import { useAppContext } from '../context/AppContext';
 import { MeldingStatus } from '../types';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-// import { MapContainer, TileLayer, Circle } from 'react-leaflet';
+// Opmerking: De volgende imports gaan ervan uit dat je @vis.gl/react-google-maps hebt geïnstalleerd.
+// En dat je een HeatmapLayer component hebt.
+// import { APIProvider, Map } from '@vis.gl/react-google-maps';
+// import { HeatmapLayer } from './HeatmapLayer';
 
 const COLORS = ['#f59e0b', '#8b5cf6', '#22c55e'];
+
+// CORRECTIE: De API-sleutels worden nu veilig uit de omgevingsvariabelen gehaald.
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const GOOGLE_MAP_ID = import.meta.env.VITE_GOOGLE_MAP_ID;
 
 const StatisticsPage: React.FC = () => {
   const { meldingen, urenregistraties, users, theme } = useAppContext();
 
-  // Meldingen per wijk
   const meldingenPerWijk = meldingen.reduce((acc, m) => {
     acc[m.wijk] = (acc[m.wijk] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
   const wijkData = Object.entries(meldingenPerWijk).map(([name, value]) => ({ name, meldingen: value }));
 
-  // Meldingen per status
   const meldingenPerStatus = Object.values(MeldingStatus).map(status => ({
     name: status,
     value: meldingen.filter(m => m.status === status).length
   }));
 
-  // Uren per medewerker
   const urenPerMedewerker = users.map(user => {
     const totalMillis = urenregistraties
       .filter(u => u.gebruikerId === user.id && u.eindtijd)
@@ -32,7 +34,11 @@ const StatisticsPage: React.FC = () => {
     return { name: user.name, uren: totalMillis / (1000 * 60 * 60) };
   }).filter(u => u.uren > 0);
 
-  const center: [number, number] = [52.0907, 5.1214];
+  const heatmapData = meldingen
+    .filter(m => m.locatie && m.locatie.lat && m.locatie.lon)
+    .map(m => ({ lat: m.locatie!.lat, lng: m.locatie!.lon }));
+
+  const center = { lat: 52.0907, lng: 5.1214 };
   
   const tickColor = theme === 'dark' ? '#9ca3af' : '#6b7280';
   const gridColor = theme === 'dark' ? '#374151' : '#e5e7eb';
@@ -81,32 +87,33 @@ const StatisticsPage: React.FC = () => {
               <XAxis dataKey="name" stroke={tickColor} fontSize={12} />
               <YAxis stroke={tickColor} fontSize={12} />
               <Tooltip cursor={{fill: theme === 'dark' ? '#374151' : '#f3f4f6'}} contentStyle={tooltipStyle}/>
-              <Bar dataKey="uren" fill="#16a34a" />
+              <Bar dataKey="uren" fill="#16a3a" />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Heatmap Meldingslocaties</h2>
-           <div className="h-[300px] rounded-md overflow-hidden bg-gray-100 dark:bg-dark-bg flex items-center justify-center">
-                <p className="text-gray-500 dark:text-dark-text-secondary">Heatmap is tijdelijk uitgeschakeld voor onderzoek.</p>
-                {/*
-                <MapContainer center={center} zoom={12} style={{ height: '100%', width: '100%' }} dragging={false} scrollWheelZoom={false} doubleClickZoom={false}>
-                    <TileLayer
-                        url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    />
-                    {meldingen.filter(m => m.locatie).map(m => (
-                       <Circle 
-                          key={m.id}
-                          center={[m.locatie!.lat, m.locatie!.lon]} 
-                          pathOptions={{ color: 'red', fillColor: 'red', fillOpacity: 0.1 }} 
-                          radius={100}
-                          stroke={false}
-                       />
-                    ))}
-                </MapContainer>
-                */}
+           <div className="h-[300px] rounded-md overflow-hidden bg-gray-200 dark:bg-dark-bg flex items-center justify-center">
+                {/* CORRECTIE: Controleer of de API-sleutel bestaat voordat de kaart wordt geladen. */}
+                {GOOGLE_MAPS_API_KEY ? (
+                    <p className="text-gray-500 dark:text-dark-text-secondary p-4 text-center">De Heatmap-functionaliteit is nog in ontwikkeling. De API-sleutel is correct geladen.</p>
+                    /*
+                    <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={['visualization']}>
+                        <Map
+                            mapId={GOOGLE_MAP_ID}
+                            defaultCenter={center}
+                            defaultZoom={12}
+                            disableDefaultUI={true}
+                            defaultTilt={0}
+                        >
+                            <HeatmapLayer data={heatmapData} />
+                        </Map>
+                    </APIProvider>
+                    */
+                ) : (
+                    <p className="text-red-500 p-4 text-center">Google Maps API sleutel niet gevonden. Stel deze in in je .env bestand om de kaart te tonen.</p>
+                )}
            </div>
         </div>
       </div>
