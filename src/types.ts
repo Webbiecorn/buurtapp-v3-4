@@ -1,3 +1,62 @@
+export interface DossierNotitie {
+  id: string;
+  userId: string;
+  timestamp: Date;
+  text: string;
+  isBelangrijk: boolean;
+  reacties?: DossierReactie[];
+}
+export interface DossierDocument {
+  id: string;
+  url: string;
+  name: string;
+  uploadedAt: Date;
+  userId: string;
+}
+
+export interface DossierTaak {
+  id: string;
+  description: string;
+  date: Date;
+  done: boolean;
+}
+
+export interface DossierBewoner {
+  id: string;
+  name: string;
+  contact: string;
+  from: Date;
+  to?: Date;
+}
+
+export interface DossierHistorieItem {
+  id: string;
+  type: string;
+  description: string;
+  date: Date;
+  userId: string;
+}
+
+export interface DossierReactie {
+  id: string;
+  userId: string;
+  timestamp: Date;
+  text: string;
+}
+
+export type DossierStatus = 'actief' | 'afgesloten' | 'in onderzoek';
+export type DossierLabel = 'woning' | 'bedrijf' | 'overig';
+
+export interface WoningDossier {
+  id: string; // adres
+  notities: DossierNotitie[];
+  documenten: DossierDocument[];
+  taken: DossierTaak[];
+  bewoners: DossierBewoner[];
+  historie: DossierHistorieItem[];
+  status: DossierStatus;
+  labels: DossierLabel[];
+}
 import type { ReactNode } from 'react';
 
 // Enums
@@ -109,6 +168,15 @@ export interface Notificatie {
 
 // Context Types
 export interface AppContextType {
+  createNewDossier: (adres: string) => Promise<WoningDossier>;
+  getDossier: (adres: string) => Promise<WoningDossier | null>;
+  addDossierNotitie: (adres: string, notitie: Omit<DossierNotitie, 'id' | 'timestamp' | 'userId'>) => Promise<void>;
+  uploadDossierDocument: (adres: string, file: File) => Promise<DossierDocument>;
+  addDossierTaak: (adres: string, taak: Omit<DossierTaak, 'id'>) => Promise<void>;
+  updateDossierStatus: (adres: string, status: DossierStatus) => Promise<void>;
+  addDossierBewoner: (adres: string, bewoner: Omit<DossierBewoner, 'id'>) => Promise<void>;
+  addDossierHistorie: (adres: string, item: Omit<DossierHistorieItem, 'id'>) => Promise<void>;
+  addDossierReactie: (adres: string, notitieId: string, reactie: Omit<DossierReactie, 'id' | 'timestamp' | 'userId'>) => Promise<void>;
   isInitialLoading: boolean;
   theme: 'light' | 'dark';
   toggleTheme: () => void;
@@ -122,11 +190,12 @@ export interface AppContextType {
   taken: Taak[];
   notificaties: Notificatie[];
   uploadFile: (file: File, path: string) => Promise<string>;
-  // CORRECTIE: De 'status' kan nu worden meegegeven bij het aanmaken van een melding.
   addMelding: (melding: Omit<Melding, 'id' | 'timestamp' | 'gebruikerId' | 'updates'>) => void;
   updateMeldingStatus: (id: string, status: MeldingStatus) => void;
   addMeldingUpdate: (meldingId: string, update: Omit<MeldingUpdate, 'id' | 'timestamp' | 'userId'>) => void;
   markNotificationsAsRead: (targetType: 'melding' | 'project', targetId: string) => void;
+  // CORRECTIE: Nieuwe functie toegevoegd voor het markeren van een enkele notificatie.
+  markSingleNotificationAsRead: (notificationId: string) => void;
   addProject: (project: Omit<Project, 'id' | 'creatorId' | 'contributions' | 'participantIds' | 'imageUrl'>) => void;
   updateProject: (projectId: string, data: Partial<Pick<Project, 'title' | 'description' | 'startDate' | 'endDate' | 'status'>>) => void;
   addProjectContribution: (projectId: string, contribution: Omit<ProjectContribution, 'id' | 'timestamp' | 'userId'>) => void;
