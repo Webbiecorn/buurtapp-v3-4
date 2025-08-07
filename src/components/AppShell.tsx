@@ -5,7 +5,7 @@ import React, { ReactNode, useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { UserRole } from '../types';
-import { HomeIcon, AlertTriangleIcon, ClockIcon, BriefcaseIcon, BarChartIcon, MapIcon, UsersIcon, SettingsIcon, LogOutIcon, BellIcon, SunIcon, MoonIcon, MenuIcon, XIcon, DownloadIcon } from './Icons';
+import { HomeIcon, AlertTriangleIcon, ClockIcon, BriefcaseIcon, BarChartIcon, MapIcon, UsersIcon, SettingsIcon, LogOutIcon, BellIcon, SunIcon, MoonIcon, MenuIcon, XIcon, DownloadIcon, FolderIcon } from './Icons';
 
 type NavItem = {
   path: string;
@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { path: '/', name: 'Dashboard', icon: <HomeIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
   { path: '/issues', name: 'Meldingen', icon: <AlertTriangleIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
   { path: '/projects', name: 'Projecten', icon: <BriefcaseIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
+  { path: '/dossiers', name: 'Woningdossiers', icon: <FolderIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
   // { path: '/map', name: 'Kaart', icon: <MapIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
   { path: '/time-tracking', name: 'Urenregistratie', icon: <ClockIcon className="h-5 w-5" />, roles: [UserRole.Concierge] },
   { path: '/statistics', name: 'Statistieken', icon: <BarChartIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Viewer] },

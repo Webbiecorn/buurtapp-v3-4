@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import IssuesPage from './pages/IssuesPage';
 import ProjectsPage from './pages/ProjectsPage';
+import DossierPage from './pages/DossierPage';
 import TimeTrackingPage from './pages/TimeTrackingPage';
 import MapPage from './pages/MapPage';
 import StatisticsPage from './pages/StatisticsPage';
@@ -41,6 +42,7 @@ const AppRoutes: React.FC = () => {
             <ReactRouterDOM.Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <ReactRouterDOM.Route path="/issues" element={<ProtectedRoute><IssuesPage /></ProtectedRoute>} />
             <ReactRouterDOM.Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
+            <ReactRouterDOM.Route path="/dossiers" element={<ProtectedRoute roles={[UserRole.Beheerder, UserRole.Concierge]}><DossierPage /></ProtectedRoute>} />
             {/* <Route path="/map" element={<ProtectedRoute><MapPage /></ProtectedRoute>} /> */}
             <ReactRouterDOM.Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
             <ReactRouterDOM.Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />

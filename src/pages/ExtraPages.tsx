@@ -16,7 +16,7 @@ import * as ReactRouterDOM from 'react-router-dom';
 import { Modal, StatCard } from '../components/ui';
 import { Melding, MeldingStatus, User } from '../types';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // --- START: Reports Page ---
 
@@ -83,18 +83,17 @@ const WijkRapport: React.FC<{ wijk: string }> = ({ wijk }) => {
         setError('');
         setAiSummary('');
 
-        // CORRECTIE: De API-sleutel wordt nu veilig uit de omgevingsvariabelen gehaald.
         const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
         if (!apiKey) {
-            setError('API key is niet ingesteld. Kan de samenvatting niet genereren.');
+            setError('API key is niet ingesteld. Controleer de naam VITE_GEMINI_API_KEY in je .env.local bestand.');
             setIsLoading(false);
             return;
         }
 
         try {
-            const ai = new GoogleGenAI(apiKey);
-            const model = ai.getGenerativeModel({ model: "gemini-1.5-flash"});
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
             
             const prompt = `
 Je bent een data-analist voor een gemeente. Analyseer de volgende data over meldingen in wijk '${wijk}' en genereer een korte, duidelijke managementsamenvatting in het Nederlands.
@@ -125,7 +124,7 @@ ${trendData.map(t => `- ${t.maand}: ${t.nieuw} nieuw, ${t.opgelost} opgelost`).j
 
         } catch (err) {
             console.error(err);
-            setError('Er is een fout opgetreden bij het genereren van de samenvatting. Controleer de API-sleutel en probeer het opnieuw.');
+            setError('Er is een fout opgetreden bij het genereren van de samenvatting. Controleer of de API-sleutel geldig is en probeer het opnieuw.');
         } finally {
             setIsLoading(false);
         }
@@ -309,13 +308,11 @@ export const ReportsPage: React.FC = () => {
         }
         const interval = { start: startDate, end: today };
 
-        // Filter data
         const filteredMeldingen = meldingen.filter(m => isWithinInterval(m.timestamp, interval));
         const resolvedMeldingen = filteredMeldingen.filter(m => m.status === MeldingStatus.Afgerond);
         const filteredProjecten = projecten.filter(p => isWithinInterval(p.startDate, interval));
         const filteredUren = urenregistraties.filter(u => u.eindtijd && isWithinInterval(u.starttijd, interval));
 
-        // Summarize data
         const issuesByCategory = filteredMeldingen.reduce((acc, m) => {
             acc[m.categorie] = (acc[m.categorie] || 0) + 1;
             return acc;
@@ -361,8 +358,8 @@ Je bent een expert data-analist voor een gemeente. Jouw taak is om een professio
 `;
 
         try {
-            const ai = new GoogleGenAI(apiKey);
-            const model = ai.getGenerativeModel({ model: "gemini-1.5-flash"});
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
             const result = await model.generateContent(prompt);
             const response = result.response;
             const text = response.text();
@@ -586,7 +583,8 @@ export const ActiveColleaguesPage: React.FC = () => {
 };
 
 export const NotificationsPage: React.FC = () => {
-    const { notificaties, currentUser } = useAppContext();
+    // CORRECTIE: De nieuwe functie wordt uit de context gehaald
+    const { notificaties, currentUser, markSingleNotificationAsRead } = useAppContext();
     const navigate = ReactRouterDOM.useNavigate();
     const userNotifications = notificaties.filter(n => n.userId === currentUser?.id).sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime());
 
@@ -596,7 +594,15 @@ export const NotificationsPage: React.FC = () => {
             <div className="bg-white dark:bg-dark-surface rounded-lg shadow-lg">
                 <ul className="divide-y divide-gray-200 dark:divide-dark-border">
                     {userNotifications.map(n => (
-                        <li key={n.id} onClick={() => navigate(n.link)} className={`p-4 flex items-center space-x-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-bg ${!n.isRead ? 'bg-brand-primary/10' : ''}`}>
+                        // CORRECTIE: De onClick handler is aangepast
+                        <li 
+                            key={n.id} 
+                            onClick={() => {
+                                if (!n.isRead) markSingleNotificationAsRead(n.id);
+                                if (n.link) navigate(n.link);
+                            }}
+                            className={`p-4 flex items-center space-x-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-bg ${!n.isRead ? 'bg-brand-primary/10' : ''}`}
+                        >
                              {!n.isRead && <div className="h-2 w-2 rounded-full bg-brand-primary flex-shrink-0"></div>}
                              <div className={n.isRead ? 'ml-4' : ''}>
                                 <p className="text-sm text-gray-800 dark:text-dark-text-primary">{n.message}</p>

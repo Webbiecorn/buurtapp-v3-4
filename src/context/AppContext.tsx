@@ -1,7 +1,9 @@
+// Dossier functionaliteit
+// Plaats deze na de imports zodat alle Firestore helpers beschikbaar zijn
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { User, UserRole, AppContextType, Melding, MeldingStatus, Project, ProjectStatus, Urenregistratie, Taak, Notificatie, ProjectContribution, MeldingUpdate } from '../types';
+import { User, UserRole, AppContextType, Melding, MeldingStatus, Project, ProjectStatus, Urenregistratie, Taak, Notificatie, ProjectContribution, MeldingUpdate, WoningDossier, DossierNotitie, DossierDocument, DossierTaak, DossierBewoner, DossierHistorieItem, DossierReactie, DossierStatus, DossierLabel } from '../types';
 import { db, storage } from '../firebase';
-import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, Timestamp, arrayUnion, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, Timestamp, arrayUnion, query, where, getDocs, writeBatch, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const convertTimestamps = (data: any) => {
@@ -22,6 +24,7 @@ const convertTimestamps = (data: any) => {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Dossier functionaliteit
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const savedTheme = typeof window !== 'undefined'
       ? localStorage.getItem('theme') as 'light' | 'dark' | null
@@ -37,6 +40,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [taken, setTaken] = useState<Taak[]>([]);
   const [notificaties, setNotificaties] = useState<Notificatie[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
+  }, []);
+
+  const login = useCallback((role: UserRole) => {
+    const user = users.find(u => u.role === role);
+    if (user) {
+      setCurrentUser(user);
+    } else {
+      console.error(`No user found for role: ${role}, logging in first available user as fallback.`);
+      setCurrentUser(users[0] || null);
+    }
+  }, [users]);
+
+  const logout = useCallback(() => {
+    setCurrentUser(null);
+  }, []);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -95,33 +116,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const uploadFile = useCallback(async (file: File, path: string): Promise<string> => {
     const storageRef = ref(storage, path);
     await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(storageRef);
-    return downloadURL;
+    return getDownloadURL(storageRef);
   }, []);
 
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  };
-
-  const login = (role: UserRole) => {
-    const user = users.find(u => u.role === role);
-    if (user) {
-      setCurrentUser(user);
-    } else {
-      console.error(`No user found for role: ${role}`);
-    }
-  };
-
-  const logout = () => {
-    setCurrentUser(null);
-  };
-  
-  // CORRECTIE: De functie accepteert nu de 'status' van het formulier.
-  const addMelding = useCallback(async (newMelding: Omit<Melding, 'id' | 'timestamp' | 'gebruikerId' | 'updates'>) => {
+  const addMelding = useCallback(async (melding: Omit<Melding, 'id' | 'timestamp' | 'status'>) => {
     if (!currentUser) return;
     try {
       const docRef = await addDoc(collection(db, 'meldingen'), {
-        ...newMelding,
+        ...melding,
         timestamp: serverTimestamp(),
         gebruikerId: currentUser.id,
         updates: [],
@@ -132,7 +134,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (admin.id === currentUser.id) continue;
           await addDoc(collection(db, 'notificaties'), {
               userId: admin.id,
-              message: `Nieuwe melding '${newMelding.titel}' is toegevoegd door ${currentUser.name}.`,
+              message: `Nieuwe melding '${melding.titel}' is toegevoegd door ${currentUser.name}.`,
               link: '/issues',
               isRead: false,
               timestamp: serverTimestamp(),
@@ -190,6 +192,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         console.error("Error marking notifications as read:", error);
     }
   }, [currentUser, notificaties]);
+
+  // CORRECTIE: Nieuwe functie geïmplementeerd om een enkele notificatie te markeren.
+  const markSingleNotificationAsRead = useCallback(async (notificationId: string) => {
+    try {
+        const notifRef = doc(db, 'notificaties', notificationId);
+        await updateDoc(notifRef, { isRead: true });
+    } catch (error) {
+        console.error("Error marking single notification as read:", error);
+    }
+  }, []);
 
   const addProject = useCallback(async (newProject: Omit<Project, 'id' | 'creatorId' | 'contributions' | 'participantIds' | 'imageUrl'>) => {
     if (!currentUser) return;
@@ -369,6 +381,166 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [currentUser]);
 
+  const createNewDossier = useCallback(async (adres: string): Promise<WoningDossier> => {
+    const newDossier: WoningDossier = {
+      id: adres,
+      adres: adres,
+      notities: [],
+      documenten: [],
+      taken: [],
+      bewoners: [],
+      historie: [{
+        id: `hist-${Date.now()}`,
+        type: 'Aanmaak',
+        description: `Dossier aangemaakt voor ${adres}`,
+        date: new Date(),
+        userId: currentUser?.id || 'systeem'
+      }],
+      updates: [],
+      status: 'actief',
+      labels: ['woning'],
+    };
+    const dossierRef = doc(db, 'dossiers', adres);
+    await setDoc(dossierRef, newDossier);
+    return newDossier;
+  }, [currentUser]);
+
+  const getDossier = useCallback(async (adres: string): Promise<WoningDossier | null> => {
+    try {
+      const dossierRef = doc(db, 'dossiers', adres);
+      const docSnap = await getDoc(dossierRef);
+      if (docSnap.exists()) {
+        return { id: docSnap.id, ...convertTimestamps(docSnap.data()) } as WoningDossier;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching dossier:', error);
+      return null;
+    }
+  }, []);
+
+  const addDossierNotitie = useCallback(async (adres: string, notitie: Omit<DossierNotitie, 'id' | 'timestamp' | 'userId'>): Promise<void> => {
+    if (!currentUser) return;
+    try {
+      const dossierRef = doc(db, 'dossiers', adres);
+      const newNotitie: DossierNotitie = {
+        ...notitie,
+        id: `notitie-${Date.now()}`,
+        timestamp: new Date(),
+        userId: currentUser.id,
+      };
+      await updateDoc(dossierRef, {
+        notities: arrayUnion(newNotitie)
+      });
+    } catch (error) {
+      console.error('Error adding dossier notitie:', error);
+    }
+  }, [currentUser]);
+
+  const uploadDossierDocument = useCallback(async (adres: string, file: File): Promise<DossierDocument> => {
+    if (!currentUser) throw new Error('Geen gebruiker ingelogd');
+    try {
+      const path = `dossiers/${adres}/documents/${file.name}`;
+      const url = await uploadFile(file, path);
+      const dossierRef = doc(db, 'dossiers', adres);
+      const docObj: DossierDocument = {
+        id: `doc-${Date.now()}`,
+        url,
+        name: file.name,
+        userId: currentUser.id,
+        uploadedAt: new Date(),
+      };
+      await updateDoc(dossierRef, {
+        documenten: arrayUnion(docObj)
+      });
+      return docObj;
+    } catch (error) {
+      console.error('Error uploading dossier document:', error);
+      throw error;
+    }
+  }, [currentUser, uploadFile]);
+
+  const addDossierTaak = useCallback(async (adres: string, taak: Omit<DossierTaak, 'id'>): Promise<void> => {
+    try {
+      const dossierRef = doc(db, 'dossiers', adres);
+      const newTaak: DossierTaak = {
+        ...taak,
+        id: `taak-${Date.now()}`,
+      };
+      await updateDoc(dossierRef, {
+        taken: arrayUnion(newTaak)
+      });
+    } catch (error) {
+      console.error('Error adding dossier taak:', error);
+    }
+  }, []);
+
+  const updateDossierStatus = useCallback(async (adres: string, status: DossierStatus): Promise<void> => {
+    try {
+      const dossierRef = doc(db, 'dossiers', adres);
+      await updateDoc(dossierRef, { status });
+    } catch (error) {
+      console.error('Error updating dossier status:', error);
+    }
+  }, []);
+
+  const addDossierBewoner = useCallback(async (adres: string, bewoner: Omit<DossierBewoner, 'id'>): Promise<void> => {
+    try {
+      const dossierRef = doc(db, 'dossiers', adres);
+      const bewonerObj: DossierBewoner = {
+        ...bewoner,
+        id: `bewoner-${Date.now()}`,
+      };
+      await updateDoc(dossierRef, {
+        bewoners: arrayUnion(bewonerObj)
+      });
+    } catch (error) {
+      console.error('Error adding dossier bewoner:', error);
+    }
+  }, []);
+
+  const addDossierHistorie = useCallback(async (adres: string, item: Omit<DossierHistorieItem, 'id' | 'userId'>): Promise<void> => {
+    if (!currentUser) return;
+    try {
+      const dossierRef = doc(db, 'dossiers', adres);
+      const historieObj: DossierHistorieItem = {
+        ...item,
+        id: `historie-${Date.now()}`,
+        userId: currentUser.id,
+      };
+      await updateDoc(dossierRef, {
+        historie: arrayUnion(historieObj)
+      });
+    } catch (error) {
+      console.error('Error adding dossier historie:', error);
+    }
+  }, [currentUser]);
+
+  const addDossierReactie = useCallback(async (adres: string, notitieId: string, reactie: Omit<DossierReactie, 'id' | 'timestamp' | 'userId'>): Promise<void> => {
+    if (!currentUser) return;
+    // Vereenvoudigde implementatie: fetch dossier, vind notitie, voeg reactie toe, schrijf terug
+    try {
+      const dossierRef = doc(db, 'dossiers', adres);
+      const dossierSnap = await getDoc(dossierRef);
+      if (!dossierSnap.exists()) return;
+      const dossierData = dossierSnap.data();
+      const notities: DossierNotitie[] = dossierData.notities || [];
+      const idx = notities.findIndex(n => n.id === notitieId);
+      if (idx === -1) return;
+      const reactieObj: DossierReactie = {
+        ...reactie,
+        id: `reactie-${Date.now()}`,
+        timestamp: new Date(),
+        userId: currentUser.id,
+      };
+      if (!notities[idx].reacties) notities[idx].reacties = [];
+      notities[idx].reacties.push(reactieObj);
+      await updateDoc(dossierRef, { notities });
+    } catch (error) {
+      console.error('Error adding dossier reactie:', error);
+    }
+  }, [currentUser]);
+
   const value: AppContextType = {
     isInitialLoading,
     theme,
@@ -387,6 +559,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateMeldingStatus,
     addMeldingUpdate,
     markNotificationsAsRead,
+    markSingleNotificationAsRead,
     addProject,
     updateProject,
     addProjectContribution,
@@ -399,6 +572,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateUserRole,
     removeUser,
     updateUserProfile,
+    // Dossier methods
+    createNewDossier,
+    getDossier,
+    addDossierNotitie,
+    uploadDossierDocument,
+    addDossierTaak,
+    updateDossierStatus,
+    addDossierBewoner,
+    addDossierHistorie,
+    addDossierReactie,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
