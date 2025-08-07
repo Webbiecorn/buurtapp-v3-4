@@ -49,6 +49,7 @@ export type DossierLabel = 'woning' | 'bedrijf' | 'overig';
 
 export interface WoningDossier {
   id: string; // adres
+  adres: string;
   notities: DossierNotitie[];
   documenten: DossierDocument[];
   taken: DossierTaak[];
@@ -56,6 +57,7 @@ export interface WoningDossier {
   historie: DossierHistorieItem[];
   status: DossierStatus;
   labels: DossierLabel[];
+  updates: any[]; // of een meer specifiek type
 }
 import type { ReactNode } from 'react';
 

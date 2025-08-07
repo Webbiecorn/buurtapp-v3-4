@@ -1,18 +1,19 @@
 import express from 'express';
-import { getFirestore } from "firebase-admin/firestore";
+import { db } from './firebase-admin-init';
 
 const router = express.Router();
-const db = getFirestore();
 
-router.post('/createDossier', async (req, res) => {
+router.post('/createDossier', async (req: express.Request, res: express.Response) => {
   try {
     const dossierData = req.body;
-    console.log('Ontvangen om nieuw dossier aan te maken:', dossierData); // Log de ontvangen data
+    if (!dossierData || !dossierData.id) {
+      return res.status(400).json({ error: 'Geen geldig dossier.' });
+    }
     await db.collection('dossiers').doc(dossierData.id).set(dossierData);
-    res.status(201).send(dossierData); // Stuur het aangemaakte dossier terug
-  } catch (error) {
+    return res.status(201).json({ success: true });
+  } catch (error: any) {
     console.error('Fout bij aanmaken dossier:', error);
-    res.status(500).send('Kon dossier niet aanmaken');
+    return res.status(500).json({ error: 'Fout bij opslaan dossier.', details: error.message });
   }
 });
 
