@@ -83,10 +83,12 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
             title: editedTitle,
             description: editedDescription,
             startDate: new Date(editedStartDate),
-            endDate: editedEndDate ? new Date(editedEndDate) : undefined,
+            endDate: editedEndDate ? new Date(editedEndDate) : null,
             status: editedStatus,
         });
         setIsEditing(false);
+        // We sluiten de modal na het updaten voor een betere UX
+        onClose();
     };
 
     const handleCancelEdit = () => {
