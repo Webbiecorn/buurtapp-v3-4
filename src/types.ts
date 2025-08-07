@@ -140,7 +140,7 @@ export interface Project {
   participantIds: string[];
   status: ProjectStatus;
   startDate: Date;
-  endDate?: Date;
+  endDate?: Date | null;
   attachments: string[];
   contributions: ProjectContribution[];
   imageUrl: string;
