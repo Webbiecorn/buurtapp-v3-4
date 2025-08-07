@@ -119,33 +119,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return getDownloadURL(storageRef);
   }, []);
 
-  const addMelding = useCallback(async (melding: Omit<Melding, 'id' | 'timestamp' | 'status'>) => {
+  const addMelding = useCallback(async (melding: Omit<Melding, 'id' | 'timestamp' | 'status' | 'updates' | 'gebruikerId'>) => {
     if (!currentUser) return;
     try {
-      const docRef = await addDoc(collection(db, 'meldingen'), {
-        ...melding,
-        timestamp: serverTimestamp(),
-        gebruikerId: currentUser.id,
-        updates: [],
+      const apiUrl = `${import.meta.env.VITE_API_URL}/createMelding`;
+      
+      // We 'fire and forget' het request. De onSnapshot listener handelt de UI update af.
+      fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...melding,
+          gebruikerId: currentUser.id,
+        }),
+      }).then(response => {
+        if (!response.ok) {
+            // Log de fout, maar blokkeer de app niet
+            console.error(`Failed to create melding: ${response.status}`);
+        }
+        // De notificatie logica kan hier eventueel nog worden toegevoegd,
+        // maar voor nu is het belangrijkste dat de app niet vastloopt.
+      }).catch(error => {
+        console.error("Error sending melding request:", error);
       });
 
-      const admins = users.filter(u => u.role === UserRole.Beheerder);
-      for (const admin of admins) {
-          if (admin.id === currentUser.id) continue;
-          await addDoc(collection(db, 'notificaties'), {
-              userId: admin.id,
-              message: `Nieuwe melding '${melding.titel}' is toegevoegd door ${currentUser.name}.`,
-              link: '/issues',
-              isRead: false,
-              timestamp: serverTimestamp(),
-              targetId: docRef.id,
-              targetType: 'melding'
-          });
-      }
     } catch (error) {
       console.error("Error adding melding:", error);
     }
-  }, [currentUser, users]);
+  }, [currentUser]);
 
   const updateMeldingStatus = useCallback(async (id: string, status: MeldingStatus) => {
     try {
@@ -384,7 +387,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const createNewDossier = useCallback(async (adres: string): Promise<WoningDossier> => {
     const newDossier: WoningDossier = {
       id: adres,
-      adres: adres,
       notities: [],
       documenten: [],
       taken: [],
