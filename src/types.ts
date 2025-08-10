@@ -225,7 +225,9 @@ export interface AppContextType {
   switchUrenregistratie: (data: Omit<Urenregistratie, 'id' | 'gebruikerId' | 'starttijd' | 'eindtijd'>) => void;
   stopUrenregistratie: () => void;
   getActiveUrenregistratie: () => Urenregistratie | undefined;
-  addUser: (user: Omit<User, 'id' | 'avatarUrl' | 'phone'>) => void;
+  updateUrenregistratie: (id: string, patch: Partial<Pick<Urenregistratie, 'starttijd' | 'eindtijd' | 'activiteit' | 'details'>>) => void;
+  updateUrenregistratie: (id: string, patch: Partial<Pick<Urenregistratie, 'starttijd' | 'eindtijd' | 'activiteit' | 'details'>>) => Promise<void>;
+  deleteUrenregistratie: (id: string) => Promise<void>;
   updateUserRole: (userId: string, newRole: UserRole) => void;
   removeUser: (userId: string) => void;
   updateUserProfile: (userId: string, data: Partial<Pick<User, 'name' | 'email' | 'phone' | 'avatarUrl'>>) => void;

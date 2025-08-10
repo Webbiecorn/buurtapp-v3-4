@@ -11,10 +11,10 @@ import {
     format,
     isWithinInterval,
 } from 'date-fns';
-import startOfDay from 'date-fns/startOfDay';
-import startOfMonth from 'date-fns/startOfMonth';
-import startOfWeek from 'date-fns/startOfWeek';
-import nl from 'date-fns/locale/nl';
+import { startOfDay } from 'date-fns/startOfDay';
+import { startOfMonth } from 'date-fns/startOfMonth';
+import { startOfWeek } from 'date-fns/startOfWeek';
+import { nl } from 'date-fns/locale/nl';
 import { MOCK_WIJKEN } from '../data/mockData';
 
 const StartWorkModal: React.FC<{
@@ -78,8 +78,15 @@ const StartWorkModal: React.FC<{
 
 const TimeTrackingPage: React.FC = () => {
     // CORRECTIE: De nieuwe functie 'switchUrenregistratie' wordt nu uit de context gehaald.
-    const { currentUser, urenregistraties, startUrenregistratie, stopUrenregistratie, switchUrenregistratie, getActiveUrenregistratie } = useAppContext();
+    const { currentUser, urenregistraties, startUrenregistratie, stopUrenregistratie, switchUrenregistratie, getActiveUrenregistratie, updateUrenregistratie, deleteUrenregistratie } = useAppContext();
+    const [editEntry, setEditEntry] = useState<Urenregistratie | null>(null);
+    const [editStart, setEditStart] = useState<string>('');
+    const [editEnd, setEditEnd] = useState<string>('');
+    const [editActiviteit, setEditActiviteit] = useState<string>('');
+    const [editDetails, setEditDetails] = useState<string>('');
+    const [editError, setEditError] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [toast, setToast] = useState<string | null>(null);
     const [filter, setFilter] = useState<'today' | 'week' | 'month'>('week');
 
     const activeEntry = getActiveUrenregistratie();
@@ -154,6 +161,11 @@ const TimeTrackingPage: React.FC = () => {
 
     return (
         <div className="space-y-8">
+            {toast && (
+                <div className="fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow z-40" role="status" aria-live="polite">
+                    {toast}
+                </div>
+            )}
             <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">Urenregistratie</h1>
 
             <div className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-8 flex flex-col items-center justify-center space-y-6">
@@ -208,7 +220,33 @@ const TimeTrackingPage: React.FC = () => {
                                     <td className="p-3 text-gray-800 dark:text-dark-text-primary">{format(entry.starttijd, 'dd MMM yyyy', { locale: nl })}</td>
                                     <td className="p-3 text-gray-800 dark:text-dark-text-primary">{entry.activiteit} - <span className="text-gray-500 dark:text-dark-text-secondary">{entry.details}</span></td>
                                     <td className="p-3 text-gray-800 dark:text-dark-text-primary">{format(entry.starttijd, 'HH:mm')} - {entry.eindtijd && format(entry.eindtijd, 'HH:mm')}</td>
-                                    <td className="p-3 text-gray-800 dark:text-dark-text-primary">{formatEntryDuration(entry)}</td>
+                                    <td className="p-3 text-gray-800 dark:text-dark-text-primary flex items-center gap-2">
+                                        <span>{formatEntryDuration(entry)}</span>
+                                        <button
+                                            type="button"
+                                            className="ml-2 px-2 py-1 text-xs rounded bg-gray-200 dark:bg-dark-border hover:bg-gray-300 dark:hover:bg-gray-600"
+                                            onClick={() => {
+                                                setEditEntry(entry);
+                                                const toLocal = (d?: Date) => d ? new Date(d).toISOString().slice(0,16) : '';
+                                                setEditStart(toLocal(entry.starttijd));
+                                                setEditEnd(toLocal(entry.eindtijd));
+                                                setEditActiviteit(entry.activiteit);
+                                                setEditDetails(entry.details);
+                                                setEditError(null);
+                                            }}
+                                        >Bewerken</button>
+                                        <button
+                                            type="button"
+                                            className="px-2 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200"
+                                            onClick={async () => {
+                                                if (confirm('Weet je zeker dat je deze registratie wilt verwijderen?')) {
+                                                    await deleteUrenregistratie(entry.id);
+                                                    setToast('Registratie verwijderd');
+                                                    setTimeout(() => setToast(null), 2000);
+                                                }
+                                            }}
+                                        >Verwijderen</button>
+                                    </td>
                                 </tr>
                             ))}
                             {filteredEntries.length === 0 && (
@@ -221,6 +259,67 @@ const TimeTrackingPage: React.FC = () => {
                 </div>
             </div>
             {isModalOpen && <StartWorkModal onClose={() => setIsModalOpen(false)} onStart={handleModalSubmit} isSwitching={isActive} />}
+
+                        {editEntry && (
+                <Modal isOpen={true} onClose={() => setEditEntry(null)} title={`Urenregistratie bewerken (${format(editEntry.starttijd, 'dd MMM yyyy', { locale: nl })})`}>
+                    <form className="space-y-3" onSubmit={async (e) => {
+                        e.preventDefault();
+                        setEditError(null);
+                        if (!editStart || !editEnd) { setEditError('Start en eindtijd zijn verplicht.'); return; }
+                        const start = new Date(editStart);
+                        const end = new Date(editEnd);
+                        if (start >= end) { setEditError('Starttijd moet vóór eindtijd liggen.'); return; }
+                                                // Overlap check in UI voor directe feedback (context valideert ook)
+                                                const overlap = urenregistraties
+                                                    .filter(u => u.gebruikerId === currentUser?.id && u.id !== editEntry.id && u.eindtijd)
+                                                    .some(u => {
+                                                        const oStart = new Date(u.starttijd).getTime();
+                                                        const oEnd = new Date(u.eindtijd as Date).getTime();
+                                                        return start.getTime() < oEnd && end.getTime() > oStart;
+                                                    });
+                                                if (overlap) { setEditError('Deze tijden overlappen met een bestaande registratie.'); return; }
+                        // 21-dagen check in UI (info); server enforce is in context
+                        const within21 = Date.now() - start.getTime() <= 21*24*60*60*1000;
+                        if (!within21 && currentUser?.role !== 'Beheerder') {
+                            setEditError('Aanpassen beperkt tot 21 dagen na starttijd.');
+                            return;
+                        }
+                        await updateUrenregistratie(editEntry.id, { starttijd: start, eindtijd: end, activiteit: editActiviteit, details: editDetails });
+                        setEditEntry(null);
+                                                setToast('Registratie opgeslagen');
+                                                setTimeout(() => setToast(null), 2000);
+                    }}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <label className="text-xs text-gray-600 dark:text-dark-text-secondary">
+                                Start
+                                <input type="datetime-local" value={editStart} onChange={e=>setEditStart(e.target.value)} className="mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary" required />
+                            </label>
+                            <label className="text-xs text-gray-600 dark:text-dark-text-secondary">
+                                Einde
+                                <input type="datetime-local" value={editEnd} onChange={e=>setEditEnd(e.target.value)} className="mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary" required />
+                            </label>
+                            <label className="md:col-span-2 text-xs text-gray-600 dark:text-dark-text-secondary">
+                                Activiteit
+                                <select value={editActiviteit} onChange={e=>setEditActiviteit(e.target.value)} className="mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary">
+                                    <option className="bg-white dark:bg-dark-surface">Wijkronde</option>
+                                    <option className="bg-white dark:bg-dark-surface">Project</option>
+                                    <option className="bg-white dark:bg-dark-surface">Overig</option>
+                                </select>
+                            </label>
+                            <label className="md:col-span-2 text-xs text-gray-600 dark:text-dark-text-secondary">
+                                Details
+                                <input type="text" value={editDetails} onChange={e=>setEditDetails(e.target.value)} className="mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary" />
+                            </label>
+                        </div>
+                        {editError && <p className="text-sm text-red-600">{editError}</p>}
+                        <div className="flex justify-end gap-2 pt-2">
+                            <button type="button" onClick={()=>setEditEntry(null)} className="px-4 py-2 rounded bg-gray-200 dark:bg-dark-border">Annuleren</button>
+                            <button type="submit" className="px-4 py-2 rounded bg-brand-primary text-white">Opslaan</button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">Let op: aanpassen is toegestaan binnen 21 dagen (behalve voor beheerders).</p>
+                    </form>
+                </Modal>
+            )}
         </div>
     );
 };
