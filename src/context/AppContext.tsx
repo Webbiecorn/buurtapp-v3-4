@@ -517,14 +517,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       };
     }
     // maak nieuwe conversatie aan
-    const docRef = await addDoc(collection(db, 'conversations'), {
+    const convPayload: any = {
       participants: sorted,
       participantsKey,
-      title: title || undefined,
       createdAt: serverTimestamp(),
       createdBy: currentUser.id,
       lastSeen: { [currentUser.id]: serverTimestamp() },
-    });
+    };
+    if (title && title.trim()) {
+      convPayload.title = title.trim();
+    }
+    const docRef = await addDoc(collection(db, 'conversations'), convPayload);
     return {
       id: docRef.id,
       participants: sorted,
