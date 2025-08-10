@@ -722,7 +722,7 @@ const DossierPage: React.FC = () => {
                       await addDossierAfspraak(dossier.id, {
                         start,
                         end,
-                        description: newApptDesc || undefined,
+                        description: newApptDesc.trim(),
                         bewonerId: bewoner?.id,
                         bewonerNaam: bewoner?.name,
                       });
@@ -754,12 +754,18 @@ const DossierPage: React.FC = () => {
                       placeholder="Einddatum/tijd (optioneel)"
                       className="px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary"
                     />
-                    <input
-                      value={newApptDesc}
-                      onChange={(e) => setNewApptDesc(e.target.value)}
-                      placeholder="Omschrijving (optioneel)"
-                      className="md:col-span-2 px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                    />
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                        Omschrijving <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        value={newApptDesc}
+                        onChange={(e) => setNewApptDesc(e.target.value)}
+                        placeholder="Omschrijving"
+                        required
+                        className="w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                      />
+                    </div>
                     <select
                       value={newApptBewonerId}
                       onChange={(e) => setNewApptBewonerId(e.target.value)}
