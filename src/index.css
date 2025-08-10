@@ -1,0 +1,20 @@
+/* Dark mode formulier leesbaarheid */
+.dark input,
+.dark textarea,
+.dark select {
+	color: #f9fafb; /* text-white */
+	background-color: #1f2937; /* dark-surface */
+	border-color: #374151; /* dark-border */
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+	color: #9ca3af; /* gray-400 */
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+	outline: none;
+	box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.5); /* brand-primary ring */
+}

@@ -27,6 +27,7 @@ export interface DossierBewoner {
   contact: string;
   from: Date;
   to?: Date;
+  extraInfo?: string;
 }
 
 export interface DossierHistorieItem {
@@ -92,6 +93,7 @@ export interface User {
 export interface Locatie {
   lat: number;
   lon: number;
+  adres?: string;
 }
 
 export interface MeldingUpdate {
@@ -177,6 +179,8 @@ export interface AppContextType {
   addDossierTaak: (adres: string, taak: Omit<DossierTaak, 'id'>) => Promise<void>;
   updateDossierStatus: (adres: string, status: DossierStatus) => Promise<void>;
   addDossierBewoner: (adres: string, bewoner: Omit<DossierBewoner, 'id'>) => Promise<void>;
+  updateDossierBewoner: (adres: string, bewonerId: string, patch: Partial<Pick<DossierBewoner, 'name' | 'contact' | 'extraInfo' | 'to'>>) => Promise<void>;
+  removeDossierBewoner: (adres: string, bewonerId: string) => Promise<void>;
   addDossierHistorie: (adres: string, item: Omit<DossierHistorieItem, 'id'>) => Promise<void>;
   addDossierReactie: (adres: string, notitieId: string, reactie: Omit<DossierReactie, 'id' | 'timestamp' | 'userId'>) => Promise<void>;
   isInitialLoading: boolean;
