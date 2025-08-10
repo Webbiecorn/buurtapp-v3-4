@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { MeldingStatus } from '../types';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { APIProvider, Map } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow } from '@vis.gl/react-google-maps';
 import { MeldingMarker } from '../components/MeldingMarker'; 
 import { ProjectMarker } from '../components/ProjectMarker';
+import { db } from '../firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 
 const COLORS = ['#f59e0b', '#8b5cf6', '#22c55e'];
 
@@ -16,7 +18,25 @@ const StatisticsPage: React.FC = () => {
   const { meldingen, projecten, urenregistraties, users, theme } = useAppContext();
   const [selectedMeldingId, setSelectedMeldingId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [mapFilter, setMapFilter] = useState<'meldingen' | 'projecten' | 'beide'>('meldingen');
+  const [selectedDossierId, setSelectedDossierId] = useState<string | null>(null);
+  const [mapFilter, setMapFilter] = useState<'meldingen' | 'projecten' | 'dossiers' | 'beide'>('meldingen');
+  const [dossiers, setDossiers] = useState<Array<{ id: string; adres: string; lat: number; lon: number }>>([]);
+
+  // Laad dossiers met coördinaten voor de kaart
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'dossiers'), (snap) => {
+      const list: Array<{ id: string; adres: string; lat: number; lon: number }> = [];
+      snap.forEach(doc => {
+        const data = doc.data() as any;
+        const loc = data?.location;
+        if (loc && typeof loc.lat === 'number' && typeof loc.lon === 'number') {
+          list.push({ id: doc.id, adres: data?.adres || doc.id, lat: loc.lat, lon: loc.lon });
+        }
+      });
+      setDossiers(list);
+    });
+    return () => unsub();
+  }, []);
 
   const meldingenPerWijk = meldingen.reduce((acc, m) => {
     acc[m.wijk] = (acc[m.wijk] || 0) + 1;
@@ -70,7 +90,7 @@ const StatisticsPage: React.FC = () => {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie data={meldingenPerStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                {meldingenPerStatus.map((entry, index) => (
+                {meldingenPerStatus.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -100,6 +120,7 @@ const StatisticsPage: React.FC = () => {
             <div className="flex-shrink-0 flex space-x-1 bg-gray-100 dark:bg-dark-bg p-1 rounded-lg">
               <button onClick={() => setMapFilter('meldingen')} className={`px-3 py-1 text-xs sm:text-sm font-semibold rounded-md transition-colors ${mapFilter === 'meldingen' ? 'bg-brand-primary text-white' : 'bg-transparent text-gray-500 hover:bg-gray-200 dark:text-dark-text-secondary dark:hover:bg-dark-border'}`}>Meldingen</button>
               <button onClick={() => setMapFilter('projecten')} className={`px-3 py-1 text-xs sm:text-sm font-semibold rounded-md transition-colors ${mapFilter === 'projecten' ? 'bg-brand-primary text-white' : 'bg-transparent text-gray-500 hover:bg-gray-200 dark:text-dark-text-secondary dark:hover:bg-dark-border'}`}>Projecten</button>
+              <button onClick={() => setMapFilter('dossiers')} className={`px-3 py-1 text-xs sm:text-sm font-semibold rounded-md transition-colors ${mapFilter === 'dossiers' ? 'bg-brand-primary text-white' : 'bg-transparent text-gray-500 hover:bg-gray-200 dark:text-dark-text-secondary dark:hover:bg-dark-border'}`}>Woningdossiers</button>
               <button onClick={() => setMapFilter('beide')} className={`px-3 py-1 text-xs sm:text-sm font-semibold rounded-md transition-colors ${mapFilter === 'beide' ? 'bg-brand-primary text-white' : 'bg-transparent text-gray-500 hover:bg-gray-200 dark:text-dark-text-secondary dark:hover:bg-dark-border'}`}>Beide</button>
             </div>
           </div>
@@ -131,6 +152,21 @@ const StatisticsPage: React.FC = () => {
                                     onClick={() => { setSelectedMeldingId(null); setSelectedProjectId(project.id); }}
                                     onClose={() => setSelectedProjectId(null)}
                                 />
+                            ))}
+                            {mapFilter === 'dossiers' && dossiers.map(d => (
+                              <React.Fragment key={d.id}>
+                                <AdvancedMarker position={{ lat: d.lat, lng: d.lon }} onClick={() => { setSelectedMeldingId(null); setSelectedProjectId(null); setSelectedDossierId(d.id); }}>
+                                  <Pin background="#1d4ed8" glyph="🏠" glyphColor="#ffffff" borderColor="#1e40af" />
+                                </AdvancedMarker>
+                                {selectedDossierId === d.id && (
+                                  <InfoWindow position={{ lat: d.lat, lng: d.lon }} onCloseClick={() => setSelectedDossierId(null)}>
+                                    <div className="p-2 text-black max-w-xs">
+                                      <h3 className="font-bold text-md mb-1">{d.adres}</h3>
+                                      <p className="text-sm text-gray-700">Woningdossier</p>
+                                    </div>
+                                  </InfoWindow>
+                                )}
+                              </React.Fragment>
                             ))}
                         </Map>
                     </APIProvider>

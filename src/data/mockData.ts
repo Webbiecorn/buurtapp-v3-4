@@ -1,7 +1,7 @@
 
 import { User, UserRole, Melding, MeldingStatus, Project, ProjectStatus, Urenregistratie, Taak, Notificatie } from '../types';
 import { add } from 'date-fns';
-import sub from 'date-fns/sub';
+import { sub } from 'date-fns/sub';
 
 export const MOCK_WIJKEN = ['Atol', 'Boswijk', 'Jol', 'Waterwijk', 'Zuiderzeewijk'];
 

@@ -1,10 +1,10 @@
-import React, { ReactNode, useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { MeldingStatus, ProjectStatus } from '../types';
 import type { StatCardProps, ModalProps, Melding, Project } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { MapPinIcon, XIcon, PaperclipIcon, TrashIcon } from './Icons';
 import { format } from 'date-fns';
-import nl from 'date-fns/locale/nl';
+import { nl } from 'date-fns/locale/nl';
 
 export const StatCard: React.FC<StatCardProps> = ({ icon, title, value, color }) => (
   <div className="bg-white dark:bg-dark-surface p-4 rounded-lg shadow-md flex items-center">
@@ -116,7 +116,7 @@ export const NewProjectForm: React.FC<{ onClose: () => void }> = ({ onClose }) =
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
-            setAttachments(prev => [...prev, ...Array.from(e.target.files)]);
+            setAttachments(prev => [...prev, ...Array.from(e.target.files ?? [])]);
         }
     };
     

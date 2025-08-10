@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { DossierDocument, DossierNotitie, DossierTaak, WoningDossier } from '../types';
+import { DossierDocument, DossierNotitie, DossierAfspraak, WoningDossier } from '../types';
 import { fetchDossierMeta, type DossierMeta } from '../services/dossierMeta';
 
 // Simple Leaflet map import; CSS is included in index.html
@@ -52,7 +52,7 @@ const DossierDetailPage: React.FC = () => {
 
   const notes = dossier.notities || [] as DossierNotitie[];
   const docs = dossier.documenten || [] as DossierDocument[];
-  const taken = dossier.taken || [] as DossierTaak[];
+  const afspraken = (dossier.afspraken || []) as DossierAfspraak[];
   const bewoners = dossier.bewoners || [];
 
   const lat = dossier?.location?.lat ?? meta?.location?.lat;
@@ -126,14 +126,28 @@ const DossierDetailPage: React.FC = () => {
         </div>
 
         <div className="p-4 bg-white dark:bg-dark-surface rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-3">Taken</h2>
+          <h2 className="text-xl font-semibold mb-3">Afspraken</h2>
           <div className="space-y-2 max-h-80 overflow-auto pr-2">
-            {taken.length ? taken.map(t => (
-              <div key={t.id} className="p-2 rounded bg-gray-50 dark:bg-gray-700">
-                <p className="font-medium">{t.description}</p>
-                <p className="text-xs text-gray-500">{new Date(t.date).toLocaleDateString()}</p>
-              </div>
-            )) : <p className="text-gray-500">Geen taken.</p>}
+            {afspraken.length ? (
+              afspraken
+                .slice()
+                .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
+                .map(a => (
+                  <div key={a.id} className="p-3 rounded bg-gray-50 dark:bg-gray-700">
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {new Date(a.start).toLocaleString()} {a.end ? `— ${new Date(a.end).toLocaleString()}` : ''}
+                    </p>
+                    {a.description && (
+                      <p className="text-sm text-gray-700 dark:text-gray-200 mt-1">{a.description}</p>
+                    )}
+                    {a.bewonerNaam && (
+                      <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">Bewoner: {a.bewonerNaam}</p>
+                    )}
+                  </div>
+                ))
+            ) : (
+              <p className="text-gray-500">Geen afspraken.</p>
+            )}
           </div>
         </div>
       </div>

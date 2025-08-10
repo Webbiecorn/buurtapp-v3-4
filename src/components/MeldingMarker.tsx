@@ -2,7 +2,7 @@ import React from 'react';
 import { AdvancedMarker, Pin, InfoWindow } from '@vis.gl/react-google-maps';
 import { Melding, MeldingStatus } from '../types';
 import { format } from 'date-fns';
-import nl from 'date-fns/locale/nl';
+import { nl } from 'date-fns/locale/nl';
 
 // Functie om de juiste kleur voor de pin te bepalen
 const getStatusPinColor = (status: MeldingStatus) => {
