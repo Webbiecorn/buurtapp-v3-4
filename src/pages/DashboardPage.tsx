@@ -164,16 +164,31 @@ const DashboardPage: React.FC = () => {
     return { totaal: dossiers.length };
   }, [dossiers]);
 
-  const dossierStatusData = useMemo(() => (
-    [
-      { name: 'Actief', value: dossiers.filter(d => d.status === 'actief').length },
-      { name: 'Afgesloten', value: dossiers.filter(d => d.status === 'afgesloten').length },
-      { name: 'In onderzoek', value: dossiers.filter(d => d.status === 'in onderzoek').length },
-    ]
-  ), [dossiers]);
+  // Filters for dashboard charts
+  const [filterWoningType, setFilterWoningType] = useState<string>('alle');
+  const [filterDossierStatus, setFilterDossierStatus] = useState<'alle' | DossierStatus>('alle');
+
+  const woningTypeOptions = useMemo(() => {
+    const counts = dossiers.reduce((acc, d) => {
+      const key = d.woningType || 'Onbekend';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    return ['alle', ...Object.keys(counts)];
+  }, [dossiers]);
+
+  const dossierStatusData = useMemo(() => {
+    const base = filterWoningType === 'alle' ? dossiers : dossiers.filter(d => (d.woningType || 'Onbekend') === filterWoningType);
+    return [
+      { name: 'Actief', value: base.filter(d => d.status === 'actief').length },
+      { name: 'Afgesloten', value: base.filter(d => d.status === 'afgesloten').length },
+      { name: 'In onderzoek', value: base.filter(d => d.status === 'in onderzoek').length },
+    ];
+  }, [dossiers, filterWoningType]);
 
   const woningTypeData = useMemo(() => {
-    const counts = dossiers.reduce((acc, d) => {
+    const base = filterDossierStatus === 'alle' ? dossiers : dossiers.filter(d => d.status === filterDossierStatus);
+    const counts = base.reduce((acc, d) => {
       const key = d.woningType || 'Onbekend';
       acc[key] = (acc[key] || 0) + 1;
       return acc;
@@ -183,7 +198,7 @@ const DashboardPage: React.FC = () => {
     const top = arr.slice(0, 6);
     const rest = arr.slice(6).reduce((s, x) => s + x.value, 0);
     return rest > 0 ? [...top, { name: 'Overig', value: rest }] : top;
-  }, [dossiers]);
+  }, [dossiers, filterDossierStatus]);
 
 
   return (
@@ -213,7 +228,17 @@ const DashboardPage: React.FC = () => {
       {/* Distributions */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
-          <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Dossierstatus</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-dark-text-primary">Dossierstatus</h3>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 dark:text-dark-text-secondary">Woningtype:</label>
+              <select value={filterWoningType} onChange={e => setFilterWoningType(e.target.value)} className="bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md py-1 px-2 text-sm">
+                {woningTypeOptions.map(opt => (
+                  <option key={opt} value={opt} className="bg-white dark:bg-dark-surface">{opt}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie data={dossierStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100 || 0).toFixed(0)}%`}>
@@ -227,7 +252,18 @@ const DashboardPage: React.FC = () => {
           </ResponsiveContainer>
         </div>
         <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
-          <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Woningtype verdeling</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-dark-text-primary">Woningtype verdeling</h3>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 dark:text-dark-text-secondary">Status:</label>
+              <select value={filterDossierStatus} onChange={e => setFilterDossierStatus(e.target.value as any)} className="bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md py-1 px-2 text-sm">
+                <option value="alle" className="bg-white dark:bg-dark-surface">alle</option>
+                <option value="actief" className="bg-white dark:bg-dark-surface">actief</option>
+                <option value="afgesloten" className="bg-white dark:bg-dark-surface">afgesloten</option>
+                <option value="in onderzoek" className="bg-white dark:bg-dark-surface">in onderzoek</option>
+              </select>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie data={woningTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100 || 0).toFixed(0)}%`}>

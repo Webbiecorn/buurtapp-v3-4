@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { DossierStatus, UserRole } from '../types';
 import { Modal, NewProjectForm, StatCard } from '../components/ui';
+import { Tabs, TabPanel } from '../components/Tabs';
+import { useSearchParams } from 'react-router-dom';
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { collection, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -155,28 +157,35 @@ const AdminPage: React.FC = () => {
         });
     }, [months, dossiers]);
 
-    // Distributions
-    const dossierStatusData = useMemo(() => (
-        [
-            { name: 'Actief', value: dossiers.filter(d => d.status === 'actief').length },
-            { name: 'Afgesloten', value: dossiers.filter(d => d.status === 'afgesloten').length },
-            { name: 'In onderzoek', value: dossiers.filter(d => d.status === 'in onderzoek').length },
-        ]
-    ), [dossiers]);
+    // Distributions with cross-filters
+    const uniqueWoningtypes = useMemo(() => {
+        const set = new Set<string>();
+        dossiers.forEach(d => set.add(d.woningType || 'Onbekend'));
+        return Array.from(set).sort((a, b) => a.localeCompare(b));
+    }, [dossiers]);
+
+    const dossierStatusData = useMemo(() => {
+        const base = filterWoningType !== 'Alle' ? dossiers.filter(d => (d.woningType || 'Onbekend') === filterWoningType) : dossiers;
+        return [
+            { name: 'Actief', value: base.filter(d => d.status === 'actief').length },
+            { name: 'Afgesloten', value: base.filter(d => d.status === 'afgesloten').length },
+            { name: 'In onderzoek', value: base.filter(d => d.status === 'in onderzoek').length },
+        ];
+    }, [dossiers, filterWoningType]);
 
     const woningTypeData = useMemo(() => {
-        const counts = dossiers.reduce((acc, d) => {
+        const base = filterDossierStatus !== 'Alle' ? dossiers.filter(d => d.status === filterDossierStatus) : dossiers;
+        const counts = base.reduce((acc, d) => {
             const key = d.woningType || 'Onbekend';
             acc[key] = (acc[key] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
         const arr = Object.entries(counts).map(([name, value]) => ({ name, value }));
-        // top 6 + overig
         arr.sort((a, b) => b.value - a.value);
         const top = arr.slice(0, 6);
         const rest = arr.slice(6).reduce((s, x) => s + x.value, 0);
         return rest > 0 ? [...top, { name: 'Overig', value: rest }] : top;
-    }, [dossiers]);
+    }, [dossiers, filterDossierStatus]);
 
     const tickColor = theme === 'dark' ? '#9ca3af' : '#6b7280';
     const gridColor = theme === 'dark' ? '#374151' : '#e5e7eb';
@@ -196,106 +205,204 @@ const AdminPage: React.FC = () => {
         }
     };
 
+    // Tabs state via URL param
+    const [searchParams, setSearchParams] = useSearchParams();
+    const currentTab = (searchParams.get('tab') || 'overzicht') as 'overzicht' | 'dossiers' | 'beheer';
+    const setTab = (key: string) => {
+        const next = new URLSearchParams(searchParams);
+        next.set('tab', key);
+        setSearchParams(next, { replace: true });
+    };
+
+    // URL-persisted filters
+    // Cross-filters for dossier charts
+    const filterWoningType = searchParams.get('wt') || 'Alle';
+    const filterDossierStatus = searchParams.get('ds') || 'Alle';
+    const setParam = (key: string, val: string) => {
+        const next = new URLSearchParams(searchParams);
+        if (val && val !== 'Alle') next.set(key, val); else next.delete(key);
+        setSearchParams(next, { replace: true });
+    };
+    // Beheer user list filters
+    const userRoleFilter = (searchParams.get('role') || 'alle') as 'alle' | UserRole;
+    const userQuery = searchParams.get('q') || '';
+
+    const tabs = [
+        { key: 'overzicht', label: 'Overzicht' },
+        { key: 'dossiers', label: 'Dossiers', count: dossierStats.totaal },
+        { key: 'beheer', label: 'Beheer' },
+    ];
+
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">Beheer</h1>
 
-            {/* Admin Dashboard: Projecten & Woningdossiers */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <StatCard icon={<span className="font-bold">P</span>} title="Projecten (totaal)" value={projectStats.totaal} color="bg-indigo-600" />
-                <StatCard icon={<span className="font-bold">▶</span>} title="Projecten (lopend)" value={projectStats.lopend} color="bg-blue-600" />
-                <StatCard icon={<span className="font-bold">✔</span>} title="Projecten (afgerond)" value={projectStats.afgerond} color="bg-green-600" />
-                <StatCard icon={<span className="font-bold">🏠</span>} title="Dossiers (totaal)" value={dossierStats.totaal} color="bg-rose-600" />
-            </div>
+            <Tabs tabs={tabs} current={currentTab} onChange={setTab} />
 
-            {/* Trends verplaatst naar Statistieken pagina */}
+            <TabPanel tabKey="overzicht" current={currentTab} className="space-y-6">
+                {/* KPI cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <StatCard icon={<span className="font-bold">P</span>} title="Projecten (totaal)" value={projectStats.totaal} color="bg-indigo-600" />
+                    <StatCard icon={<span className="font-bold">▶</span>} title="Projecten (lopend)" value={projectStats.lopend} color="bg-blue-600" />
+                    <StatCard icon={<span className="font-bold">✔</span>} title="Projecten (afgerond)" value={projectStats.afgerond} color="bg-green-600" />
+                    <StatCard icon={<span className="font-bold">🏠</span>} title="Dossiers (totaal)" value={dossierStats.totaal} color="bg-rose-600" />
+                </div>
+            </TabPanel>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
-                    <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Dossierstatus</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                            <Pie data={dossierStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                                {dossierStatusData.map((_, idx) => (
-                                    <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                                ))}
-                            </Pie>
-                            <Tooltip contentStyle={tooltipStyle} />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-                <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
-                    <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Woningtype verdeling</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                            <Pie data={woningTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                                {woningTypeData.map((_, idx) => (
-                                    <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                                ))}
-                            </Pie>
-                            <Tooltip contentStyle={tooltipStyle} />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-
-            <div className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-dark-text-primary">Gebruikersbeheer</h2>
-                    <button onClick={handleAddUser} className="px-4 py-2 bg-brand-primary text-white font-semibold rounded-lg shadow-md hover:bg-brand-secondary transition-colors">
-                        Gebruiker Toevoegen
-                    </button>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead className="border-b border-gray-200 dark:border-dark-border">
-                            <tr>
-                                <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Naam</th>
-                                <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Email</th>
-                                <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Rol</th>
-                                <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary text-right">Acties</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {users.map(user => (
-                                <tr key={user.id} className="border-b border-gray-200 dark:border-dark-border last:border-0 hover:bg-gray-50 dark:hover:bg-dark-bg">
-                                    <td className="p-3 text-gray-800 dark:text-dark-text-primary flex items-center">
-                                        <img src={user.avatarUrl} alt={user.name} className="h-8 w-8 rounded-full mr-3" />
-                                        {user.name}
-                                    </td>
-                                    <td className="p-3 text-gray-800 dark:text-dark-text-primary">{user.email}</td>
-                                    <td className="p-3">
-                                        <select 
-                                            value={user.role} 
-                                            onChange={(e) => handleRoleChange(user.id, e.target.value as UserRole)}
-                                            className="bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-1 px-2 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
-                                        >
-                                            {Object.values(UserRole).map(role => (
-                                                <option key={role} value={role} className="bg-white dark:bg-dark-surface">{role}</option>
-                                            ))}
-                                        </select>
-                                    </td>
-                                    <td className="p-3 text-right">
-                                        <button onClick={() => handleRemoveUser(user.id)} className="text-red-500 hover:text-red-400 font-semibold">
-                                            Verwijderen
-                                        </button>
-                                    </td>
-                                </tr>
+            <TabPanel tabKey="dossiers" current={currentTab} className="space-y-6">
+                {/* Filters */}
+                <div className="flex flex-wrap items-end gap-4 bg-white dark:bg-dark-surface p-4 rounded-lg shadow">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Filter op Woningtype</label>
+                        <select
+                            value={filterWoningType}
+                            onChange={(e) => setParam('wt', e.target.value)}
+                            className="mt-1 block bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3"
+                        >
+                            <option>Alle</option>
+                            {uniqueWoningtypes.map(wt => (
+                                <option key={wt} value={wt} className="bg-white dark:bg-dark-surface">{wt}</option>
                             ))}
-                        </tbody>
-                    </table>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Filter op Dossierstatus</label>
+                        <select
+                            value={filterDossierStatus}
+                            onChange={(e) => setParam('ds', e.target.value)}
+                            className="mt-1 block bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3"
+                        >
+                            <option>Alle</option>
+                            <option value="actief">actief</option>
+                            <option value="afgesloten">afgesloten</option>
+                            <option value="in onderzoek">in onderzoek</option>
+                        </select>
+                    </div>
                 </div>
-            </div>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
+                        <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Dossierstatus</h3>
+                        <ResponsiveContainer width="100%" height={320}>
+                            <PieChart>
+                                <Pie data={dossierStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                                    {dossierStatusData.map((_, idx) => (
+                                        <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip contentStyle={tooltipStyle} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                    <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
+                        <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Woningtype verdeling</h3>
+                        <ResponsiveContainer width="100%" height={320}>
+                            <PieChart>
+                                <Pie data={woningTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                                    {woningTypeData.map((_, idx) => (
+                                        <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip contentStyle={tooltipStyle} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </TabPanel>
 
-             <div className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-dark-text-primary mb-4">Projectbeheer</h2>
-                <div className="text-center">
-                    <p className="text-gray-600 dark:text-dark-text-secondary mb-4">Maak snel een nieuw wijkverbeteringsproject aan.</p>
-                     <button onClick={() => setIsNewProjectModalOpen(true)} className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors">
-                        Nieuw Project Aanmaken
-                    </button>
+            <TabPanel tabKey="beheer" current={currentTab} className="space-y-6">
+                <div className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-dark-text-primary">Gebruikersbeheer</h2>
+                        <button onClick={handleAddUser} className="px-4 py-2 bg-brand-primary text-white font-semibold rounded-lg shadow-md hover:bg-brand-secondary transition-colors">
+                            Gebruiker Toevoegen
+                        </button>
+                    </div>
+                    <div className="flex flex-wrap items-end gap-4 mb-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Rol</label>
+                            <select
+                                value={userRoleFilter}
+                                onChange={(e) => setParam('role', e.target.value)}
+                                className="mt-1 block bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3"
+                            >
+                                <option value="alle">Alle</option>
+                                {Object.values(UserRole).map(role => (
+                                    <option key={role} value={role} className="bg-white dark:bg-dark-surface">{role}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex-1 min-w-[220px]">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Zoeken</label>
+                            <input
+                                type="text"
+                                value={userQuery}
+                                onChange={(e) => setParam('q', e.target.value)}
+                                placeholder="Zoek op naam of email"
+                                className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3"
+                            />
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="border-b border-gray-200 dark:border-dark-border">
+                                <tr>
+                                    <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Naam</th>
+                                    <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Email</th>
+                                    <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Rol</th>
+                                    <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary text-right">Acties</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {users
+                                  .filter(u => userRoleFilter === 'alle' ? true : u.role === userRoleFilter)
+                                  .filter(u => {
+                                      if (!userQuery.trim()) return true;
+                                      const q = userQuery.toLowerCase();
+                                      return (
+                                          (u.name || '').toLowerCase().includes(q) ||
+                                          (u.email || '').toLowerCase().includes(q)
+                                      );
+                                  })
+                                  .map(user => (
+                                    <tr key={user.id} className="border-b border-gray-200 dark:border-dark-border last:border-0 hover:bg-gray-50 dark:hover:bg-dark-bg">
+                                        <td className="p-3 text-gray-800 dark:text-dark-text-primary flex items-center">
+                                            <img src={user.avatarUrl} alt={user.name} className="h-8 w-8 rounded-full mr-3" />
+                                            {user.name}
+                                        </td>
+                                        <td className="p-3 text-gray-800 dark:text-dark-text-primary">{user.email}</td>
+                                        <td className="p-3">
+                                            <select 
+                                                value={user.role} 
+                                                onChange={(e) => handleRoleChange(user.id, e.target.value as UserRole)}
+                                                className="bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-1 px-2 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
+                                            >
+                                                {Object.values(UserRole).map(role => (
+                                                    <option key={role} value={role} className="bg-white dark:bg-dark-surface">{role}</option>
+                                                ))}
+                                            </select>
+                                        </td>
+                                        <td className="p-3 text-right">
+                                            <button onClick={() => handleRemoveUser(user.id)} className="text-red-500 hover:text-red-400 font-semibold">
+                                                Verwijderen
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-             </div>
+
+                <div className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-dark-text-primary mb-4">Projectbeheer</h2>
+                    <div className="text-center">
+                        <p className="text-gray-600 dark:text-dark-text-secondary mb-4">Maak snel een nieuw wijkverbeteringsproject aan.</p>
+                        <button onClick={() => setIsNewProjectModalOpen(true)} className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors">
+                            Nieuw Project Aanmaken
+                        </button>
+                    </div>
+                </div>
+            </TabPanel>
              <Modal isOpen={isNewProjectModalOpen} onClose={() => setIsNewProjectModalOpen(false)} title="Nieuw Project Aanmaken">
                 <NewProjectForm onClose={() => setIsNewProjectModalOpen(false)} />
             </Modal>
