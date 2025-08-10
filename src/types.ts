@@ -211,12 +211,13 @@ export interface AppContextType {
   taken: Taak[];
   notificaties: Notificatie[];
   uploadFile: (file: File, path: string) => Promise<string>;
-  addMelding: (melding: Omit<Melding, 'id' | 'timestamp' | 'gebruikerId' | 'updates'>) => void;
-  updateMeldingStatus: (id: string, status: MeldingStatus) => void;
-  addMeldingUpdate: (meldingId: string, update: Omit<MeldingUpdate, 'id' | 'timestamp' | 'userId'>) => void;
+  addMelding: (melding: Omit<Melding, 'id' | 'timestamp' | 'gebruikerId' | 'updates'>) => Promise<void>;
+  updateMeldingStatus: (id: string, status: MeldingStatus) => Promise<void>;
+  addMeldingUpdate: (meldingId: string, update: Omit<MeldingUpdate, 'id' | 'timestamp' | 'userId'>) => Promise<void>;
   markNotificationsAsRead: (targetType: 'melding' | 'project', targetId: string) => void;
   // CORRECTIE: Nieuwe functie toegevoegd voor het markeren van een enkele notificatie.
   markSingleNotificationAsRead: (notificationId: string) => void;
+  addUser: (newUser: Omit<User, 'id' | 'avatarUrl' | 'phone'>) => void;
   addProject: (project: Omit<Project, 'id' | 'creatorId' | 'contributions' | 'participantIds' | 'imageUrl'>) => void;
   updateProject: (projectId: string, data: Partial<Pick<Project, 'title' | 'description' | 'startDate' | 'endDate' | 'status'>>) => void;
   addProjectContribution: (projectId: string, contribution: Omit<ProjectContribution, 'id' | 'timestamp' | 'userId'>) => void;
