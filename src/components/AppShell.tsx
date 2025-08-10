@@ -5,7 +5,7 @@ import React, { ReactNode, useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { UserRole } from '../types';
-import { HomeIcon, AlertTriangleIcon, ClockIcon, BriefcaseIcon, BarChartIcon, MapIcon, UsersIcon, SettingsIcon, LogOutIcon, BellIcon, SunIcon, MoonIcon, MenuIcon, XIcon, DownloadIcon, FolderIcon } from './Icons';
+import { HomeIcon, AlertTriangleIcon, ClockIcon, BriefcaseIcon, BarChartIcon, UsersIcon, SettingsIcon, LogOutIcon, BellIcon, SunIcon, MoonIcon, MenuIcon, XIcon, DownloadIcon, FolderIcon } from './Icons';
 
 type NavItem = {
   path: string;

@@ -2,8 +2,7 @@ import React from 'react';
 import { AdvancedMarker, Pin, InfoWindow } from "@vis.gl/react-google-maps";
 import { Project, ProjectStatus } from '../types';
 import { format } from 'date-fns';
-import nl from 'date-fns/locale/nl';
-import { BriefcaseIcon } from './Icons'; // We gebruiken een ander icoon
+import { nl } from 'date-fns/locale/nl';
 
 // Functie om de juiste kleur voor de project-pin te bepalen
 const getProjectPinColor = (status: ProjectStatus) => {

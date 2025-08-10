@@ -14,11 +14,17 @@ export interface DossierDocument {
   userId: string;
 }
 
-export interface DossierTaak {
+// DossierTaak verwijderd – taken zijn niet langer onderdeel van WoningDossier
+
+export interface DossierAfspraak {
   id: string;
-  description: string;
-  date: Date;
-  done: boolean;
+  start: Date;
+  end?: Date | null;
+  description?: string;
+  bewonerId?: string;
+  bewonerNaam?: string;
+  createdBy: string;
+  createdAt: Date;
 }
 
 export interface DossierBewoner {
@@ -28,6 +34,11 @@ export interface DossierBewoner {
   from: Date;
   to?: Date;
   extraInfo?: string;
+  // Nieuwe optionele afspraakvelden per bewoner
+  afspraakGemaakt?: boolean;
+  afspraakStart?: Date | null;
+  afspraakEinde?: Date | null;
+  afspraakNotitie?: string;
 }
 
 export interface DossierHistorieItem {
@@ -55,7 +66,7 @@ export interface WoningDossier {
   woningType?: string | null;
   notities: DossierNotitie[];
   documenten: DossierDocument[];
-  taken: DossierTaak[];
+  afspraken: DossierAfspraak[];
   bewoners: DossierBewoner[];
   historie: DossierHistorieItem[];
   status: DossierStatus;
@@ -178,10 +189,12 @@ export interface AppContextType {
   getDossier: (adres: string) => Promise<WoningDossier | null>;
   addDossierNotitie: (adres: string, notitie: Omit<DossierNotitie, 'id' | 'timestamp' | 'userId'>) => Promise<void>;
   uploadDossierDocument: (adres: string, file: File) => Promise<DossierDocument>;
-  addDossierTaak: (adres: string, taak: Omit<DossierTaak, 'id'>) => Promise<void>;
+  addDossierAfspraak: (adres: string, afspraak: Omit<DossierAfspraak, 'id' | 'createdAt' | 'createdBy'>) => Promise<void>;
+  updateDossierAfspraak: (adres: string, afspraakId: string, patch: Partial<Pick<DossierAfspraak, 'start' | 'end' | 'description' | 'bewonerId' | 'bewonerNaam'>>) => Promise<void>;
+  removeDossierAfspraak: (adres: string, afspraakId: string) => Promise<void>;
   updateDossierStatus: (adres: string, status: DossierStatus) => Promise<void>;
   addDossierBewoner: (adres: string, bewoner: Omit<DossierBewoner, 'id'>) => Promise<void>;
-  updateDossierBewoner: (adres: string, bewonerId: string, patch: Partial<Pick<DossierBewoner, 'name' | 'contact' | 'extraInfo' | 'to'>>) => Promise<void>;
+  updateDossierBewoner: (adres: string, bewonerId: string, patch: Partial<Pick<DossierBewoner, 'name' | 'contact' | 'extraInfo' | 'to' | 'afspraakGemaakt' | 'afspraakStart' | 'afspraakEinde' | 'afspraakNotitie'>>) => Promise<void>;
   removeDossierBewoner: (adres: string, bewonerId: string) => Promise<void>;
   addDossierHistorie: (adres: string, item: Omit<DossierHistorieItem, 'id'>) => Promise<void>;
   addDossierReactie: (adres: string, notitieId: string, reactie: Omit<DossierReactie, 'id' | 'timestamp' | 'userId'>) => Promise<void>;

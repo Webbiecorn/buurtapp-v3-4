@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { User, UserRole } from '../types';
+import { UserRole } from '../types';
 import { Modal, NewProjectForm } from '../components/ui';
 
 const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {

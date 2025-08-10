@@ -1,7 +1,7 @@
 // Dossier functionaliteit
 // Plaats deze na de imports zodat alle Firestore helpers beschikbaar zijn
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { User, UserRole, AppContextType, Melding, MeldingStatus, Project, Urenregistratie, Taak, Notificatie, ProjectContribution, MeldingUpdate, WoningDossier, DossierNotitie, DossierDocument, DossierTaak, DossierBewoner, DossierHistorieItem, DossierReactie, DossierStatus } from '../types';
+import { User, UserRole, AppContextType, Melding, MeldingStatus, Project, Urenregistratie, Taak, Notificatie, ProjectContribution, MeldingUpdate, WoningDossier, DossierNotitie, DossierDocument, DossierBewoner, DossierHistorieItem, DossierReactie, DossierStatus, DossierAfspraak } from '../types';
 import { db, storage } from '../firebase';
 import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, Timestamp, arrayUnion, query, where, getDocs, writeBatch, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -419,8 +419,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   adres,
   location: null,
       notities: [],
-      documenten: [],
-      taken: [],
+  documenten: [],
+      afspraken: [],
       bewoners: [],
       historie: [{
         id: `hist-${Date.now()}`,
@@ -518,18 +518,53 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [currentUser, uploadFile]);
 
-  const addDossierTaak = useCallback(async (adres: string, taak: Omit<DossierTaak, 'id'>): Promise<void> => {
+  // addDossierTaak verwijderd — taken niet meer ondersteund
+
+  const addDossierAfspraak = useCallback(async (adres: string, afspraak: Omit<DossierAfspraak, 'id' | 'createdAt' | 'createdBy'>): Promise<void> => {
+    if (!currentUser) return;
     try {
       const dossierRef = doc(db, 'dossiers', adres);
-      const newTaak: DossierTaak = {
-        ...taak,
-        id: `taak-${Date.now()}`,
-      };
-      await updateDoc(dossierRef, {
-        taken: arrayUnion(newTaak)
-      });
+      const newItem: DossierAfspraak = {
+        ...afspraak,
+        id: `afspraak-${Date.now()}`,
+        createdAt: new Date(),
+        createdBy: currentUser.id,
+      } as DossierAfspraak;
+      await updateDoc(dossierRef, { afspraken: arrayUnion(newItem) });
     } catch (error) {
-      console.error('Error adding dossier taak:', error);
+      console.error('Error adding dossier afspraak:', error);
+    }
+  }, [currentUser]);
+
+  const updateDossierAfspraak = useCallback(async (adres: string, afspraakId: string, patch: Partial<Pick<DossierAfspraak, 'start' | 'end' | 'description' | 'bewonerId' | 'bewonerNaam'>>): Promise<void> => {
+    try {
+      const dossierRef = doc(db, 'dossiers', adres);
+      const snap = await getDoc(dossierRef);
+      if (!snap.exists()) return;
+      const data = snap.data() as any;
+      const items: DossierAfspraak[] = data.afspraken || [];
+      const idx = items.findIndex(a => a.id === afspraakId);
+      if (idx === -1) return;
+      const merged: any = { ...items[idx], ...patch };
+      Object.keys(merged).forEach(k => merged[k] === undefined && delete merged[k]);
+      items[idx] = merged as DossierAfspraak;
+      await updateDoc(dossierRef, { afspraken: items });
+    } catch (error) {
+      console.error('Error updating dossier afspraak:', error);
+    }
+  }, []);
+
+  const removeDossierAfspraak = useCallback(async (adres: string, afspraakId: string): Promise<void> => {
+    try {
+      const dossierRef = doc(db, 'dossiers', adres);
+      const snap = await getDoc(dossierRef);
+      if (!snap.exists()) return;
+      const data = snap.data() as any;
+      const items: DossierAfspraak[] = data.afspraken || [];
+      const filtered = items.filter(a => a.id !== afspraakId);
+      await updateDoc(dossierRef, { afspraken: filtered });
+    } catch (error) {
+      console.error('Error removing dossier afspraak:', error);
     }
   }, []);
 
@@ -556,7 +591,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, []);
 
-  const updateDossierBewoner = useCallback(async (adres: string, bewonerId: string, patch: Partial<Pick<DossierBewoner, 'name' | 'contact' | 'extraInfo' | 'to'>>): Promise<void> => {
+  const updateDossierBewoner = useCallback(async (adres: string, bewonerId: string, patch: Partial<Pick<DossierBewoner, 'name' | 'contact' | 'extraInfo' | 'to' | 'afspraakGemaakt' | 'afspraakStart' | 'afspraakEinde' | 'afspraakNotitie'>>): Promise<void> => {
     try {
       const dossierRef = doc(db, 'dossiers', adres);
       const dossierSnap = await getDoc(dossierRef);
@@ -666,8 +701,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     createNewDossier,
     getDossier,
     addDossierNotitie,
-    uploadDossierDocument,
-    addDossierTaak,
+  uploadDossierDocument,
+  addDossierAfspraak,
+  updateDossierAfspraak,
+  removeDossierAfspraak,
     updateDossierStatus,
     addDossierBewoner,
   updateDossierBewoner,
