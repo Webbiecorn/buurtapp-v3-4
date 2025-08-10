@@ -465,7 +465,8 @@ Je bent een expert data-analist voor een gemeente. Jouw taak is om een professio
 // --- END: New Reports Page ---
 
 export const ActiveColleaguesPage: React.FC = () => {
-    const { users, urenregistraties, currentUser } = useAppContext();
+    const { users, urenregistraties, currentUser, getOrCreateConversation, sendChatMessage } = useAppContext();
+    const navigate = ReactRouterDOM.useNavigate();
     const [isMessageModalOpen, setIsMessageModalOpen] = React.useState(false);
     const [selectedColleague, setSelectedColleague] = React.useState<User | null>(null);
     const [message, setMessage] = React.useState('');
@@ -489,23 +490,15 @@ export const ActiveColleaguesPage: React.FC = () => {
         e.preventDefault();
         if (!message.trim() || !selectedColleague || !currentUser) return;
         try {
-            const { db } = await import('../firebase');
-            const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
-            await addDoc(collection(db, 'notificaties'), {
-                userId: selectedColleague.id,
-                message: `Bericht van ${currentUser.name}: ${message.trim()}`,
-                link: '',
-                isRead: false,
-                timestamp: serverTimestamp(),
-                targetId: currentUser.id,
-                targetType: 'message'
-            });
+            const conv = await getOrCreateConversation([currentUser.id, selectedColleague.id]);
+            await sendChatMessage(conv.id, { text: message.trim() });
+            handleCloseMessageModal();
+            navigate(`/chat/${conv.id}`);
         } catch (err) {
             console.error('Bericht verzenden mislukt:', err);
             alert('Versturen mislukt. Probeer later opnieuw.');
             return;
         }
-        handleCloseMessageModal();
     };
 
     const handleCall = (user: User) => {

@@ -15,6 +15,7 @@ import StatisticsPage from './pages/StatisticsPage';
 import AdminPage from './pages/AdminPage';
 import { UserRole } from './types';
 import { ReportsPage, ActiveColleaguesPage, NotificationsPage } from './pages/ExtraPages';
+import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
 
 
@@ -46,6 +47,7 @@ const AppRoutes: React.FC = () => {
             <ReactRouterDOM.Route path="/dossier/:adres" element={<ProtectedRoute roles={[UserRole.Beheerder, UserRole.Concierge]}><DossierDetailPage /></ProtectedRoute>} />
             {/* <Route path="/map" element={<ProtectedRoute><MapPage /></ProtectedRoute>} /> */}
             <ReactRouterDOM.Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+            <ReactRouterDOM.Route path="/chat/:conversationId" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
             <ReactRouterDOM.Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
             <ReactRouterDOM.Route path="/time-tracking" element={
