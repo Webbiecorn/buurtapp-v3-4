@@ -21,7 +21,7 @@ export const storage = getStorage(app);
 
 if (import.meta.env.DEV) {
   // Verbind met de Firestore emulator
-  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  connectFirestoreEmulator(db, '127.0.0.1', 8081);
   
   // Verbind met de Storage emulator
   connectStorageEmulator(storage, '127.0.0.1', 9199);
