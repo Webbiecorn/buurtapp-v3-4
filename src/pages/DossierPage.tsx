@@ -395,183 +395,9 @@ const DossierPage: React.FC = () => {
           <DossierHeader dossier={dossier} />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {/* Linkerkolom: Notities + Afspraken */}
+            {/* Linkerkolom: Bewoners, Notities + Afspraken */}
             <div className="space-y-6">
-              <div className="p-4 bg-white dark:bg-dark-surface rounded-lg shadow">
-                <h2 className="text-xl font-semibold mb-4">Notities</h2>
-                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                {dossier.notities && dossier.notities.length > 0 ? (
-                  dossier.notities.map((n) => (
-                    <div key={n.id} className={`p-3 rounded-md ${n.isBelangrijk ? 'bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-yellow-500' : 'bg-gray-50 dark:bg-gray-700'}`}>
-                      <p className="text-gray-800 dark:text-gray-200">{n.text}</p>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex justify-between items-center">
-                        <span>{new Date(n.timestamp).toLocaleString()}</span>
-                        {n.isBelangrijk && <span className="font-bold text-yellow-600 dark:text-yellow-400">Belangrijk</span>}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400">Geen notities gevonden voor dit adres.</p>
-                )}
-                </div>
-
-                <form className="mt-6 border-t dark:border-gray-700 pt-4" onSubmit={handleAddNote}>
-                  <h3 className="font-semibold mb-2">Nieuwe Notitie Toevoegen</h3>
-                  <textarea
-                    value={note}
-                    onChange={e => setNote(e.target.value)}
-                    placeholder="Typ een nieuwe notitie..."
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-brand-primary text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 bg-white dark:bg-dark-surface mb-2"
-                    rows={3}
-                  />
-                  <div className="flex justify-between items-center">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={important} onChange={e => setImportant(e.target.checked)} className="h-4 w-4 rounded text-brand-primary focus:ring-brand-primary"/>
-                      <span className="text-sm font-medium">Belangrijk</span>
-                    </label>
-                    <button type="submit" disabled={adding || !note.trim()} className="px-4 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary transition-colors disabled:bg-gray-400">
-                      {adding ? 'Opslaan...' : 'Opslaan'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Afspraken verplaatst naar linkerkolom, onder Notities */}
-              <div className="p-4 bg-white dark:bg-dark-surface rounded-lg shadow">
-                <h2 className="text-xl font-semibold mb-4">Afspraken</h2>
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-2 mb-4">
-                  {dossier.afspraken && dossier.afspraken.length > 0 ? (
-                    dossier.afspraken
-                      .slice()
-                      .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
-                      .map((a) => (
-                        <div key={a.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-medium text-gray-900 dark:text-white">
-                              {new Date(a.start).toLocaleString()} {a.end ? `— ${new Date(a.end).toLocaleString()}` : ''}
-                            </p>
-                            {a.description && <p className="text-sm text-gray-700 dark:text-gray-200 mt-1">{a.description}</p>}
-                            {a.bewonerNaam && <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">Bewoner: {a.bewonerNaam}</p>}
-                          </div>
-                          <div className="flex-shrink-0">
-                            <button
-                              type="button"
-                              className="px-2 py-1 rounded bg-red-600 text-white text-xs"
-                              onClick={async () => {
-                                if (!confirm('Afspraak verwijderen?')) return;
-                                await removeDossierAfspraak(dossier.id, a.id);
-                                const updated = await getDossier(dossier.id);
-                                setDossier(updated);
-                              }}
-                            >Verwijderen</button>
-                          </div>
-                        </div>
-                      ))
-                  ) : (
-                    <p className="text-gray-500 dark:text-gray-400">Nog geen afspraken.</p>
-                  )}
-                </div>
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    if (!newApptStart) return;
-                    if (!dossier) return;
-                    // Custom inline validation for description
-                    if (!newApptDesc.trim()) {
-                      setNewApptDescTouched(true);
-                      descInputRef.current?.focus();
-                      return;
-                    }
-                    setAddingAppt(true);
-                    try {
-                      const start = new Date(newApptStart);
-                      const end = newApptEnd ? new Date(newApptEnd) : null;
-                      const bewoner = dossier.bewoners.find(b => b.id === newApptBewonerId);
-                      await addDossierAfspraak(dossier.id, {
-                        start,
-                        end,
-                        description: newApptDesc.trim(),
-                        bewonerId: bewoner?.id,
-                        bewonerNaam: bewoner?.name,
-                      });
-                    } finally {
-                      const updated = await getDossier(dossier.id);
-                      setDossier(updated);
-                      setAddingAppt(false);
-                      setNewApptStart('');
-                      setNewApptEnd('');
-                      setNewApptDesc('');
-                      setNewApptDescTouched(false);
-                      setNewApptBewonerId('');
-                    }
-                  }}
-                >
-                  <h3 className="font-semibold mb-2">Afspraak toevoegen</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <input
-                      type="datetime-local"
-                      value={newApptStart}
-                      onChange={(e) => setNewApptStart(e.target.value)}
-                      placeholder="Startdatum/tijd"
-                      className="px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                      required
-                    />
-                    <input
-                      type="datetime-local"
-                      value={newApptEnd}
-                      onChange={(e) => setNewApptEnd(e.target.value)}
-                      placeholder="Einddatum/tijd (optioneel)"
-                      className="px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                    />
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                        Omschrijving <span className="text-red-600">*</span>
-                      </label>
-                      <input
-                        ref={descInputRef}
-                        value={newApptDesc}
-                        onChange={(e) => setNewApptDesc(e.target.value)}
-                        onBlur={() => setNewApptDescTouched(true)}
-                        placeholder="Omschrijving"
-                        required
-                        onInvalid={(ev) => {
-                          ev.preventDefault();
-                          setNewApptDescTouched(true);
-                        }}
-                        aria-invalid={newApptDescTouched && !newApptDesc.trim()}
-                        className={
-                          `w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 ` +
-                          (newApptDescTouched && !newApptDesc.trim()
-                            ? 'border-red-500 focus:ring-red-500'
-                            : 'focus:ring-brand-primary')
-                        }
-                      />
-                      {newApptDescTouched && !newApptDesc.trim() && (
-                        <p className="mt-1 text-sm text-red-600">Omschrijving is verplicht.</p>
-                      )}
-                    </div>
-                    <select
-                      value={newApptBewonerId}
-                      onChange={(e) => setNewApptBewonerId(e.target.value)}
-                      className="md:col-span-2 px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white"
-                    >
-                      <option value="">Koppel aan bewoner (optioneel)</option>
-                      {dossier.bewoners.map(b => (
-                        <option key={b.id} value={b.id} className="bg-white dark:bg-dark-surface">{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="mt-3 flex justify-end">
-                    <button type="submit" disabled={addingAppt} className="px-4 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary disabled:opacity-60 disabled:cursor-not-allowed">
-                      {addingAppt ? 'Toevoegen…' : 'Toevoegen'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-
-            {/* Rechterkolom: Bewoners, Documenten en onderaan Gerelateerde Meldingen */}
-            <div className="space-y-6">
+              {/* Bewonersinformatie linksboven */}
               <div className="p-4 bg-white dark:bg-dark-surface rounded-lg shadow">
                 <h2 className="text-xl font-semibold mb-4">Bewonersinformatie</h2>
                 <div className="space-y-3">
@@ -692,7 +518,6 @@ const DossierPage: React.FC = () => {
                   e.preventDefault();
                   if (!bewonerNaam.trim()) return;
                   if (!dossier) return;
-                  // validate contact velden
                   const telOk = isValidPhone(bewonerTelefoon.trim());
                   const emailOk = isValidEmail(bewonerEmail.trim());
                   setBewonerTelefoonError(telOk ? null : 'Voer een geldig telefoonnummer in');
@@ -710,7 +535,6 @@ const DossierPage: React.FC = () => {
                     to: undefined,
                     extraInfo: bewonerExtraInfo.trim() || undefined,
                   };
-                  // Optimistische update: toon direct boven de velden
                   const tempId = `bewoner-${Date.now()}`;
                   const optimistic = { id: tempId, ...bew } as DossierBewoner;
                   setDossier(prev => prev ? { ...prev, bewoners: [ ...(prev.bewoners || []), optimistic ] } : prev);
@@ -725,8 +549,8 @@ const DossierPage: React.FC = () => {
                   setBewonerTelefoon('');
                   setBewonerEmail('');
                   setBewonerExtraInfo('');
-          setBewonerTelefoonError(null);
-          setBewonerEmailError(null);
+                  setBewonerTelefoonError(null);
+                  setBewonerEmailError(null);
                 }}>
                   <h3 className="font-semibold mb-2">Bewoner toevoegen</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -736,13 +560,13 @@ const DossierPage: React.FC = () => {
                     </label>
                     <label className="text-xs text-gray-600 dark:text-gray-300">
                       Telefoonnummer
-            <input value={bewonerTelefoon} onChange={e=>{ setBewonerTelefoon(e.target.value); if (bewonerTelefoonError) setBewonerTelefoonError(null); }} onBlur={()=> setBewonerTelefoonError(isValidPhone(bewonerTelefoon) ? null : 'Voer een geldig telefoonnummer in')} placeholder="Telefoonnummer" className={`mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 ${bewonerTelefoonError ? 'border-red-500 focus:ring-red-500' : 'focus:ring-brand-primary'}`} />
-            {bewonerTelefoonError && <span className="mt-1 block text-xs text-red-600">{bewonerTelefoonError}</span>}
+                      <input value={bewonerTelefoon} onChange={e=>{ setBewonerTelefoon(e.target.value); if (bewonerTelefoonError) setBewonerTelefoonError(null); }} onBlur={()=> setBewonerTelefoonError(isValidPhone(bewonerTelefoon) ? null : 'Voer een geldig telefoonnummer in')} placeholder="Telefoonnummer" className={`mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 ${bewonerTelefoonError ? 'border-red-500 focus:ring-red-500' : 'focus:ring-brand-primary'}`} />
+                      {bewonerTelefoonError && <span className="mt-1 block text-xs text-red-600">{bewonerTelefoonError}</span>}
                     </label>
                     <label className="text-xs text-gray-600 dark:text-gray-300">
                       Email
-            <input type="email" value={bewonerEmail} onChange={e=>{ setBewonerEmail(e.target.value); if (bewonerEmailError) setBewonerEmailError(null); }} onBlur={()=> setBewonerEmailError(isValidEmail(bewonerEmail) ? null : 'Voer een geldig e-mailadres in')} placeholder="Email" className={`mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 ${bewonerEmailError ? 'border-red-500 focus:ring-red-500' : 'focus:ring-brand-primary'}`} />
-            {bewonerEmailError && <span className="mt-1 block text-xs text-red-600">{bewonerEmailError}</span>}
+                      <input type="email" value={bewonerEmail} onChange={e=>{ setBewonerEmail(e.target.value); if (bewonerEmailError) setBewonerEmailError(null); }} onBlur={()=> setBewonerEmailError(isValidEmail(bewonerEmail) ? null : 'Voer een geldig e-mailadres in')} placeholder="Email" className={`mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 ${bewonerEmailError ? 'border-red-500 focus:ring-red-500' : 'focus:ring-brand-primary'}`} />
+                      {bewonerEmailError && <span className="mt-1 block text-xs text-red-600">{bewonerEmailError}</span>}
                     </label>
                     <label className="md:col-span-2 text-xs text-gray-600 dark:text-gray-300">
                       Extra info (optioneel)
@@ -756,6 +580,181 @@ const DossierPage: React.FC = () => {
                 </form>
               </div>
 
+              {/* Notities */}
+              <div className="p-4 bg-white dark:bg-dark-surface rounded-lg shadow">
+                <h2 className="text-xl font-semibold mb-4">Notities</h2>
+                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                  {dossier.notities && dossier.notities.length > 0 ? (
+                    dossier.notities.map((n) => (
+                      <div key={n.id} className={`p-3 rounded-md ${n.isBelangrijk ? 'bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-yellow-500' : 'bg-gray-50 dark:bg-gray-700'}`}>
+                        <p className="text-gray-800 dark:text-gray-200">{n.text}</p>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex justify-between items-center">
+                          <span>{new Date(n.timestamp).toLocaleString()}</span>
+                          {n.isBelangrijk && <span className="font-bold text-yellow-600 dark:text-yellow-400">Belangrijk</span>}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-400">Geen notities gevonden voor dit adres.</p>
+                  )}
+                </div>
+
+                <form className="mt-6 border-t dark:border-gray-700 pt-4" onSubmit={handleAddNote}>
+                  <h3 className="font-semibold mb-2">Nieuwe Notitie Toevoegen</h3>
+                  <textarea
+                    value={note}
+                    onChange={e => setNote(e.target.value)}
+                    placeholder="Typ een nieuwe notitie..."
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-brand-primary text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 bg-white dark:bg-dark-surface mb-2"
+                    rows={3}
+                  />
+                  <div className="flex justify-between items-center">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={important} onChange={e => setImportant(e.target.checked)} className="h-4 w-4 rounded text-brand-primary focus:ring-brand-primary"/>
+                      <span className="text-sm font-medium">Belangrijk</span>
+                    </label>
+                    <button type="submit" disabled={adding || !note.trim()} className="px-4 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary transition-colors disabled:bg-gray-400">
+                      {adding ? 'Opslaan...' : 'Opslaan'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Afspraken onder Notities */}
+              <div className="p-4 bg-white dark:bg-dark-surface rounded-lg shadow">
+                <h2 className="text-xl font-semibold mb-4">Afspraken</h2>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-2 mb-4">
+                  {dossier.afspraken && dossier.afspraken.length > 0 ? (
+                    dossier.afspraken
+                      .slice()
+                      .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
+                      .map((a) => (
+                        <div key={a.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              {new Date(a.start).toLocaleString()} {a.end ? `— ${new Date(a.end).toLocaleString()}` : ''}
+                            </p>
+                            {a.description && <p className="text-sm text-gray-700 dark:text-gray-200 mt-1">{a.description}</p>}
+                            {a.bewonerNaam && <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">Bewoner: {a.bewonerNaam}</p>}
+                          </div>
+                          <div className="flex-shrink-0">
+                            <button
+                              type="button"
+                              className="px-2 py-1 rounded bg-red-600 text-white text-xs"
+                              onClick={async () => {
+                                if (!confirm('Afspraak verwijderen?')) return;
+                                await removeDossierAfspraak(dossier.id, a.id);
+                                const updated = await getDossier(dossier.id);
+                                setDossier(updated);
+                              }}
+                            >Verwijderen</button>
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-400">Nog geen afspraken.</p>
+                  )}
+                </div>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!newApptStart) return;
+                    if (!dossier) return;
+                    if (!newApptDesc.trim()) {
+                      setNewApptDescTouched(true);
+                      descInputRef.current?.focus();
+                      return;
+                    }
+                    setAddingAppt(true);
+                    try {
+                      const start = new Date(newApptStart);
+                      const end = newApptEnd ? new Date(newApptEnd) : null;
+                      const bewoner = dossier.bewoners.find(b => b.id === newApptBewonerId);
+                      await addDossierAfspraak(dossier.id, {
+                        start,
+                        end,
+                        description: newApptDesc.trim(),
+                        bewonerId: bewoner?.id,
+                        bewonerNaam: bewoner?.name,
+                      });
+                    } finally {
+                      const updated = await getDossier(dossier.id);
+                      setDossier(updated);
+                      setAddingAppt(false);
+                      setNewApptStart('');
+                      setNewApptEnd('');
+                      setNewApptDesc('');
+                      setNewApptDescTouched(false);
+                      setNewApptBewonerId('');
+                    }
+                  }}
+                >
+                  <h3 className="font-semibold mb-2">Afspraak toevoegen</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input
+                      type="datetime-local"
+                      value={newApptStart}
+                      onChange={(e) => setNewApptStart(e.target.value)}
+                      placeholder="Startdatum/tijd"
+                      className="px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                      required
+                    />
+                    <input
+                      type="datetime-local"
+                      value={newApptEnd}
+                      onChange={(e) => setNewApptEnd(e.target.value)}
+                      placeholder="Einddatum/tijd (optioneel)"
+                      className="px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                    />
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                        Omschrijving <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        ref={descInputRef}
+                        value={newApptDesc}
+                        onChange={(e) => setNewApptDesc(e.target.value)}
+                        onBlur={() => setNewApptDescTouched(true)}
+                        placeholder="Omschrijving"
+                        required
+                        onInvalid={(ev) => {
+                          ev.preventDefault();
+                          setNewApptDescTouched(true);
+                        }}
+                        aria-invalid={newApptDescTouched && !newApptDesc.trim()}
+                        className={
+                          `w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 ` +
+                          (newApptDescTouched && !newApptDesc.trim()
+                            ? 'border-red-500 focus:ring-red-500'
+                            : 'focus:ring-brand-primary')
+                        }
+                      />
+                      {newApptDescTouched && !newApptDesc.trim() && (
+                        <p className="mt-1 text-sm text-red-600">Omschrijving is verplicht.</p>
+                      )}
+                    </div>
+                    <select
+                      value={newApptBewonerId}
+                      onChange={(e) => setNewApptBewonerId(e.target.value)}
+                      className="md:col-span-2 px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white"
+                    >
+                      <option value="">Koppel aan bewoner (optioneel)</option>
+                      {dossier.bewoners.map(b => (
+                        <option key={b.id} value={b.id} className="bg-white dark:bg-dark-surface">{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    <button type="submit" disabled={addingAppt} className="px-4 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary disabled:opacity-60 disabled:cursor-not-allowed">
+                      {addingAppt ? 'Toevoegen…' : 'Toevoegen'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* Rechterkolom: Documenten en onderaan Gerelateerde Meldingen */}
+            <div className="space-y-6">
               <div className="p-4 bg-white dark:bg-dark-surface rounded-lg shadow">
                 <h2 className="text-xl font-semibold mb-4">Documenten</h2>
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
