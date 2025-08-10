@@ -2,8 +2,23 @@ import React, { useEffect, useRef, useState } from "react";
 import { useAppContext } from '../context/AppContext';
 import { DossierBewoner, DossierStatus, WoningDossier } from "../types";
 import { fetchDossierMeta, type DossierMeta } from '../services/dossierMeta';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 const DossierPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isEditIntentRef = useRef(false);
+
+  useEffect(() => {
+    const qs = new URLSearchParams(location.search);
+    const adr = qs.get('adres');
+    if (adr) {
+      isEditIntentRef.current = true; // kom vanuit overzicht naar bewerken
+      setSearch(adr);
+      void doSearch(adr);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [search, setSearch] = useState("");
   const [dossier, setDossier] = useState<WoningDossier | null>(null);
   const [searchedAdres, setSearchedAdres] = useState<string>("");
@@ -53,7 +68,7 @@ const DossierPage: React.FC = () => {
     setSearchedAdres(searchAdres);
     setDossier(null); 
 
-    let dossierResult = await getDossier(searchAdres);
+  let dossierResult = await getDossier(searchAdres);
 
     if (!dossierResult) {
       console.log(`Dossier voor ${searchAdres} niet gevonden, nieuwe wordt aangemaakt.`);
@@ -61,6 +76,19 @@ const DossierPage: React.FC = () => {
     }
     
     setDossier(dossierResult);
+    // Als het dossier al ingevulde info heeft, ga direct naar Overzicht
+    try {
+      const hasContent = !!dossierResult && (
+        (dossierResult.notities && dossierResult.notities.length > 0) ||
+        (dossierResult.documenten && dossierResult.documenten.length > 0) ||
+        (dossierResult.taken && dossierResult.taken.length > 0) ||
+        (dossierResult.bewoners && dossierResult.bewoners.length > 0)
+      );
+  if (hasContent && !isEditIntentRef.current) {
+        navigate(`/dossier/${encodeURIComponent(dossierResult.id)}`);
+        return;
+      }
+    } catch {}
     // Meta-info (niet-blokkerend)
     try {
       const m = await fetchDossierMeta(searchAdres);
@@ -137,6 +165,7 @@ const DossierPage: React.FC = () => {
             {meta.energieLabel && <span className="px-2 py-1 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">Label {meta.energieLabel}</span>}
           </span>
         )}
+  <Link to={`/dossier/${encodeURIComponent(dossier.id)}`} className="ml-auto px-3 py-1 rounded bg-gray-600 text-white">Overzicht</Link>
       </div>
     </div>
   );
