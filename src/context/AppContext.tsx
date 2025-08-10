@@ -148,7 +148,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return getDownloadURL(storageRef);
   }, []);
 
-  const addMelding = useCallback(async (melding: Omit<Melding, 'id' | 'timestamp' | 'status' | 'updates' | 'gebruikerId'>) => {
+  const addMelding = useCallback(async (melding: Omit<Melding, 'id' | 'timestamp' | 'updates' | 'gebruikerId'>) => {
     if (!currentUser) return;
     try {
       const apiUrl = `${import.meta.env.VITE_API_URL}/createMelding`;
