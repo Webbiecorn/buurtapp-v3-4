@@ -180,7 +180,7 @@ export interface Notificatie {
   isRead: boolean;
   timestamp: Date;
   targetId: string;
-  targetType: 'melding' | 'project';
+  targetType: 'melding' | 'project' | 'message';
 }
 
 // Context Types
