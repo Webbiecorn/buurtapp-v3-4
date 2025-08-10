@@ -1,11 +1,13 @@
 
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { StatCard } from '../components/ui';
 import { AlertTriangleIcon, ClockIcon, BriefcaseIcon, UsersIcon } from '../components/Icons';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { MeldingStatus } from '../types';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { DossierStatus, MeldingStatus } from '../types';
+import { db } from '../firebase';
+import { collection, onSnapshot, Timestamp } from 'firebase/firestore';
 import {
   endOfDay,
   endOfMonth,
@@ -21,9 +23,32 @@ import { startOfYear } from 'date-fns/startOfYear';
 import { nl } from 'date-fns/locale/nl';
 
 
+type SlimDossier = { id: string; status: DossierStatus; woningType?: string | null; createdAt?: Date | null };
+const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#ef4444', '#f97316', '#eab308', '#22c55e'];
+
 const DashboardPage: React.FC = () => {
-  const { meldingen, urenregistraties, theme } = useAppContext();
+  const { meldingen, urenregistraties, projecten, theme } = useAppContext();
+  const [dossiers, setDossiers] = useState<SlimDossier[]>([]);
   const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month' | 'year' | 'total'>('total');
+
+  // Subscribe to dossiers for dashboard analytics
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'dossiers'), (ss) => {
+      const list: SlimDossier[] = ss.docs.map(d => {
+        const v: any = d.data();
+        let created: Date | null = null;
+        if (Array.isArray(v.historie) && v.historie.length) {
+          const dates = v.historie
+            .map((h: any) => h?.date instanceof Timestamp ? h.date.toDate() : (h?.date ? new Date(h.date) : null))
+            .filter(Boolean) as Date[];
+          if (dates.length) created = new Date(Math.min(...dates.map(x => x.getTime())));
+        }
+        return { id: d.id, status: (v.status as DossierStatus) || 'actief', woningType: v.woningType ?? null, createdAt: created };
+      });
+      setDossiers(list);
+    });
+    return () => unsub();
+  }, []);
 
   const { filteredMeldingen, filteredUrenregistraties } = useMemo(() => {
     if (timeFilter === 'total') {
@@ -127,6 +152,39 @@ const DashboardPage: React.FC = () => {
     : { backgroundColor: '#ffffff', border: '1px solid #e5e7eb', color: '#1f2937' };
   const tooltipLabelStyle = theme === 'dark' ? { color: '#f9fafb' } : { color: '#111827' };
 
+  // Admin KPIs and distributions
+  const projectStats = useMemo(() => {
+    const totaal = projecten.length;
+    const lopend = projecten.filter(p => String(p.status) === 'Lopend').length;
+    const afgerond = projecten.filter(p => String(p.status) === 'Afgerond').length;
+    return { totaal, lopend, afgerond };
+  }, [projecten]);
+
+  const dossierStats = useMemo(() => {
+    return { totaal: dossiers.length };
+  }, [dossiers]);
+
+  const dossierStatusData = useMemo(() => (
+    [
+      { name: 'Actief', value: dossiers.filter(d => d.status === 'actief').length },
+      { name: 'Afgesloten', value: dossiers.filter(d => d.status === 'afgesloten').length },
+      { name: 'In onderzoek', value: dossiers.filter(d => d.status === 'in onderzoek').length },
+    ]
+  ), [dossiers]);
+
+  const woningTypeData = useMemo(() => {
+    const counts = dossiers.reduce((acc, d) => {
+      const key = d.woningType || 'Onbekend';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    const arr = Object.entries(counts).map(([name, value]) => ({ name, value }));
+    arr.sort((a, b) => b.value - a.value);
+    const top = arr.slice(0, 6);
+    const rest = arr.slice(6).reduce((s, x) => s + x.value, 0);
+    return rest > 0 ? [...top, { name: 'Overig', value: rest }] : top;
+  }, [dossiers]);
+
 
   return (
     <div className="space-y-8">
@@ -141,6 +199,46 @@ const DashboardPage: React.FC = () => {
                 {btn.label}
              </button>
           ))}
+        </div>
+      </div>
+
+      {/* Admin KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard icon={<span className="font-bold">P</span>} title="Projecten (totaal)" value={projectStats.totaal} color="bg-indigo-600" />
+        <StatCard icon={<span className="font-bold">▶</span>} title="Projecten (lopend)" value={projectStats.lopend} color="bg-blue-600" />
+        <StatCard icon={<span className="font-bold">✔</span>} title="Projecten (afgerond)" value={projectStats.afgerond} color="bg-green-600" />
+        <StatCard icon={<span className="font-bold">🏠</span>} title="Dossiers (totaal)" value={dossierStats.totaal} color="bg-rose-600" />
+      </div>
+
+      {/* Distributions */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
+          <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Dossierstatus</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie data={dossierStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100 || 0).toFixed(0)}%`}>
+                {dossierStatusData.map((_, idx) => (
+                  <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ color: tickColor }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
+          <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Woningtype verdeling</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie data={woningTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100 || 0).toFixed(0)}%`}>
+                {woningTypeData.map((_, idx) => (
+                  <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ color: tickColor }} />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
       </div>
       

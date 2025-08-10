@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { MeldingStatus } from '../types';
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow } from '@vis.gl/react-google-maps';
 import { MeldingMarker } from '../components/MeldingMarker'; 
 import { ProjectMarker } from '../components/ProjectMarker';
@@ -13,6 +13,11 @@ const COLORS = ['#f59e0b', '#8b5cf6', '#22c55e'];
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const GOOGLE_MAP_LIGHT_ID = import.meta.env.VITE_GOOGLE_MAP_LIGHT_ID;
 const GOOGLE_MAP_DARK_ID = import.meta.env.VITE_GOOGLE_MAP_DARK_ID;
+
+import { format } from 'date-fns';
+import nl from 'date-fns/locale/nl';
+import subMonths from 'date-fns/subMonths';
+import { eachMonthOfInterval } from 'date-fns';
 
 const StatisticsPage: React.FC = () => {
   const { meldingen, projecten, urenregistraties, users, theme } = useAppContext();
@@ -67,12 +72,77 @@ const StatisticsPage: React.FC = () => {
 
   const mapId = theme === 'dark' ? GOOGLE_MAP_DARK_ID : GOOGLE_MAP_LIGHT_ID;
 
+  // Trends: Projecten (gestart/afgerond) en Dossiers (nieuw) laatste 6 maanden
+  const months = useMemo(() => eachMonthOfInterval({ start: subMonths(new Date(), 5), end: new Date() }), []);
+  const projectTrend = useMemo(() => months.map(ms => {
+    const me = new Date(ms.getFullYear(), ms.getMonth() + 1, 0);
+    const maand = format(ms, 'MMM', { locale: nl });
+    const nieuw = projecten.filter(p => p.startDate >= ms && p.startDate <= me).length;
+    const afgerond = projecten.filter(p => p.endDate && p.endDate >= ms && p.endDate <= me).length;
+    return { maand, nieuw, afgerond };
+  }), [months, projecten]);
+
+  const [dossiersForTrend, setDossiersForTrend] = useState<Array<{ createdAt?: Date | null }>>([]);
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'dossiers'), (ss) => {
+      const arr = ss.docs.map(d => {
+        const v: any = d.data();
+        // createdAt: earliest historie.date
+        let created: Date | null = null;
+        if (Array.isArray(v.historie) && v.historie.length) {
+          const dates = v.historie
+            .map((h: any) => h?.date instanceof Date ? h.date : (h?.date?.toDate ? h.date.toDate() : (h?.date ? new Date(h.date) : null)))
+            .filter(Boolean) as Date[];
+          if (dates.length) created = new Date(Math.min(...dates.map(d => d.getTime())));
+        }
+        return { createdAt: created };
+      });
+      setDossiersForTrend(arr);
+    });
+    return () => unsub();
+  }, []);
+
+  const dossierTrend = useMemo(() => months.map(ms => {
+    const me = new Date(ms.getFullYear(), ms.getMonth() + 1, 0);
+    const maand = format(ms, 'MMM', { locale: nl });
+    const nieuw = dossiersForTrend.filter(d => d.createdAt && d.createdAt >= ms && d.createdAt <= me).length;
+    return { maand, nieuw };
+  }), [months, dossiersForTrend]);
+
   return (
     <div className="space-y-8">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">Statistieken</h1>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
+
         <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Projecten: trend (laatste 6 mnd)</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={projectTrend}>
+              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+              <XAxis dataKey="maand" stroke={tickColor} fontSize={12} />
+              <YAxis stroke={tickColor} fontSize={12} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ color: tickColor }} />
+              <Line type="monotone" dataKey="nieuw" stroke="#3b82f6" name="Gestart" strokeWidth={2} />
+              <Line type="monotone" dataKey="afgerond" stroke="#22c55e" name="Afgerond" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Dossiers: nieuwe per maand</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={dossierTrend}>
+              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+              <XAxis dataKey="maand" stroke={tickColor} fontSize={12} />
+              <YAxis stroke={tickColor} fontSize={12} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Bar dataKey="nieuw" fill="#ef4444" name="Nieuwe dossiers" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        
+  <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Meldingen per Wijk</h2>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={wijkData} layout="vertical" margin={{ top: 5, right: 20, left: 30, bottom: 5 }}>
