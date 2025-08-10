@@ -16,6 +16,21 @@ const DossierDetailPage: React.FC = () => {
   const [dossier, setDossier] = useState<WoningDossier | null>(null);
   const [meta, setMeta] = useState<DossierMeta | null>(null);
 
+  // Inline viewer state (moet vóór conditionele returns i.v.m. hook-orde)
+  const [previewItems, setPreviewItems] = useState<string[] | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number>(0);
+
+  useEffect(() => {
+    if (!previewItems) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreviewItems(null);
+      if (e.key === 'ArrowLeft') setPreviewIndex(i => (previewItems ? (i - 1 + previewItems.length) % previewItems.length : 0));
+      if (e.key === 'ArrowRight') setPreviewIndex(i => (previewItems ? (i + 1) % previewItems.length : 0));
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [previewItems]);
+
   useEffect(() => {
     let cancelled = false;
     async function run() {
@@ -60,19 +75,6 @@ const DossierDetailPage: React.FC = () => {
   const lon = dossier?.location?.lon ?? meta?.location?.lon;
 
   // Inline viewer for documenten (image/pdf/video) met overlay en navigatie
-  const [previewItems, setPreviewItems] = useState<string[] | null>(null);
-  const [previewIndex, setPreviewIndex] = useState<number>(0);
-
-  useEffect(() => {
-    if (!previewItems) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPreviewItems(null);
-      if (e.key === 'ArrowLeft') setPreviewIndex(i => (previewItems ? (i - 1 + previewItems.length) % previewItems.length : 0));
-      if (e.key === 'ArrowRight') setPreviewIndex(i => (previewItems ? (i + 1) % previewItems.length : 0));
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [previewItems]);
 
   const openPreview = (items: string[], index: number) => {
     setPreviewItems(items);
@@ -126,8 +128,14 @@ const DossierDetailPage: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{dossier.id}</h1>
           <div className="mt-2 flex flex-wrap gap-3 text-sm text-gray-700 dark:text-gray-300">
-            <span>Status: <span className="font-semibold">{dossier.status}</span></span>
-            <span>Labels: {dossier.labels.map(l => <span key={l} className="ml-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700">{l}</span>)}</span>
+            <span>Status: <span className="font-semibold">{dossier.status || 'onbekend'}</span></span>
+            {Array.isArray(dossier.labels) && dossier.labels.length > 0 && (
+              <span>
+                Labels: {(dossier.labels || []).map(l => (
+                  <span key={l} className="ml-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700">{l}</span>
+                ))}
+              </span>
+            )}
             {(dossier.woningType || meta?.woningType) && <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">{dossier.woningType || meta?.woningType}</span>}
             {meta?.energieLabel && <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">Label {meta.energieLabel}</span>}
           </div>

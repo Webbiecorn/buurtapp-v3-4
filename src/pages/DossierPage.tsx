@@ -236,11 +236,13 @@ const DossierPage: React.FC = () => {
             <option value="in onderzoek">In onderzoek</option>
           </select>
         </div>
-        <span className="flex items-center gap-1">
-          Labels: {dossier.labels.map(label => (
-            <span key={label} className="font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">{label}</span>
-          ))}
-        </span>
+        {Array.isArray(dossier.labels) && dossier.labels.length > 0 && (
+          <span className="flex items-center gap-1">
+            Labels: {dossier.labels.map(label => (
+              <span key={label} className="font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">{label}</span>
+            ))}
+          </span>
+        )}
         {meta && (
           <span className="flex items-center gap-2">
             {meta.woningType && <span className="px-2 py-1 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">{meta.woningType}</span>}
