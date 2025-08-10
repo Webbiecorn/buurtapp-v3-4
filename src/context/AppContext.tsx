@@ -1,7 +1,7 @@
 // Dossier functionaliteit
 // Plaats deze na de imports zodat alle Firestore helpers beschikbaar zijn
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { User, UserRole, AppContextType, Melding, MeldingStatus, Project, ProjectStatus, Urenregistratie, Taak, Notificatie, ProjectContribution, MeldingUpdate, WoningDossier, DossierNotitie, DossierDocument, DossierTaak, DossierBewoner, DossierHistorieItem, DossierReactie, DossierStatus, DossierLabel } from '../types';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import { User, UserRole, AppContextType, Melding, MeldingStatus, Project, Urenregistratie, Taak, Notificatie, ProjectContribution, MeldingUpdate, WoningDossier, DossierNotitie, DossierDocument, DossierTaak, DossierBewoner, DossierHistorieItem, DossierReactie, DossierStatus } from '../types';
 import { db, storage } from '../firebase';
 import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, Timestamp, arrayUnion, query, where, getDocs, writeBatch, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -37,9 +37,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [meldingen, setMeldingen] = useState<Melding[]>([]);
   const [projecten, setProjecten] = useState<Project[]>([]);
   const [urenregistraties, setUrenregistraties] = useState<Urenregistratie[]>([]);
-  const [taken, setTaken] = useState<Taak[]>([]);
+  const [taken] = useState<Taak[]>([]);
   const [notificaties, setNotificaties] = useState<Notificatie[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const seededUsers = useRef(false);
 
   const toggleTheme = useCallback(() => {
     setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
@@ -67,9 +68,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [theme]);
 
   useEffect(() => {
-    const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as User)));
-      setIsInitialLoading(false); 
+    async function seedDefaultUsers() {
+      const demo = [
+        { name: 'Admin Annie', email: 'admin@example.com', role: UserRole.Beheerder },
+        { name: 'Concierge Chris', email: 'concierge@example.com', role: UserRole.Concierge },
+        { name: 'Viewer Vera', email: 'viewer@example.com', role: UserRole.Viewer },
+      ];
+      for (const u of demo) {
+        await addDoc(collection(db, 'users'), {
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          avatarUrl: `https://i.pravatar.cc/150?u=${encodeURIComponent(u.email)}`,
+          phone: '0612345678',
+        });
+      }
+    }
+
+    const unsubscribeUsers = onSnapshot(collection(db, 'users'), async (snapshot) => {
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as User));
+      if (list.length === 0 && import.meta.env.DEV && !seededUsers.current) {
+        try {
+          seededUsers.current = true;
+          await seedDefaultUsers();
+          return; // wacht op volgende snapshot met data
+        } catch (e) {
+          console.warn('Seeden van testgebruikers mislukt:', e);
+          seededUsers.current = false;
+        }
+      }
+      setUsers(list);
+      setIsInitialLoading(false);
     });
     
     const unsubscribeMeldingen = onSnapshot(collection(db, 'meldingen'), (snapshot) => {
@@ -387,6 +416,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const createNewDossier = useCallback(async (adres: string): Promise<WoningDossier> => {
     const newDossier: WoningDossier = {
       id: adres,
+  adres,
       notities: [],
       documenten: [],
       taken: [],
@@ -449,8 +479,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         id: `doc-${Date.now()}`,
         url,
         name: file.name,
-        userId: currentUser.id,
         uploadedAt: new Date(),
+        userId: currentUser.id,
       };
       await updateDoc(dossierRef, {
         documenten: arrayUnion(docObj)
@@ -489,15 +519,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const addDossierBewoner = useCallback(async (adres: string, bewoner: Omit<DossierBewoner, 'id'>): Promise<void> => {
     try {
       const dossierRef = doc(db, 'dossiers', adres);
-      const bewonerObj: DossierBewoner = {
-        ...bewoner,
-        id: `bewoner-${Date.now()}`,
-      };
+  // undefined-velden strippen om Firestore errors te voorkomen
+  const cleaned = Object.fromEntries(Object.entries(bewoner).filter(([_, v]) => v !== undefined)) as Omit<DossierBewoner, 'id'>;
+  const bewonerObj: DossierBewoner = { ...cleaned, id: `bewoner-${Date.now()}` } as DossierBewoner;
       await updateDoc(dossierRef, {
         bewoners: arrayUnion(bewonerObj)
       });
     } catch (error) {
       console.error('Error adding dossier bewoner:', error);
+    }
+  }, []);
+
+  const updateDossierBewoner = useCallback(async (adres: string, bewonerId: string, patch: Partial<Pick<DossierBewoner, 'name' | 'contact' | 'extraInfo' | 'to'>>): Promise<void> => {
+    try {
+      const dossierRef = doc(db, 'dossiers', adres);
+      const dossierSnap = await getDoc(dossierRef);
+      if (!dossierSnap.exists()) return;
+      const data = dossierSnap.data() as any;
+      const bewoners: DossierBewoner[] = data.bewoners || [];
+  const idx = bewoners.findIndex(b => b.id === bewonerId);
+      if (idx === -1) return;
+  const merged: any = { ...bewoners[idx], ...patch };
+  // strip undefined properties so Firestore doesn't store undefined
+  Object.keys(merged).forEach(k => merged[k] === undefined && delete merged[k]);
+  bewoners[idx] = merged as DossierBewoner;
+      await updateDoc(dossierRef, { bewoners });
+    } catch (error) {
+      console.error('Error updating dossier bewoner:', error);
+    }
+  }, []);
+
+  const removeDossierBewoner = useCallback(async (adres: string, bewonerId: string): Promise<void> => {
+    try {
+      const dossierRef = doc(db, 'dossiers', adres);
+      const dossierSnap = await getDoc(dossierRef);
+      if (!dossierSnap.exists()) return;
+      const data = dossierSnap.data() as any;
+      const bewoners: DossierBewoner[] = data.bewoners || [];
+      const filtered = bewoners.filter(b => b.id !== bewonerId);
+      await updateDoc(dossierRef, { bewoners: filtered });
+    } catch (error) {
+      console.error('Error removing dossier bewoner:', error);
     }
   }, []);
 
@@ -582,6 +644,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addDossierTaak,
     updateDossierStatus,
     addDossierBewoner,
+  updateDossierBewoner,
+  removeDossierBewoner,
     addDossierHistorie,
     addDossierReactie,
   };
