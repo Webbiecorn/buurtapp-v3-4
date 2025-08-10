@@ -485,12 +485,27 @@ export const ActiveColleaguesPage: React.FC = () => {
         setMessage('');
     };
 
-    const handleSendMessage = (e: React.FormEvent) => {
+    const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (message.trim() && selectedColleague) {
-            alert(`Bericht verzonden naar ${selectedColleague.name}:\n\n"${message}"`);
-            handleCloseMessageModal();
+        if (!message.trim() || !selectedColleague || !currentUser) return;
+        try {
+            const { db } = await import('../firebase');
+            const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
+            await addDoc(collection(db, 'notificaties'), {
+                userId: selectedColleague.id,
+                message: `Bericht van ${currentUser.name}: ${message.trim()}`,
+                link: '',
+                isRead: false,
+                timestamp: serverTimestamp(),
+                targetId: currentUser.id,
+                targetType: 'message'
+            });
+        } catch (err) {
+            console.error('Bericht verzenden mislukt:', err);
+            alert('Versturen mislukt. Probeer later opnieuw.');
+            return;
         }
+        handleCloseMessageModal();
     };
 
     const handleCall = (user: User) => {
@@ -506,12 +521,10 @@ export const ActiveColleaguesPage: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">Actieve Collega's</h1>
              <div className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+              <table className="w-full text-left">
                         <thead className="border-b border-gray-200 dark:border-dark-border">
                             <tr>
                                 <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Naam</th>
-                                <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Actieve Taak</th>
-                                <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Starttijd</th>
                                 <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary text-center">Contact</th>
                             </tr>
                         </thead>
@@ -524,8 +537,6 @@ export const ActiveColleaguesPage: React.FC = () => {
                                             <img src={user.avatarUrl} alt={user.name} className="h-8 w-8 rounded-full mr-3" />
                                             {user.name}
                                         </td>
-                                        <td className="p-3 text-gray-800 dark:text-dark-text-primary">{entry?.activiteit} - {entry?.details}</td>
-                                        <td className="p-3 text-gray-800 dark:text-dark-text-primary">{entry && format(entry.starttijd, 'HH:mm', { locale: nl })}</td>
                                         <td className="p-3 text-center">
                                             {currentUser?.id !== user.id ? (
                                                 <div className="flex justify-center items-center space-x-2">
@@ -543,9 +554,9 @@ export const ActiveColleaguesPage: React.FC = () => {
                                     </tr>
                                 )
                             })}
-                             {activeUsers.length === 0 && (
+                 {activeUsers.length === 0 && (
                                 <tr>
-                                    <td colSpan={4} className="text-center p-6 text-gray-500 dark:text-dark-text-secondary">Geen collega's actief op dit moment.</td>
+                     <td colSpan={2} className="text-center p-6 text-gray-500 dark:text-dark-text-secondary">Geen collega's actief op dit moment.</td>
                                 </tr>
                             )}
                         </tbody>
