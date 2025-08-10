@@ -367,6 +367,93 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [currentUser]);
 
+  const updateUrenregistratie = useCallback(async (id: string, patch: Partial<Pick<Urenregistratie, 'starttijd' | 'eindtijd' | 'activiteit' | 'details'>>): Promise<void> => {
+    if (!currentUser) return;
+    try {
+      const entryRef = doc(db, 'urenregistraties', id);
+      const snap = await getDoc(entryRef);
+      if (!snap.exists()) return;
+      const data = snap.data() as any;
+      // Toestemming: eigenaar of Beheerder mag wijzigen
+      if (data.gebruikerId !== currentUser.id && currentUser.role !== UserRole.Beheerder) {
+        console.warn('Geen toestemming om deze urenregistratie te wijzigen.');
+        throw new Error('Geen toestemming om deze urenregistratie te wijzigen.');
+      }
+      // 21-dagen beperking voor niet-beheerders
+      const ms21d = 21 * 24 * 60 * 60 * 1000;
+      const nowMs = Date.now();
+      const startDate: Date = data.starttijd instanceof Timestamp ? data.starttijd.toDate() : new Date(data.starttijd);
+      const isWithin21Days = (d: Date) => nowMs - d.getTime() <= ms21d;
+      if (currentUser.role !== UserRole.Beheerder) {
+        // bestaande entry moet binnen 21 dagen liggen
+        if (!isWithin21Days(startDate)) {
+          console.warn('Aanpassen beperkt tot 21 dagen na starttijd.');
+          throw new Error('Aanpassen beperkt tot 21 dagen na starttijd.');
+        }
+      }
+
+      // Validaties voor nieuwe tijden
+      const proposedStart = patch.starttijd ? new Date(patch.starttijd) : (data.starttijd instanceof Timestamp ? data.starttijd.toDate() : new Date(data.starttijd));
+      const proposedEnd = patch.eindtijd ? new Date(patch.eindtijd) : (data.eindtijd ? (data.eindtijd instanceof Timestamp ? data.eindtijd.toDate() : new Date(data.eindtijd)) : undefined);
+      if (!proposedEnd) {
+        throw new Error('Eindtijd is verplicht om te kunnen bewerken.');
+      }
+      if (proposedStart.getTime() >= proposedEnd.getTime()) {
+        console.warn('Starttijd moet vóór eindtijd liggen.');
+        throw new Error('Starttijd moet vóór eindtijd liggen.');
+      }
+      if (currentUser.role !== UserRole.Beheerder && proposedStart && !isWithin21Days(proposedStart)) {
+        console.warn('Nieuwe starttijd valt buiten 21 dagen.');
+        throw new Error('Nieuwe starttijd valt buiten 21 dagen.');
+      }
+
+      // Overlap-detectie tegen andere registraties van dezelfde gebruiker
+      const userIdToCheck: string = data.gebruikerId;
+      const startMs = proposedStart.getTime();
+      const endMs = proposedEnd.getTime();
+      const overlaps = urenregistraties.some(u => {
+        if (u.id === id) return false;
+        if (u.gebruikerId !== userIdToCheck) return false;
+        if (!u.eindtijd) return false;
+        const us = new Date(u.starttijd).getTime();
+        const ue = new Date(u.eindtijd).getTime();
+        return startMs < ue && us < endMs; // interval overlap
+      });
+      if (overlaps) {
+        console.warn('Deze tijden overlappen met een andere urenregistratie.');
+        throw new Error('Deze tijden overlappen met een andere urenregistratie.');
+      }
+      const sanitized: any = { ...patch };
+      Object.keys(sanitized).forEach(k => sanitized[k] === undefined && delete sanitized[k]);
+      await updateDoc(entryRef, sanitized);
+    } catch (error) {
+      console.error('Error updating urenregistratie:', error);
+      throw error;
+    }
+  }, [currentUser, urenregistraties]);
+
+  const deleteUrenregistratie = useCallback(async (id: string): Promise<void> => {
+    if (!currentUser) return;
+    try {
+      const entryRef = doc(db, 'urenregistraties', id);
+      const snap = await getDoc(entryRef);
+      if (!snap.exists()) return;
+      const data = snap.data() as any;
+      if (data.gebruikerId !== currentUser.id && currentUser.role !== UserRole.Beheerder) {
+        throw new Error('Geen toestemming om deze urenregistratie te verwijderen.');
+      }
+      const ms21d = 21 * 24 * 60 * 60 * 1000;
+      const startDate: Date = data.starttijd instanceof Timestamp ? data.starttijd.toDate() : new Date(data.starttijd);
+      if (currentUser.role !== UserRole.Beheerder && (Date.now() - startDate.getTime() > ms21d)) {
+        throw new Error('Verwijderen is beperkt tot 21 dagen na starttijd.');
+      }
+      await deleteDoc(entryRef);
+    } catch (error) {
+      console.error('Error deleting urenregistratie:', error);
+      throw error;
+    }
+  }, [currentUser]);
+
   const addUser = useCallback(async (newUser: Omit<User, 'id' | 'avatarUrl' | 'phone'>) => {
     try {
       await addDoc(collection(db, 'users'), {
@@ -693,6 +780,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     switchUrenregistratie,
     stopUrenregistratie,
     getActiveUrenregistratie,
+  updateUrenregistratie,
+  deleteUrenregistratie,
     addUser,
     updateUserRole,
     removeUser,
