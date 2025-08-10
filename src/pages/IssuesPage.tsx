@@ -9,7 +9,8 @@ import { MOCK_WIJKEN } from '../data/mockData';
 
 type Tab = 'Lopende' | 'Fixi Meldingen' | 'Afgeronde';
 
-const NewMeldingForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+type Toast = { type: 'success' | 'error'; message: string };
+const NewMeldingForm: React.FC<{ onClose: () => void; onToast: (t: Toast) => void }> = ({ onClose, onToast }) => {
     const { addMelding, uploadFile } = useAppContext();
     const [titel, setTitel] = useState('');
     const [omschrijving, setOmschrijving] = useState('');
@@ -66,13 +67,12 @@ const NewMeldingForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 status: status,
             };
             await addMelding(newMelding);
-            // eenvoudige toast via alert of een in-component flash
-            alert('Melding aangemaakt.');
+            onToast({ type: 'success', message: 'Melding aangemaakt.' });
             onClose();
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Upload mislukt:", error);
-            alert("Er is iets misgegaan bij het uploaden van de afbeeldingen.");
+            onToast({ type: 'error', message: error?.message || 'Upload mislukt.' });
     } finally {
             setIsUploading(false);
         }
@@ -176,6 +176,8 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
             await addMeldingUpdate(melding.id, { text: newUpdateText, attachments: attachmentURLs });
             setNewUpdateText('');
             setNewUpdateAttachments([]);
+            // Sluit de popup na succesvol plaatsen
+            onClose();
 
         } catch (error) {
             console.error("Update upload mislukt:", error);
@@ -322,6 +324,7 @@ const IssuesPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<Tab>('Lopende');
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
     const [selectedMelding, setSelectedMelding] = useState<Melding | null>(null);
+    const [pageToast, setPageToast] = useState<Toast | null>(null);
 
     const isUnseen = (meldingId: string): boolean => {
         if (currentUser?.role !== UserRole.Beheerder) {
@@ -402,11 +405,16 @@ const IssuesPage: React.FC = () => {
             )}
 
             <Modal isOpen={isNewModalOpen} onClose={() => setIsNewModalOpen(false)} title="Nieuwe Melding Maken">
-                <NewMeldingForm onClose={() => setIsNewModalOpen(false)} />
+                <NewMeldingForm onClose={() => setIsNewModalOpen(false)} onToast={(t)=>{ setPageToast(t); setTimeout(()=>setPageToast(null), 2500); }} />
             </Modal>
             
             {meldingForModal && (
               <MeldingDetailModal melding={meldingForModal} onClose={() => setSelectedMelding(null)} />
+            )}
+            {pageToast && (
+                <div className={`fixed bottom-4 right-4 px-4 py-2 rounded shadow-lg ${pageToast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+                    {pageToast.message}
+                </div>
             )}
         </div>
     );
