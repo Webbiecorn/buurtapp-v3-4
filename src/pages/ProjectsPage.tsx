@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Project, ProjectStatus, UserRole } from '../types';
 import { ProjectCard, Modal, NewProjectForm } from '../components/ui';
@@ -25,6 +25,8 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
     const [newContributionAttachments, setNewContributionAttachments] = useState<File[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+    // Preview overlay for activity attachments
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
     const contributionFileInputRef = React.useRef<HTMLInputElement>(null);
 
     const canEditProject = currentUser?.role === UserRole.Beheerder || currentUser?.id === project.creatorId;
@@ -99,6 +101,18 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
         setEditedStatus(project.status);
         setIsEditing(false);
     };
+
+    // Close preview with Escape key when open
+    useEffect(() => {
+        if (!previewImage) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setPreviewImage(null);
+            }
+        };
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [previewImage]);
 
     return (
         <Modal isOpen={true} onClose={onClose} title={isEditing ? 'Project Bewerken' : project.title}>
@@ -194,7 +208,22 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
                                             {c.text && <p className="text-sm text-gray-600 dark:text-dark-text-secondary mt-1">{c.text}</p>}
                                             {c.attachments.length > 0 && (
                                                 <div className="mt-2 grid grid-cols-2 gap-2">
-                                                    {c.attachments.map((img, idx) => <img key={idx} src={img} className="h-24 w-full object-cover rounded"/>)}
+                                                    {c.attachments.map((img, idx) => (
+                                                        <button
+                                                            key={idx}
+                                                            type="button"
+                                                            onClick={() => setPreviewImage(img)}
+                                                            className="group relative focus:outline-none cursor-zoom-in"
+                                                            aria-label="Vergroot bijlage"
+                                                        >
+                                                            <img
+                                                                src={img}
+                                                                alt={`Bijlage ${idx + 1}`}
+                                                                className="h-24 w-full object-cover rounded transition-transform group-hover:scale-[1.02]"
+                                                            />
+                                                            <span className="pointer-events-none absolute inset-0 rounded bg-black/0 group-hover:bg-black/15 transition-colors" />
+                                                        </button>
+                                                    ))}
                                                 </div>
                                             )}
                                         </div>
@@ -253,6 +282,31 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
                             </button>
                         </div>
                     )}
+                </div>
+            )}
+            {/* Fullscreen image preview overlay */}
+            {previewImage && (
+                <div
+                    className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-[1px] flex items-center justify-center p-4"
+                    onClick={() => setPreviewImage(null)}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Voorbeeld bijlage"
+                >
+                    <button
+                        type="button"
+                        onClick={() => setPreviewImage(null)}
+                        className="absolute top-4 right-4 text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-full p-2"
+                        aria-label="Sluiten"
+                    >
+                        <XIcon className="h-5 w-5" />
+                    </button>
+                    <img
+                        src={previewImage}
+                        alt="Voorbeeld bijlage"
+                        onClick={(e) => e.stopPropagation()}
+                        className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-2xl"
+                    />
                 </div>
             )}
         </Modal>
