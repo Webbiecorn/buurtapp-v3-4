@@ -1,7 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { UserRole } from '../types';
-import { Modal, NewProjectForm } from '../components/ui';
+import { DossierStatus, UserRole } from '../types';
+import { Modal, NewProjectForm, StatCard } from '../components/ui';
+import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { collection, onSnapshot, Timestamp } from 'firebase/firestore';
+import { db } from '../firebase';
+import { format } from 'date-fns';
+import nl from 'date-fns/locale/nl';
+import subMonths from 'date-fns/subMonths';
+import { eachMonthOfInterval } from 'date-fns';
 
 const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const { addUser } = useAppContext();
@@ -71,10 +78,109 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 };
 
 
+type SlimDossier = {
+  id: string;
+  status: DossierStatus;
+  woningType?: string | null;
+  createdAt?: Date | null;
+};
+
+const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#ef4444', '#f97316', '#eab308', '#22c55e'];
+
 const AdminPage: React.FC = () => {
-    const { users, updateUserRole, removeUser } = useAppContext();
+    const { users, projecten, updateUserRole, removeUser, theme } = useAppContext();
+    const [dossiers, setDossiers] = useState<SlimDossier[]>([]);
     const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
     const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+    
+    // Subscribe to dossiers (analytics only)
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, 'dossiers'), (ss) => {
+            const list: SlimDossier[] = ss.docs.map(d => {
+                const v: any = d.data();
+                // derive createdAt from eerste historie-item met type 'Aanmaak' of earliest date
+                let created: Date | null = null;
+                if (Array.isArray(v.historie) && v.historie.length) {
+                    const dates = v.historie
+                      .map((h: any) => h?.date instanceof Timestamp ? h.date.toDate() : (h?.date ? new Date(h.date) : null))
+                      .filter(Boolean) as Date[];
+                    if (dates.length) created = new Date(Math.min(...dates.map(d => d.getTime())));
+                }
+                return {
+                    id: d.id,
+                    status: (v.status as DossierStatus) || 'actief',
+                    woningType: v.woningType ?? null,
+                    createdAt: created,
+                };
+            });
+            setDossiers(list);
+        });
+        return () => unsub();
+    }, []);
+
+    // Stats
+    const projectStats = useMemo(() => {
+        const totaal = projecten.length;
+        const lopend = projecten.filter(p => String(p.status) === 'Lopend').length;
+        const afgerond = projecten.filter(p => String(p.status) === 'Afgerond').length;
+        return { totaal, lopend, afgerond };
+    }, [projecten]);
+
+    const dossierStats = useMemo(() => {
+        const totaal = dossiers.length;
+        const actief = dossiers.filter(d => d.status === 'actief').length;
+        const afgesloten = dossiers.filter(d => d.status === 'afgesloten').length;
+        const onderzoek = dossiers.filter(d => d.status === 'in onderzoek').length;
+        return { totaal, actief, afgesloten, onderzoek };
+    }, [dossiers]);
+
+    // Trends (last 6 months)
+    const months = useMemo(() => eachMonthOfInterval({ start: subMonths(new Date(), 5), end: new Date() }), []);
+    const projectTrend = useMemo(() => {
+        return months.map(ms => {
+            const me = new Date(ms.getFullYear(), ms.getMonth() + 1, 0);
+            const maand = format(ms, 'MMM', { locale: nl });
+            const nieuw = projecten.filter(p => p.startDate >= ms && p.startDate <= me).length;
+            const afgerond = projecten.filter(p => p.endDate && p.endDate >= ms && p.endDate <= me).length;
+            return { maand, nieuw, afgerond };
+        });
+    }, [months, projecten]);
+
+    const dossierTrend = useMemo(() => {
+        return months.map(ms => {
+            const me = new Date(ms.getFullYear(), ms.getMonth() + 1, 0);
+            const maand = format(ms, 'MMM', { locale: nl });
+            const nieuw = dossiers.filter(d => d.createdAt && d.createdAt >= ms && d.createdAt <= me).length;
+            return { maand, nieuw };
+        });
+    }, [months, dossiers]);
+
+    // Distributions
+    const dossierStatusData = useMemo(() => (
+        [
+            { name: 'Actief', value: dossiers.filter(d => d.status === 'actief').length },
+            { name: 'Afgesloten', value: dossiers.filter(d => d.status === 'afgesloten').length },
+            { name: 'In onderzoek', value: dossiers.filter(d => d.status === 'in onderzoek').length },
+        ]
+    ), [dossiers]);
+
+    const woningTypeData = useMemo(() => {
+        const counts = dossiers.reduce((acc, d) => {
+            const key = d.woningType || 'Onbekend';
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+        const arr = Object.entries(counts).map(([name, value]) => ({ name, value }));
+        // top 6 + overig
+        arr.sort((a, b) => b.value - a.value);
+        const top = arr.slice(0, 6);
+        const rest = arr.slice(6).reduce((s, x) => s + x.value, 0);
+        return rest > 0 ? [...top, { name: 'Overig', value: rest }] : top;
+    }, [dossiers]);
+
+    const tickColor = theme === 'dark' ? '#9ca3af' : '#6b7280';
+    const gridColor = theme === 'dark' ? '#374151' : '#e5e7eb';
+    const tooltipStyle = theme === 'dark' ? { backgroundColor: '#1f2937', border: '1px solid #374151' } : { backgroundColor: '#ffffff', border: '1px solid #e5e7eb' };
     
     const handleRoleChange = (userId: string, newRole: UserRole) => {
         updateUserRole(userId, newRole);
@@ -93,6 +199,72 @@ const AdminPage: React.FC = () => {
     return (
         <div className="space-y-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">Beheer</h1>
+
+            {/* Admin Dashboard: Projecten & Woningdossiers */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <StatCard icon={<span className="font-bold">P</span>} title="Projecten (totaal)" value={projectStats.totaal} color="bg-indigo-600" />
+                <StatCard icon={<span className="font-bold">▶</span>} title="Projecten (lopend)" value={projectStats.lopend} color="bg-blue-600" />
+                <StatCard icon={<span className="font-bold">✔</span>} title="Projecten (afgerond)" value={projectStats.afgerond} color="bg-green-600" />
+                <StatCard icon={<span className="font-bold">🏠</span>} title="Dossiers (totaal)" value={dossierStats.totaal} color="bg-rose-600" />
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
+                    <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Projecten: trend (laatste 6 mnd)</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <LineChart data={projectTrend}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                            <XAxis dataKey="maand" stroke={tickColor} fontSize={12} />
+                            <YAxis stroke={tickColor} fontSize={12} allowDecimals={false} />
+                            <Tooltip contentStyle={tooltipStyle} />
+                            <Legend wrapperStyle={{ color: tickColor }} />
+                            <Line type="monotone" dataKey="nieuw" stroke="#3b82f6" name="Gestart" strokeWidth={2} />
+                            <Line type="monotone" dataKey="afgerond" stroke="#22c55e" name="Afgerond" strokeWidth={2} />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+                <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
+                    <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Dossiers: nieuwe per maand</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={dossierTrend}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                            <XAxis dataKey="maand" stroke={tickColor} fontSize={12} />
+                            <YAxis stroke={tickColor} fontSize={12} allowDecimals={false} />
+                            <Tooltip contentStyle={tooltipStyle} />
+                            <Bar dataKey="nieuw" fill="#ef4444" name="Nieuwe dossiers" />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
+                    <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Dossierstatus</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                            <Pie data={dossierStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                                {dossierStatusData.map((_, idx) => (
+                                    <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip contentStyle={tooltipStyle} />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+                <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
+                    <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Woningtype verdeling</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                            <Pie data={woningTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                                {woningTypeData.map((_, idx) => (
+                                    <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip contentStyle={tooltipStyle} />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
 
             <div className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
                 <div className="flex justify-between items-center mb-4">
