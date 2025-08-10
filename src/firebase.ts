@@ -19,12 +19,14 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-if (import.meta.env.DEV) {
+// Gebruik emulators alleen als expliciet aangezet via VITE_USE_EMULATORS=true
+const useEmulators = import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true';
+if (useEmulators) {
   // Verbind met de Firestore emulator
-  connectFirestoreEmulator(db, '127.0.0.1', 8081);
-  
+  connectFirestoreEmulator(db, '127.0.0.1', 8083);
   // Verbind met de Storage emulator
-  connectStorageEmulator(storage, '127.0.0.1', 9199);
-  
-  console.log("Applicatie is verbonden met de lokale Firebase emulators.");
+  connectStorageEmulator(storage, '127.0.0.1', 9201);
+  console.log("Applicatie is verbonden met de lokale Firebase emulators op aangepaste poorten.");
+} else if (import.meta.env.DEV) {
+  console.log("DEV zonder emulators: verbonden met Firebase project 'buurtapp-v3-4'. Zet VITE_USE_EMULATORS=true om lokaal te verbinden.");
 }

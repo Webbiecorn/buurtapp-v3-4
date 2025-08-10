@@ -21,6 +21,9 @@ import { eachMonthOfInterval } from 'date-fns';
 
 const StatisticsPage: React.FC = () => {
   const { meldingen, projecten, urenregistraties, users, theme } = useAppContext();
+  const [monthsBack, setMonthsBack] = useState(5);
+  const [projectStatusFilter, setProjectStatusFilter] = useState<'alle' | 'Lopend' | 'Afgerond'>('alle');
+  const [dossierStatusFilter, setDossierStatusFilter] = useState<'alle' | 'actief' | 'afgesloten' | 'in onderzoek'>('alle');
   const [selectedMeldingId, setSelectedMeldingId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedDossierId, setSelectedDossierId] = useState<string | null>(null);
@@ -73,16 +76,18 @@ const StatisticsPage: React.FC = () => {
   const mapId = theme === 'dark' ? GOOGLE_MAP_DARK_ID : GOOGLE_MAP_LIGHT_ID;
 
   // Trends: Projecten (gestart/afgerond) en Dossiers (nieuw) laatste 6 maanden
-  const months = useMemo(() => eachMonthOfInterval({ start: subMonths(new Date(), 5), end: new Date() }), []);
+  const months = useMemo(() => eachMonthOfInterval({ start: subMonths(new Date(), monthsBack), end: new Date() }), [monthsBack]);
   const projectTrend = useMemo(() => months.map(ms => {
     const me = new Date(ms.getFullYear(), ms.getMonth() + 1, 0);
     const maand = format(ms, 'MMM', { locale: nl });
-    const nieuw = projecten.filter(p => p.startDate >= ms && p.startDate <= me).length;
-    const afgerond = projecten.filter(p => p.endDate && p.endDate >= ms && p.endDate <= me).length;
+    const started = projecten.filter(p => p.startDate >= ms && p.startDate <= me);
+    const finished = projecten.filter(p => p.endDate && p.endDate >= ms && p.endDate <= me);
+    const nieuw = projectStatusFilter === 'alle' || projectStatusFilter === 'Lopend' ? started.length : 0;
+    const afgerond = projectStatusFilter === 'alle' || projectStatusFilter === 'Afgerond' ? finished.length : 0;
     return { maand, nieuw, afgerond };
-  }), [months, projecten]);
+  }), [months, projecten, projectStatusFilter]);
 
-  const [dossiersForTrend, setDossiersForTrend] = useState<Array<{ createdAt?: Date | null }>>([]);
+  const [dossiersForTrend, setDossiersForTrend] = useState<Array<{ createdAt?: Date | null; status?: string }>>([]);
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'dossiers'), (ss) => {
       const arr = ss.docs.map(d => {
@@ -95,7 +100,7 @@ const StatisticsPage: React.FC = () => {
             .filter(Boolean) as Date[];
           if (dates.length) created = new Date(Math.min(...dates.map(d => d.getTime())));
         }
-        return { createdAt: created };
+        return { createdAt: created, status: v?.status };
       });
       setDossiersForTrend(arr);
     });
@@ -105,9 +110,10 @@ const StatisticsPage: React.FC = () => {
   const dossierTrend = useMemo(() => months.map(ms => {
     const me = new Date(ms.getFullYear(), ms.getMonth() + 1, 0);
     const maand = format(ms, 'MMM', { locale: nl });
-    const nieuw = dossiersForTrend.filter(d => d.createdAt && d.createdAt >= ms && d.createdAt <= me).length;
+    const base = dossiersForTrend.filter(d => d.createdAt && d.createdAt >= ms && d.createdAt <= me);
+    const nieuw = dossierStatusFilter === 'alle' ? base.length : base.filter((x: any) => x.status === dossierStatusFilter).length;
     return { maand, nieuw };
-  }), [months, dossiersForTrend]);
+  }), [months, dossiersForTrend, dossierStatusFilter]);
 
   return (
     <div className="space-y-8">
@@ -115,7 +121,23 @@ const StatisticsPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
         <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Projecten: trend (laatste 6 mnd)</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-dark-text-primary">Projecten: trend</h2>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 dark:text-dark-text-secondary">Periode:</label>
+              <select value={monthsBack} onChange={e => setMonthsBack(parseInt(e.target.value))} className="bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md py-1 px-2 text-sm">
+                <option value={5}>6 maanden</option>
+                <option value={11}>12 maanden</option>
+                <option value={23}>24 maanden</option>
+              </select>
+              <label className="text-sm text-gray-600 dark:text-dark-text-secondary">Type:</label>
+              <select value={projectStatusFilter} onChange={e => setProjectStatusFilter(e.target.value as any)} className="bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md py-1 px-2 text-sm">
+                <option value="alle">Gestart & Afgerond</option>
+                <option value="Lopend">Alleen gestart</option>
+                <option value="Afgerond">Alleen afgerond</option>
+              </select>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={projectTrend}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
@@ -130,7 +152,18 @@ const StatisticsPage: React.FC = () => {
         </div>
 
         <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Dossiers: nieuwe per maand</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-dark-text-primary">Dossiers: nieuwe per maand</h2>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 dark:text-dark-text-secondary">Status:</label>
+              <select value={dossierStatusFilter} onChange={e => setDossierStatusFilter(e.target.value as any)} className="bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md py-1 px-2 text-sm">
+                <option value="alle">alle</option>
+                <option value="actief">actief</option>
+                <option value="afgesloten">afgesloten</option>
+                <option value="in onderzoek">in onderzoek</option>
+              </select>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={dossierTrend}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
