@@ -494,6 +494,111 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [currentUser]);
 
+  // Chat/conversatie API
+  const getOrCreateConversation = useCallback(async (participants: string[], title?: string) => {
+    if (!currentUser) throw new Error('Geen gebruiker ingelogd');
+    const sorted = Array.from(new Set(participants)).sort();
+    const participantsKey = sorted.join('_');
+    // zoek bestaande conversatie
+    const q = query(collection(db, 'conversations'), where('participantsKey', '==', participantsKey));
+    const qs = await getDocs(q);
+    if (!qs.empty) {
+      const snap = qs.docs[0];
+      const data = snap.data() as any;
+      return {
+        id: snap.id,
+        participants: data.participants || sorted,
+        participantsKey: data.participantsKey || participantsKey,
+        title: data.title,
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+        createdBy: data.createdBy || currentUser.id,
+        lastMessage: data.lastMessage ? { ...data.lastMessage, at: (data.lastMessage.at instanceof Timestamp ? data.lastMessage.at.toDate() : new Date()) } : undefined,
+        lastSeen: data.lastSeen ? Object.fromEntries(Object.entries(data.lastSeen).map(([k, v]: any) => [k, v instanceof Timestamp ? v.toDate() : v])) : {},
+      };
+    }
+    // maak nieuwe conversatie aan
+    const docRef = await addDoc(collection(db, 'conversations'), {
+      participants: sorted,
+      participantsKey,
+      title: title || undefined,
+      createdAt: serverTimestamp(),
+      createdBy: currentUser.id,
+      lastSeen: { [currentUser.id]: serverTimestamp() },
+    });
+    return {
+      id: docRef.id,
+      participants: sorted,
+      participantsKey,
+      title,
+      createdAt: new Date(),
+      createdBy: currentUser.id,
+      lastSeen: { [currentUser.id]: new Date() },
+    } as any;
+  }, [currentUser]);
+
+  const sendChatMessage = useCallback(async (conversationId: string, input: { text?: string; files?: File[] }) => {
+    if (!currentUser) throw new Error('Geen gebruiker ingelogd');
+    try {
+      const attachments: Array<{ url: string; type: 'image' | 'pdf' | 'file'; name: string; size: number }> = [];
+      if (input.files && input.files.length) {
+        for (const f of input.files) {
+          const safeName = `${Date.now()}-${f.name}`;
+          const path = `conversations/${conversationId}/${safeName}`;
+          const url = await uploadFile(f, path);
+          const type: 'image' | 'pdf' | 'file' = f.type?.startsWith('image/') ? 'image' : (f.type === 'application/pdf' ? 'pdf' : 'file');
+          attachments.push({ url, type, name: f.name, size: f.size });
+        }
+      }
+      // schrijf bericht
+      await addDoc(collection(db, 'conversations', conversationId, 'messages'), {
+        text: input.text || null,
+        attachments: attachments.length ? attachments : null,
+        userId: currentUser.id,
+        createdAt: serverTimestamp(),
+      });
+      // update conversation lastMessage
+      const convRef = doc(db, 'conversations', conversationId);
+      await updateDoc(convRef, {
+        lastMessage: {
+          text: input.text || null,
+          at: serverTimestamp(),
+          userId: currentUser.id,
+          attachmentsCount: attachments.length || null,
+        }
+      });
+      // stuur notificaties naar overige deelnemers
+      const convSnap = await getDoc(convRef);
+      const convData = convSnap.data() as any;
+      const participants: string[] = convData?.participants || [];
+      for (const uid of participants) {
+        if (uid === currentUser.id) continue;
+        await addDoc(collection(db, 'notificaties'), {
+          userId: uid,
+          message: `${currentUser.name} stuurde een bericht` + (input.text ? `: "${String(input.text).slice(0, 80)}"` : ''),
+          link: `/chat/${conversationId}`,
+          isRead: false,
+          timestamp: serverTimestamp(),
+          targetId: conversationId,
+          targetType: 'message'
+        });
+      }
+    } catch (e) {
+      console.error('Error sending chat message:', e);
+      throw e;
+    }
+  }, [currentUser, uploadFile]);
+
+  const markConversationSeen = useCallback(async (conversationId: string) => {
+    if (!currentUser) return;
+    try {
+      const convRef = doc(db, 'conversations', conversationId);
+      // dynamische field path
+      await updateDoc(convRef, { [`lastSeen.${currentUser.id}`]: serverTimestamp() });
+    } catch (e) {
+      console.warn('Kon conversatie niet als gezien markeren:', e);
+    }
+  }, [currentUser]);
+
   const createNewDossier = useCallback(async (adres: string): Promise<WoningDossier> => {
     const newDossier: WoningDossier = {
       id: adres,
@@ -794,6 +899,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   removeDossierBewoner,
     addDossierHistorie,
     addDossierReactie,
+  // Chat
+  getOrCreateConversation,
+  sendChatMessage,
+  markConversationSeen,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

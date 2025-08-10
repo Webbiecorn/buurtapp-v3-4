@@ -183,6 +183,34 @@ export interface Notificatie {
   targetType: 'melding' | 'project' | 'message';
 }
 
+// Chat/conversatie types
+export interface ChatAttachment {
+  url: string;
+  type: 'image' | 'pdf' | 'file';
+  name: string;
+  size: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  text?: string;
+  attachments?: ChatAttachment[];
+  userId: string;
+  createdAt: Date;
+}
+
+export interface Conversation {
+  id: string;
+  participants: string[];
+  participantsKey: string; // sorted participants joined
+  title?: string;
+  createdAt: Date;
+  createdBy: string;
+  lastMessage?: { text?: string; at: Date; userId: string; attachmentsCount?: number };
+  lastSeen?: Record<string, Date>;
+}
+
 // Context Types
 export interface AppContextType {
   createNewDossier: (adres: string) => Promise<WoningDossier>;
@@ -231,6 +259,11 @@ export interface AppContextType {
   updateUserRole: (userId: string, newRole: UserRole) => void;
   removeUser: (userId: string) => void;
   updateUserProfile: (userId: string, data: Partial<Pick<User, 'name' | 'email' | 'phone' | 'avatarUrl'>>) => void;
+
+  // Chat API
+  getOrCreateConversation: (participants: string[], title?: string) => Promise<Conversation>;
+  sendChatMessage: (conversationId: string, input: { text?: string; files?: File[] }) => Promise<void>;
+  markConversationSeen: (conversationId: string) => Promise<void>;
 }
 
 export interface AppProviderProps {
