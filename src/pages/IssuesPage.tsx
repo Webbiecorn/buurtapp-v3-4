@@ -66,12 +66,14 @@ const NewMeldingForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 status: status,
             };
             await addMelding(newMelding);
+            // eenvoudige toast via alert of een in-component flash
+            alert('Melding aangemaakt.');
             onClose();
 
         } catch (error) {
             console.error("Upload mislukt:", error);
             alert("Er is iets misgegaan bij het uploaden van de afbeeldingen.");
-        } finally {
+    } finally {
             setIsUploading(false);
         }
     };
@@ -145,6 +147,7 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
     const [newUpdateAttachments, setNewUpdateAttachments] = useState<File[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const updateFileInputRef = useRef<HTMLInputElement>(null);
+    const [localToast, setLocalToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     const handleUpdateFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
@@ -182,9 +185,16 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
         }
     };
 
-    const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newStatus = e.target.value as MeldingStatus;
-        updateMeldingStatus(melding.id, newStatus);
+        try {
+            await updateMeldingStatus(melding.id, newStatus);
+            setLocalToast({ type: 'success', message: 'Status bijgewerkt.' });
+        } catch (err: any) {
+            setLocalToast({ type: 'error', message: err?.message || 'Status bijwerken mislukt.' });
+        } finally {
+            setTimeout(() => setLocalToast(null), 2000);
+        }
     };
 
     const canEdit = currentUser?.role !== UserRole.Viewer;
@@ -297,6 +307,11 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
                     )}
                 </div>
             </div>
+            {localToast && (
+                <div className={`mt-4 px-4 py-2 rounded ${localToast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+                    {localToast.message}
+                </div>
+            )}
         </Modal>
     );
 };

@@ -148,13 +148,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return getDownloadURL(storageRef);
   }, []);
 
-  const addMelding = useCallback(async (melding: Omit<Melding, 'id' | 'timestamp' | 'updates' | 'gebruikerId'>) => {
+  const addMelding = useCallback(async (melding: Omit<Melding, 'id' | 'timestamp' | 'updates' | 'gebruikerId'>): Promise<void> => {
     if (!currentUser) return;
     try {
       const apiUrl = `${import.meta.env.VITE_API_URL}/createMelding`;
       
       // We 'fire and forget' het request. De onSnapshot listener handelt de UI update af.
-      fetch(apiUrl, {
+  await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -163,23 +163,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           ...melding,
           gebruikerId: currentUser.id,
         }),
-      }).then(response => {
-        if (!response.ok) {
-            // Log de fout, maar blokkeer de app niet
-            console.error(`Failed to create melding: ${response.status}`);
-        }
-        // De notificatie logica kan hier eventueel nog worden toegevoegd,
-        // maar voor nu is het belangrijkste dat de app niet vastloopt.
-      }).catch(error => {
-        console.error("Error sending melding request:", error);
-      });
+  });
 
     } catch (error) {
       console.error("Error adding melding:", error);
+  throw error;
     }
   }, [currentUser]);
 
-  const updateMeldingStatus = useCallback(async (id: string, status: MeldingStatus) => {
+  const updateMeldingStatus = useCallback(async (id: string, status: MeldingStatus): Promise<void> => {
     try {
       const meldingRef = doc(db, 'meldingen', id);
       const updates: any = { status };
@@ -189,10 +181,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await updateDoc(meldingRef, updates);
     } catch (error) {
       console.error("Error updating melding status:", error);
+      throw error;
     }
   }, []);
 
-  const addMeldingUpdate = useCallback(async (meldingId: string, update: Omit<MeldingUpdate, 'id' | 'timestamp' | 'userId'>) => {
+  const addMeldingUpdate = useCallback(async (meldingId: string, update: Omit<MeldingUpdate, 'id' | 'timestamp' | 'userId'>): Promise<void> => {
     if (!currentUser) return;
     try {
       const meldingRef = doc(db, 'meldingen', meldingId);
@@ -207,6 +200,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
     } catch (error) {
       console.error("Error adding melding update:", error);
+      throw error;
     }
   }, [currentUser]);
 
