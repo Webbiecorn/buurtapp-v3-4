@@ -86,8 +86,8 @@ const TimeTrackingPage: React.FC = () => {
     const [editDetails, setEditDetails] = useState<string>('');
     const [editError, setEditError] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [toast, setToast] = useState<string | null>(null);
     const [filter, setFilter] = useState<'today' | 'week' | 'month'>('week');
+    const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     const activeEntry = getActiveUrenregistratie();
     const { formattedTime, isActive } = useTimer(activeEntry?.starttijd);
@@ -105,6 +105,8 @@ const TimeTrackingPage: React.FC = () => {
 
     const handleStop = () => {
         stopUrenregistratie();
+        setToast({ type: 'success', message: 'Werkdag gestopt.' });
+        setTimeout(() => setToast(null), 2500);
     };
 
     const filteredEntries = useMemo(() => {
@@ -161,11 +163,6 @@ const TimeTrackingPage: React.FC = () => {
 
     return (
         <div className="space-y-8">
-            {toast && (
-                <div className="fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow z-40" role="status" aria-live="polite">
-                    {toast}
-                </div>
-            )}
             <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">Urenregistratie</h1>
 
             <div className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-8 flex flex-col items-center justify-center space-y-6">
@@ -212,6 +209,7 @@ const TimeTrackingPage: React.FC = () => {
                                 <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Activiteit</th>
                                 <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Start/Eind</th>
                                 <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Duur</th>
+                                <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Acties</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -220,38 +218,45 @@ const TimeTrackingPage: React.FC = () => {
                                     <td className="p-3 text-gray-800 dark:text-dark-text-primary">{format(entry.starttijd, 'dd MMM yyyy', { locale: nl })}</td>
                                     <td className="p-3 text-gray-800 dark:text-dark-text-primary">{entry.activiteit} - <span className="text-gray-500 dark:text-dark-text-secondary">{entry.details}</span></td>
                                     <td className="p-3 text-gray-800 dark:text-dark-text-primary">{format(entry.starttijd, 'HH:mm')} - {entry.eindtijd && format(entry.eindtijd, 'HH:mm')}</td>
-                                    <td className="p-3 text-gray-800 dark:text-dark-text-primary flex items-center gap-2">
-                                        <span>{formatEntryDuration(entry)}</span>
-                                        <button
-                                            type="button"
-                                            className="ml-2 px-2 py-1 text-xs rounded bg-gray-200 dark:bg-dark-border hover:bg-gray-300 dark:hover:bg-gray-600"
-                                            onClick={() => {
-                                                setEditEntry(entry);
-                                                const toLocal = (d?: Date) => d ? new Date(d).toISOString().slice(0,16) : '';
-                                                setEditStart(toLocal(entry.starttijd));
-                                                setEditEnd(toLocal(entry.eindtijd));
-                                                setEditActiviteit(entry.activiteit);
-                                                setEditDetails(entry.details);
-                                                setEditError(null);
-                                            }}
-                                        >Bewerken</button>
-                                        <button
-                                            type="button"
-                                            className="px-2 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200"
-                                            onClick={async () => {
-                                                if (confirm('Weet je zeker dat je deze registratie wilt verwijderen?')) {
-                                                    await deleteUrenregistratie(entry.id);
-                                                    setToast('Registratie verwijderd');
-                                                    setTimeout(() => setToast(null), 2000);
-                                                }
-                                            }}
-                                        >Verwijderen</button>
+                                    <td className="p-3 text-gray-800 dark:text-dark-text-primary">{formatEntryDuration(entry)}</td>
+                                    <td className="p-3 text-gray-800 dark:text-dark-text-primary">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                className="px-2 py-1 text-xs rounded bg-gray-200 dark:bg-dark-border hover:bg-gray-300 dark:hover:bg-gray-600"
+                                                onClick={() => {
+                                                    setEditEntry(entry);
+                                                    const toLocal = (d?: Date) => d ? new Date(d).toISOString().slice(0,16) : '';
+                                                    setEditStart(toLocal(entry.starttijd));
+                                                    setEditEnd(toLocal(entry.eindtijd));
+                                                    setEditActiviteit(entry.activiteit);
+                                                    setEditDetails(entry.details);
+                                                    setEditError(null);
+                                                }}
+                                            >Bewerken</button>
+                                            <button
+                                                type="button"
+                                                className="px-2 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300"
+                                                onClick={async () => {
+                                                    const ok = confirm('Weet je zeker dat je deze urenregistratie wilt verwijderen?');
+                                                    if (!ok) return;
+                                                    try {
+                                                        await deleteUrenregistratie(entry.id);
+                                                        setToast({ type: 'success', message: 'Urenregistratie verwijderd.' });
+                                                    } catch (e: any) {
+                                                        setToast({ type: 'error', message: e?.message || 'Verwijderen mislukt.' });
+                                                    } finally {
+                                                        setTimeout(() => setToast(null), 2500);
+                                                    }
+                                                }}
+                                            >Verwijderen</button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
                             {filteredEntries.length === 0 && (
                                 <tr>
-                                    <td colSpan={4} className="text-center p-6 text-gray-500 dark:text-dark-text-secondary">Geen uren geregistreerd in deze periode.</td>
+                                    <td colSpan={5} className="text-center p-6 text-gray-500 dark:text-dark-text-secondary">Geen uren geregistreerd in deze periode.</td>
                                 </tr>
                             )}
                         </tbody>
@@ -260,7 +265,7 @@ const TimeTrackingPage: React.FC = () => {
             </div>
             {isModalOpen && <StartWorkModal onClose={() => setIsModalOpen(false)} onStart={handleModalSubmit} isSwitching={isActive} />}
 
-                        {editEntry && (
+            {editEntry && (
                 <Modal isOpen={true} onClose={() => setEditEntry(null)} title={`Urenregistratie bewerken (${format(editEntry.starttijd, 'dd MMM yyyy', { locale: nl })})`}>
                     <form className="space-y-3" onSubmit={async (e) => {
                         e.preventDefault();
@@ -269,25 +274,22 @@ const TimeTrackingPage: React.FC = () => {
                         const start = new Date(editStart);
                         const end = new Date(editEnd);
                         if (start >= end) { setEditError('Starttijd moet vóór eindtijd liggen.'); return; }
-                                                // Overlap check in UI voor directe feedback (context valideert ook)
-                                                const overlap = urenregistraties
-                                                    .filter(u => u.gebruikerId === currentUser?.id && u.id !== editEntry.id && u.eindtijd)
-                                                    .some(u => {
-                                                        const oStart = new Date(u.starttijd).getTime();
-                                                        const oEnd = new Date(u.eindtijd as Date).getTime();
-                                                        return start.getTime() < oEnd && end.getTime() > oStart;
-                                                    });
-                                                if (overlap) { setEditError('Deze tijden overlappen met een bestaande registratie.'); return; }
                         // 21-dagen check in UI (info); server enforce is in context
                         const within21 = Date.now() - start.getTime() <= 21*24*60*60*1000;
                         if (!within21 && currentUser?.role !== 'Beheerder') {
                             setEditError('Aanpassen beperkt tot 21 dagen na starttijd.');
                             return;
                         }
-                        await updateUrenregistratie(editEntry.id, { starttijd: start, eindtijd: end, activiteit: editActiviteit, details: editDetails });
-                        setEditEntry(null);
-                                                setToast('Registratie opgeslagen');
-                                                setTimeout(() => setToast(null), 2000);
+                        try {
+                            await updateUrenregistratie(editEntry.id, { starttijd: start, eindtijd: end, activiteit: editActiviteit, details: editDetails });
+                            setToast({ type: 'success', message: 'Urenregistratie bijgewerkt.' });
+                            setEditEntry(null);
+                        } catch (e: any) {
+                            setEditError(e?.message || 'Opslaan mislukt.');
+                            setToast({ type: 'error', message: e?.message || 'Opslaan mislukt.' });
+                        } finally {
+                            setTimeout(() => setToast(null), 2500);
+                        }
                     }}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <label className="text-xs text-gray-600 dark:text-dark-text-secondary">
@@ -319,6 +321,11 @@ const TimeTrackingPage: React.FC = () => {
                         <p className="text-xs text-gray-500 mt-2">Let op: aanpassen is toegestaan binnen 21 dagen (behalve voor beheerders).</p>
                     </form>
                 </Modal>
+            )}
+            {toast && (
+                <div className={`fixed bottom-4 right-4 px-4 py-2 rounded shadow-lg ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+                    {toast.message}
+                </div>
             )}
         </div>
     );

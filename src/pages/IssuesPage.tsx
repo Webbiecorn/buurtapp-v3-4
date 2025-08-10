@@ -2,9 +2,9 @@ import React, { useState, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Melding, MeldingStatus, UserRole } from '../types';
 import { MeldingCard, Modal, getStatusColor } from '../components/ui';
-import { PlusCircleIcon, CameraIcon, MapPinIcon, SendIcon, XIcon, PaperclipIcon, TrashIcon } from '../components/Icons';
+import { PlusCircleIcon, CameraIcon, MapPinIcon, SendIcon, TrashIcon } from '../components/Icons';
 import { format } from 'date-fns';
-import nl from 'date-fns/locale/nl';
+import { nl } from 'date-fns/locale/nl';
 import { MOCK_WIJKEN } from '../data/mockData';
 
 type Tab = 'Lopende' | 'Fixi Meldingen' | 'Afgeronde';
@@ -33,9 +33,9 @@ const NewMeldingForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     };
     
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            setAttachments(prev => [...prev, ...Array.from(e.target.files)]);
-        }
+        const files = e.target.files;
+        if (!files) return;
+        setAttachments(prev => [...prev, ...Array.from(files)]);
     };
     
     const removeAttachment = (index: number) => {
@@ -147,9 +147,9 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
     const updateFileInputRef = useRef<HTMLInputElement>(null);
 
     const handleUpdateFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            setNewUpdateAttachments(prev => [...prev, ...Array.from(e.target.files)]);
-        }
+        const files = e.target.files;
+        if (!files) return;
+        setNewUpdateAttachments(prev => [...prev, ...Array.from(files)]);
     };
 
     const removeUpdateAttachment = (index: number) => {

@@ -11,15 +11,25 @@ app.use(createDossierRouter);
 
 app.post('/createMelding', async (req: express.Request, res: express.Response) => {
     try {
-        const { titel, omschrijving, locatie, wijk, categorie, gebruikerId, attachments } = req.body;
+    const { titel, omschrijving, locatie, wijk, categorie, gebruikerId, attachments, status } = req.body;
 
         if (!titel || !omschrijving || !wijk || !gebruikerId) {
             return res.status(400).send({ error: 'Verplichte velden ontbreken.' });
         }
 
+        // Valideer status; standaard naar 'In behandeling' als onbekend of leeg
+        const allowedStatuses = ['In behandeling', 'Fixi melding gemaakt', 'Afgerond'];
+        const safeStatus = allowedStatuses.includes(status) ? status : 'In behandeling';
+
         const newMelding = {
-            titel, omschrijving, locatie: locatie || null, wijk, categorie: categorie || 'Overig',
-            gebruikerId, attachments: attachments || [], status: 'In behandeling',
+            titel,
+            omschrijving,
+            locatie: locatie || null,
+            wijk,
+            categorie: categorie || 'Overig',
+            gebruikerId,
+            attachments: attachments || [],
+            status: safeStatus,
             timestamp: serverTimestamp(), // LET OP: NU AANGEROEPEN ALS FUNCTIE
             updates: [],
         };
