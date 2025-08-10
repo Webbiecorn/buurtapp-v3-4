@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Melding, MeldingStatus, UserRole } from '../types';
 import { MeldingCard, Modal, getStatusColor } from '../components/ui';
-import { PlusCircleIcon, CameraIcon, MapPinIcon, SendIcon, TrashIcon } from '../components/Icons';
+import { PlusCircleIcon, CameraIcon, MapPinIcon, SendIcon, TrashIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '../components/Icons';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale/nl';
 import { MOCK_WIJKEN } from '../data/mockData';
@@ -110,12 +110,12 @@ const NewMeldingForm: React.FC<{ onClose: () => void; onToast: (t: Toast) => voi
                         <MapPinIcon className="h-5 w-5 mr-2" /> GPS Locatie
                     </button>
                  </div>
-                 <input
+                          <input
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileChange}
                     multiple
-                    accept="image/*"
+                              accept="image/*,application/pdf,video/*"
                     className="hidden"
                 />
                  {attachments.length > 0 && (
@@ -148,6 +148,65 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
     const [isUploading, setIsUploading] = useState(false);
     const updateFileInputRef = useRef<HTMLInputElement>(null);
     const [localToast, setLocalToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    // Preview overlay (images/pdf/video) + carousel
+    const [previewItems, setPreviewItems] = useState<string[] | null>(null);
+    const [previewIndex, setPreviewIndex] = useState<number>(0);
+
+    React.useEffect(() => {
+        if (!previewItems) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setPreviewItems(null);
+            if (e.key === 'ArrowLeft') setPreviewIndex((i) => (previewItems ? (i - 1 + previewItems.length) % previewItems.length : 0));
+            if (e.key === 'ArrowRight') setPreviewIndex((i) => (previewItems ? (i + 1) % previewItems.length : 0));
+        };
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [previewItems]);
+
+    const openPreview = (items: string[], index: number) => {
+        setPreviewItems(items);
+        setPreviewIndex(index);
+    };
+    const closePreview = () => setPreviewItems(null);
+
+    const getType = (url: string) => {
+        const lower = url.split('?')[0].toLowerCase();
+        if (lower.endsWith('.pdf')) return 'pdf';
+        if (/(youtube\.com|youtu\.be)/.test(lower)) return 'video-embed';
+        if (lower.match(/\.(mp4|webm|ogg)$/)) return 'video';
+        if (lower.match(/\.(png|jpe?g|gif|webp|svg)$/)) return 'image';
+        return 'unknown';
+    };
+
+    const renderInline = (url: string) => {
+        const t = getType(url);
+        if (t === 'image') {
+            return <img src={url} alt="Voorbeeld bijlage" className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-2xl" onClick={(e) => e.stopPropagation()} />;
+        }
+        if (t === 'video') {
+            return (
+                <video controls className="max-h-[85vh] max-w-[90vw] rounded shadow-2xl bg-black" onClick={(e) => e.stopPropagation()}>
+                    <source src={url} />
+                    Je browser ondersteunt de video tag niet.
+                </video>
+            );
+        }
+        if (t === 'video-embed') {
+            return (
+                <iframe src={url} className="w-[90vw] h-[70vh] rounded shadow-2xl bg-black" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen onClick={(e) => e.stopPropagation()} />
+            );
+        }
+        if (t === 'pdf') {
+            return (
+                <iframe src={`${url}#toolbar=1`} className="w-[90vw] h-[90vh] rounded shadow-2xl bg-white" onClick={(e) => e.stopPropagation()} />
+            );
+        }
+        return (
+            <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center px-4 py-2 rounded bg-white text-gray-800 shadow">
+                <DownloadIcon className="h-5 w-5 mr-2" /> Download bijlage
+            </a>
+        );
+    };
 
     const handleUpdateFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
@@ -202,10 +261,58 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
     const canEdit = currentUser?.role !== UserRole.Viewer;
 
     return (
+        <>
         <Modal isOpen={true} onClose={onClose} title={melding.titel}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                    <img src={melding.attachments[0]} alt={melding.titel} className="w-full h-64 object-cover rounded-lg" />
+                    {melding.attachments[0] && (() => {
+                        const first = melding.attachments[0];
+                        const t = getType(first);
+                        const isImage = t === 'image';
+                        return isImage ? (
+                            <img
+                                src={first}
+                                alt={melding.titel}
+                                className="w-full h-64 object-cover rounded-lg cursor-zoom-in"
+                                onClick={() => openPreview(melding.attachments, 0)}
+                            />
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => openPreview(melding.attachments, 0)}
+                                className="w-full h-64 rounded-lg bg-gray-200 dark:bg-dark-border flex items-center justify-center text-sm text-gray-700 dark:text-gray-200 cursor-pointer"
+                                aria-label="Open bijlage"
+                            >
+                                {t === 'pdf' ? 'PDF voorbeeld' : t.startsWith('video') ? 'Video' : 'Bijlage'}
+                            </button>
+                        );
+                    })()}
+                    {melding.attachments.length > 1 && (
+                        <div className="grid grid-cols-3 gap-2">
+                            {melding.attachments.map((att, idx) => {
+                                const type = getType(att);
+                                const isImage = type === 'image';
+                                return (
+                                    <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => openPreview(melding.attachments, idx)}
+                                        className={`group relative focus:outline-none ${isImage ? 'cursor-zoom-in' : 'cursor-pointer'}`}
+                                        aria-label="Open bijlage"
+                                    >
+                                        {isImage ? (
+                                            <img src={att} alt={`bijlage ${idx + 1}`} className="h-20 w-full object-cover rounded transition-transform group-hover:scale-[1.02]" />
+                                        ) : (
+                                            <div className="h-20 w-full rounded bg-gray-200 dark:bg-dark-border flex items-center justify-center text-xs text-gray-700 dark:text-gray-200 px-2 text-center">
+                                                {type === 'pdf' ? 'PDF' : type.startsWith('video') ? 'Video' : 'Bijlage'}
+                                            </div>
+                                        )}
+                                        <span className="pointer-events-none absolute inset-0 rounded bg-black/0 group-hover:bg-black/15 transition-colors" />
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                     <div>
                         <h3 className="font-semibold text-lg text-gray-900 dark:text-dark-text-primary mb-2">Omschrijving</h3>
                         <p className="text-gray-600 dark:text-dark-text-secondary">{melding.omschrijving}</p>
@@ -247,11 +354,28 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
                                             <p className="text-sm text-gray-600 dark:text-dark-text-secondary mt-1">{update.text}</p>
                                             {update.attachments && update.attachments.length > 0 && (
                                                 <div className="mt-2 grid grid-cols-3 gap-2">
-                                                    {update.attachments.map((att, idx) => (
-                                                        <a key={idx} href={att} target="_blank" rel="noopener noreferrer">
-                                                           <img src={att} alt={`bijlage ${idx}`} className="h-20 w-full object-cover rounded"/>
-                                                        </a>
-                                                    ))}
+                                                    {update.attachments.map((att, idx) => {
+                                                        const type = getType(att);
+                                                        const isImage = type === 'image';
+                                                        return (
+                                                            <button
+                                                                key={idx}
+                                                                type="button"
+                                                                onClick={() => openPreview(update.attachments!, idx)}
+                                                                className={`group relative focus:outline-none ${isImage ? 'cursor-zoom-in' : 'cursor-pointer'}`}
+                                                                aria-label="Open bijlage"
+                                                            >
+                                                                {isImage ? (
+                                                                    <img src={att} alt={`bijlage ${idx + 1}`} className="h-20 w-full object-cover rounded transition-transform group-hover:scale-[1.02]" />
+                                                                ) : (
+                                                                    <div className="h-20 w-full rounded bg-gray-200 dark:bg-dark-border flex items-center justify-center text-xs text-gray-700 dark:text-gray-200 px-2 text-center">
+                                                                        {type === 'pdf' ? 'PDF voorbeeld' : type.startsWith('video') ? 'Video' : 'Bijlage'}
+                                                                    </div>
+                                                                )}
+                                                                <span className="pointer-events-none absolute inset-0 rounded bg-black/0 group-hover:bg-black/15 transition-colors" />
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             )}
                                         </div>
@@ -272,12 +396,12 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
                                 placeholder="Voeg een opmerking toe..."
                                 rows={3}
                              />
-                              <input
+                                                                                            <input
                                 type="file"
                                 ref={updateFileInputRef}
                                 onChange={handleUpdateFileChange}
                                 multiple
-                                accept="image/*"
+                                                                                                accept="image/*,application/pdf,video/*"
                                 className="hidden"
                             />
                              {newUpdateAttachments.length > 0 && (
@@ -294,7 +418,7 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
                              )}
                              <div className="flex justify-between items-center mt-2">
                                 <button type="button" onClick={() => updateFileInputRef.current?.click()} className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-dark-border text-sm font-medium rounded-md text-gray-700 dark:text-dark-text-secondary bg-white dark:bg-dark-bg hover:bg-gray-100 dark:hover:bg-dark-border">
-                                    <CameraIcon className="h-4 w-4 mr-2"/> Foto
+                                    <CameraIcon className="h-4 w-4 mr-2"/> Foto/Bestand
                                 </button>
                                 <div className="flex items-center space-x-2">
                                    <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-300 dark:border-dark-border text-sm font-medium rounded-md text-gray-700 dark:text-dark-text-secondary bg-white dark:bg-dark-bg hover:bg-gray-100 dark:hover:bg-dark-border">
@@ -314,7 +438,48 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
                     {localToast.message}
                 </div>
             )}
-        </Modal>
+    </Modal>
+        {/* Fullscreen preview overlay */}
+        {previewItems && (
+            <div
+                className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-[1px] flex items-center justify-center p-4"
+                onClick={closePreview}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Voorbeeld bijlage"
+            >
+                <button
+                    type="button"
+                    onClick={closePreview}
+                    className="absolute top-4 right-4 text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-full p-2"
+                    aria-label="Sluiten"
+                >
+                    <XIcon className="h-5 w-5" />
+                </button>
+                {previewItems.length > 1 && (
+                    <>
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setPreviewIndex((i) => (i - 1 + previewItems.length) % previewItems.length); }}
+                            className="absolute left-4 md:left-6 text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-full p-2"
+                            aria-label="Vorige"
+                        >
+                            <ChevronLeftIcon className="h-6 w-6" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setPreviewIndex((i) => (i + 1) % previewItems.length); }}
+                            className="absolute right-14 md:right-16 text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-full p-2"
+                            aria-label="Volgende"
+                        >
+                            <ChevronRightIcon className="h-6 w-6" />
+                        </button>
+                    </>
+                )}
+                {renderInline(previewItems[previewIndex])}
+            </div>
+        )}
+    </>
     );
 };
 
