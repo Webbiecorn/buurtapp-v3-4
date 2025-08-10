@@ -208,34 +208,7 @@ const AdminPage: React.FC = () => {
                 <StatCard icon={<span className="font-bold">🏠</span>} title="Dossiers (totaal)" value={dossierStats.totaal} color="bg-rose-600" />
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
-                    <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Projecten: trend (laatste 6 mnd)</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={projectTrend}>
-                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                            <XAxis dataKey="maand" stroke={tickColor} fontSize={12} />
-                            <YAxis stroke={tickColor} fontSize={12} allowDecimals={false} />
-                            <Tooltip contentStyle={tooltipStyle} />
-                            <Legend wrapperStyle={{ color: tickColor }} />
-                            <Line type="monotone" dataKey="nieuw" stroke="#3b82f6" name="Gestart" strokeWidth={2} />
-                            <Line type="monotone" dataKey="afgerond" stroke="#22c55e" name="Afgerond" strokeWidth={2} />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </div>
-                <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
-                    <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Dossiers: nieuwe per maand</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={dossierTrend}>
-                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                            <XAxis dataKey="maand" stroke={tickColor} fontSize={12} />
-                            <YAxis stroke={tickColor} fontSize={12} allowDecimals={false} />
-                            <Tooltip contentStyle={tooltipStyle} />
-                            <Bar dataKey="nieuw" fill="#ef4444" name="Nieuwe dossiers" />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
+            {/* Trends verplaatst naar Statistieken pagina */}
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
