@@ -417,6 +417,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const newDossier: WoningDossier = {
       id: adres,
   adres,
+  location: null,
       notities: [],
       documenten: [],
       taken: [],
@@ -434,6 +435,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     const dossierRef = doc(db, 'dossiers', adres);
     await setDoc(dossierRef, newDossier);
+    // Achtergrondverrijking met PDOK locatie
+  (async () => {
+      try {
+        const { fetchDossierMeta } = await import('../services/dossierMeta');
+        const meta = await fetchDossierMeta(adres);
+    const patch: any = {};
+    if (meta.location) patch.location = meta.location;
+    if (meta.woningType) patch.woningType = meta.woningType;
+    if (Object.keys(patch).length) await updateDoc(dossierRef, patch);
+      } catch (e) {
+        console.warn('Kon PDOK locatie niet ophalen bij aanmaken dossier:', e);
+      }
+    })();
     return newDossier;
   }, [currentUser]);
 
@@ -442,7 +456,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const dossierRef = doc(db, 'dossiers', adres);
       const docSnap = await getDoc(dossierRef);
       if (docSnap.exists()) {
-        return { id: docSnap.id, ...convertTimestamps(docSnap.data()) } as WoningDossier;
+        const data = { id: docSnap.id, ...convertTimestamps(docSnap.data()) } as WoningDossier;
+        // Verrijk met PDOK locatie als nog niet aanwezig
+    if (!data.location || !data.woningType) {
+          try {
+            const { fetchDossierMeta } = await import('../services/dossierMeta');
+            const meta = await fetchDossierMeta(adres);
+      const patch: any = {};
+      if (!data.location && meta.location) { patch.location = meta.location; data.location = meta.location; }
+      if (!data.woningType && meta.woningType) { patch.woningType = meta.woningType; data.woningType = meta.woningType; }
+      if (Object.keys(patch).length) await updateDoc(dossierRef, patch);
+          } catch {}
+        }
+        return data;
       }
       return null;
     } catch (error) {

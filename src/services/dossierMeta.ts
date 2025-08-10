@@ -6,6 +6,7 @@ export interface DossierMeta {
   woningType?: string | null;
   energieLabel?: string | null;
   bagId?: string | null; // nummeraanduiding_id
+  location?: { lat: number; lon: number } | null;
 }
 
 const PDOK_FREE = 'https://api.pdok.nl/bzk/locatieserver/search/v3_1/free';
@@ -16,15 +17,27 @@ async function fetchJson(url: string) {
   return res.json();
 }
 
-// Try to get nummeraanduiding id from an address string
-async function resolveAdresToNummeraanduidingId(adres: string): Promise<string | null> {
+// Try to get nummeraanduiding id and coordinates from an address string
+async function resolveAdresToNummeraanduidingId(adres: string): Promise<{ naId: string | null; location: { lat: number; lon: number } | null }> {
   const q = encodeURIComponent(adres);
   const url = `${PDOK_FREE}?fq=type:adres&q=${q}&rows=1`;
   const data = await fetchJson(url);
   const doc = data?.response?.docs?.[0];
-  if (!doc) return null;
+  if (!doc) return { naId: null, location: null };
   // For 'adres' type, the id is usually the nummeraanduiding id
-  return doc.id || doc.nummeraanduiding_id || null;
+  const naId: string | null = doc.id || doc.nummeraanduiding_id || null;
+  // Parse coordinates from 'centroide_ll' e.g., "POINT(4.899 52.372)" -> lon, lat
+  let location: { lat: number; lon: number } | null = null;
+  const point = doc.centroide_ll as string | undefined;
+  if (point) {
+    const m = /POINT\(([-0-9.]+) ([-0-9.]+)\)/.exec(point);
+    if (m) {
+      const lon = parseFloat(m[1]);
+      const lat = parseFloat(m[2]);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) location = { lat, lon };
+    }
+  }
+  return { naId, location };
 }
 
 // With nummeraanduiding_id, find verblijfsobject and its gebruiksdoel
@@ -100,7 +113,7 @@ function buildAddressKey(
 
 export async function fetchDossierMeta(adres: string): Promise<DossierMeta> {
   try {
-    const naId = await resolveAdresToNummeraanduidingId(adres);
+  const { naId, location } = await resolveAdresToNummeraanduidingId(adres);
     let woningType: string | null = null;
     if (naId) {
       woningType = await getWoningTypeFromPDOK(naId);
@@ -118,9 +131,9 @@ export async function fetchDossierMeta(adres: string): Promise<DossierMeta> {
         }
       } catch {}
     }
-    return { woningType, energieLabel, bagId: naId };
+  return { woningType, energieLabel, bagId: naId, location };
   } catch (e) {
     console.warn('fetchDossierMeta failed', e);
-    return { woningType: null, energieLabel: null, bagId: null };
+  return { woningType: null, energieLabel: null, bagId: null, location: null };
   }
 }

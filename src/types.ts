@@ -51,6 +51,8 @@ export type DossierLabel = 'woning' | 'bedrijf' | 'overig';
 export interface WoningDossier {
   id: string; // adres
   adres: string;
+  location?: { lat: number; lon: number } | null;
+  woningType?: string | null;
   notities: DossierNotitie[];
   documenten: DossierDocument[];
   taken: DossierTaak[];
