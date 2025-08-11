@@ -1,6 +1,6 @@
 import cors from 'cors';
 import express from 'express';
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v2/https';
 import createDossierRouter from './createDossier';
 import { db, serverTimestamp } from './firebase-admin-init';
 
@@ -45,5 +45,5 @@ app.post('/createMelding', async (req: express.Request, res: express.Response) =
     }
 });
 
-export const api = functions.https.onRequest(app);
+export const api = functions.onRequest(app);
 

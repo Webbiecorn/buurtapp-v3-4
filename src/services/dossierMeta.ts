@@ -4,7 +4,6 @@
 
 export interface DossierMeta {
   woningType?: string | null;
-  energieLabel?: string | null;
   bagId?: string | null; // nummeraanduiding_id
   location?: { lat: number; lon: number } | null;
 }
@@ -56,33 +55,6 @@ async function getWoningTypeFromPDOK(naId: string): Promise<string | null> {
   return gd[0] || null;
 }
 
-// Placeholder: energy labels typically come from EP-Online (RVO). Often requires API/token or preprocessing.
-async function getEnergieLabelForAdres(_adres: string): Promise<string | null> {
-  try {
-    // We must reconstruct the normalized address key by asking PDOK for parts.
-    const q = encodeURIComponent(_adres);
-    const data = await fetchJson(`${PDOK_FREE}?fq=type:adres&q=${q}&rows=1`);
-    const doc = data?.response?.docs?.[0];
-    if (!doc) return null;
-    const straat = doc.straatnaam || doc.weergavenaam || '';
-    const huisnummer = String(doc.huisnummer || '');
-    const toevoeging = doc.huisnummertoevoeging || doc.huisletter || '';
-    const postcode = (doc.postcode || '').toString();
-    const woonplaats = doc.woonplaatsnaam || '';
-    const key = buildAddressKey(straat, huisnummer, toevoeging, postcode, woonplaats);
-    // Lazy import Firestore client to avoid bundling issues in non-browser contexts
-    const { db } = await import('../firebase');
-    const { doc: fsDoc, getDoc } = await import('firebase/firestore');
-    const snap = await getDoc(fsDoc(db, 'energyLabels', key));
-    if (snap.exists()) {
-      const label = (snap.data() as any)?.label as string | undefined;
-      return label || null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 function normalize(str?: string | null) {
   if (!str) return '';
@@ -118,22 +90,9 @@ export async function fetchDossierMeta(adres: string): Promise<DossierMeta> {
     if (naId) {
       woningType = await getWoningTypeFromPDOK(naId);
     }
-    // Prefer Firestore (CSV import) first so it works offline/API-less
-    let energieLabel: string | null = await getEnergieLabelForAdres(adres);
-    // Fallback to server proxy if not present in Firestore
-    if (!energieLabel) {
-      try {
-        const url = `/api/energyLabel?adres=${encodeURIComponent(adres)}`;
-        const resp = await fetch(url);
-        if (resp.ok) {
-          const data = await resp.json();
-          energieLabel = data?.label ?? null;
-        }
-      } catch {}
-    }
-  return { woningType, energieLabel, bagId: naId, location };
+  return { woningType, bagId: naId, location };
   } catch (e) {
     console.warn('fetchDossierMeta failed', e);
-  return { woningType: null, energieLabel: null, bagId: null, location: null };
+  return { woningType: null, bagId: null, location: null };
   }
 }
