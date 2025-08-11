@@ -246,7 +246,6 @@ const DossierPage: React.FC = () => {
         {meta && (
           <span className="flex items-center gap-2">
             {meta.woningType && <span className="px-2 py-1 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">{meta.woningType}</span>}
-            {meta.energieLabel && <span className="px-2 py-1 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">Label {meta.energieLabel}</span>}
           </span>
         )}
   <Link to={`/dossier/${encodeURIComponent(dossier.id)}`} className="ml-auto px-3 py-1 rounded bg-gray-600 text-white">Overzicht</Link>
@@ -853,6 +852,9 @@ const DossierPage: React.FC = () => {
                         await uploadDossierDocument(dossier.id, file);
                         const updated = await getDossier(dossier.id);
                         setDossier(updated);
+                      } catch (err: any) {
+                        console.error('Upload mislukt:', err);
+                        alert(`Upload mislukt: ${err?.message || err}`);
                       } finally {
                         setUploadingDoc(false);
                         e.currentTarget.value = '';

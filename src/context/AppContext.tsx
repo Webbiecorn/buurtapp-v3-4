@@ -6,6 +6,23 @@ import { db, storage } from '../firebase';
 import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, Timestamp, arrayUnion, query, where, getDocs, writeBatch, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
+// Sanitize filenames for Firebase Storage (forbidden: #, ?, *, [, ], /, \, :, etc.)
+const sanitizeFileName = (name: string): string => {
+  const trimmed = (name || '').trim();
+  const dot = trimmed.lastIndexOf('.');
+  const base = dot > -1 ? trimmed.slice(0, dot) : trimmed;
+  const ext = dot > -1 ? trimmed.slice(dot + 1) : '';
+  // Replace forbidden/suspect chars and collapse spaces
+  const safeBase = base
+    .replace(/[#?*\[\]\\/:\n\r\t]+/g, '_')
+    .replace(/\s+/g, ' ')
+    .slice(0, 80)
+    .trim();
+  const safeExt = ext.replace(/[^A-Za-z0-9]+/g, '').slice(0, 10);
+  const finalBase = safeBase || 'bestand';
+  return safeExt ? `${finalBase}.${safeExt}` : finalBase;
+};
+
 const convertTimestamps = (data: any) => {
   const convertedData = { ...data };
   for (const key in convertedData) {
@@ -144,30 +161,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const uploadFile = useCallback(async (file: File, path: string): Promise<string> => {
     const storageRef = ref(storage, path);
-    await uploadBytes(storageRef, file);
+    const metadata = file.type ? { contentType: file.type } : undefined;
+    await uploadBytes(storageRef, file, metadata as any);
     return getDownloadURL(storageRef);
   }, []);
 
   const addMelding = useCallback(async (melding: Omit<Melding, 'id' | 'timestamp' | 'updates' | 'gebruikerId'>): Promise<void> => {
-    if (!currentUser) return;
+    if (!currentUser) throw new Error('Log in om een melding aan te maken.');
     try {
-      const apiUrl = `${import.meta.env.VITE_API_URL}/createMelding`;
-      
-      // We 'fire and forget' het request. De onSnapshot listener handelt de UI update af.
-  await fetch(apiUrl, {
+      const base = (import.meta.env.VITE_API_URL && String(import.meta.env.VITE_API_URL).trim()) || '/api';
+      const apiUrl = `${base.replace(/\/+$/, '')}/createMelding`;
+
+      const res = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...melding,
           gebruikerId: currentUser.id,
         }),
-  });
-
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Aanmaken melding mislukt (${res.status}): ${text || res.statusText}`);
+      }
+      // onSnapshot zal het lijstje verversen
     } catch (error) {
-      console.error("Error adding melding:", error);
-  throw error;
+      console.error('Error adding melding:', error);
+      throw error;
     }
   }, [currentUser]);
 
@@ -543,9 +563,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!currentUser) throw new Error('Geen gebruiker ingelogd');
     try {
       const attachments: Array<{ url: string; type: 'image' | 'pdf' | 'file'; name: string; size: number }> = [];
-      if (input.files && input.files.length) {
+    if (input.files && input.files.length) {
         for (const f of input.files) {
-          const safeName = `${Date.now()}-${f.name}`;
+      const safeName = `${Date.now()}-${sanitizeFileName(f.name)}`;
           const path = `conversations/${conversationId}/${safeName}`;
           const url = await uploadFile(f, path);
           const type: 'image' | 'pdf' | 'file' = f.type?.startsWith('image/') ? 'image' : (f.type === 'application/pdf' ? 'pdf' : 'file');
@@ -687,9 +707,40 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const uploadDossierDocument = useCallback(async (adres: string, file: File): Promise<DossierDocument> => {
     if (!currentUser) throw new Error('Geen gebruiker ingelogd');
     try {
-      const path = `dossiers/${adres}/documents/${file.name}`;
+      // Slugify adres voor pad (vermijd dubbele encoding)
+      const safeAdres = adres
+        .trim()
+        .replace(/[\\/\n\r\t]+/g, '_')
+        .replace(/\s+/g, ' ')
+        .replace(/[^\w\-.,@() ]/g, '_');
+  const unique = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const cleanName = sanitizeFileName(file.name);
+  const path = `dossiers/${safeAdres}/documents/${unique}_${cleanName}`;
       const url = await uploadFile(file, path);
       const dossierRef = doc(db, 'dossiers', adres);
+      // Zorg dat het dossier-document bestaat voordat we updaten
+      const existing = await getDoc(dossierRef);
+      if (!existing.exists()) {
+        await setDoc(dossierRef, {
+          id: adres,
+          adres,
+          status: 'actief',
+          location: null,
+          notities: [],
+          documenten: [],
+          afspraken: [],
+          bewoners: [],
+          historie: [{
+            id: `hist-${Date.now()}`,
+            type: 'Aanmaak',
+            description: `Dossier aangemaakt voor ${adres} (auto bij upload)`,
+            date: new Date(),
+            userId: currentUser.id
+          }],
+          updates: [],
+          labels: ['woning']
+        }, { merge: true } as any);
+      }
       const docObj: DossierDocument = {
         id: `doc-${Date.now()}`,
         url,
