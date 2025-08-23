@@ -24,7 +24,7 @@
     "date-fns": "3.6.0",
     "esbuild": "^0.25.8",
     "eventemitter3": "latest",
-    "firebase": "^12.1.0",
+    "firebase": "^10.12.2",
     "grommet-icons": "latest",
     "leaflet": "^1.9.4",
     "lodash": "latest",

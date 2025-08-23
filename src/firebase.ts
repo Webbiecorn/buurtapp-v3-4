@@ -1,53 +1,32 @@
-// src/firebase.ts
-
-import { initializeApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
-import { getStorage, connectStorageEmulator } from 'firebase/storage';
-import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+// Importeer de benodigde functies van de Firebase SDK
+import { initializeApp } from "firebase/app";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getStorage, connectStorageEmulator } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  // DIT IS DE CORRECTIE VOOR DE CORS-FOUT:
-  storageBucket: "buurtapp-v3-4.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyDdNt987MgEFsi2AUsYTV-kyvXK_y9gmIs",
+  authDomain: "buurtapp-v3-4.firebaseapp.com",
+  projectId: "buurtapp-v3-4",
+  storageBucket: "buurtapp-v3-4.appspot.com",
+  messagingSenderId: "740445217879",
+  appId: "1:740445217879:web:afa1154ca0c5894a29af12"
 };
 
+// Initialiseer de Firebase app met jouw configuratie
 const app = initializeApp(firebaseConfig);
 
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
-const functions = getFunctions(app);
+// Exporteer de services zodat andere bestanden deze kunnen gebruiken
+export const db = getFirestore(app);
+export const storage = getStorage(app);
 
-// App Check initialisatie
-if (import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
-  try {
-    // DIT IS DE CORRECTIE VOOR DE 'getAppCheck' FOUT:
-    initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
-      isTokenAutoRefreshEnabled: true
-    });
-  } catch (err) {
-    console.error("App Check initialization failed", err);
-  }
+// Gebruik emulators alleen als expliciet aangezet via VITE_USE_EMULATORS=true
+const useEmulators = import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true';
+if (useEmulators) {
+  // Verbind met de Firestore emulator
+  connectFirestoreEmulator(db, '127.0.0.1', 8083);
+  // Verbind met de Storage emulator
+  connectStorageEmulator(storage, '127.0.0.1', 9201);
+  console.log("Applicatie is verbonden met de lokale Firebase emulators op aangepaste poorten.");
+} else if (import.meta.env.DEV) {
+  console.log("DEV zonder emulators: verbonden met Firebase project 'buurtapp-v3-4'. Zet VITE_USE_EMULATORS=true om lokaal te verbinden.");
 }
-
-// Emulator connections
-if (import.meta.env.DEV) {
-  try {
-    connectAuthEmulator(auth, "http://127.0.0.1:9100");
-    connectFirestoreEmulator(db, '127.0.0.1', 8083);
-    connectStorageEmulator(storage, '127.0.0.1', 9201);
-    connectFunctionsEmulator(functions, '127.0.0.1', 5101);
-    console.log("Connected to Firebase emulators");
-  } catch (err) {
-    console.warn("Failed to connect to emulators. Already connected?", err);
-  }
-}
-
-export { auth, db, storage, functions };
