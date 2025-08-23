@@ -1,0 +1,11 @@
+[
+  {
+    "origin": ["http://localhost:5173", "https://buurtapp-v3-4.web.app"],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "responseHeader": [
+      "Content-Type",
+      "Access-Control-Allow-Origin"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

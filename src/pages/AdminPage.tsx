@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { UserRole } from '../types';
 import { Modal, NewProjectForm } from '../components/ui';
+import { useSearchParams } from 'react-router-dom';
 
+// Dit is de modal voor het toevoegen van een nieuwe gebruiker
 const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const { addUser } = useAppContext();
     const [name, setName] = useState('');
@@ -28,7 +30,7 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         type="text"
                         id="user-name"
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onChange={e => setName(e.target.value)}
                         required
                         className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
                     />
@@ -39,7 +41,7 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         type="email"
                         id="user-email"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={e => setEmail(e.target.value)}
                         required
                         className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
                     />
@@ -49,11 +51,11 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     <select
                         id="user-role"
                         value={role}
-                        onChange={(e) => setRole(e.target.value as UserRole)}
+                        onChange={e => setRole(e.target.value as UserRole)}
                         className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
                     >
-                        {Object.values(UserRole).map((r) => (
-                            <option key={r} value={r} className="bg-white dark:bg-dark-surface">{r}</option>
+                        {Object.values(UserRole).map(roleValue => (
+                            <option key={roleValue} value={roleValue} className="bg-white dark:bg-dark-surface">{roleValue}</option>
                         ))}
                     </select>
                 </div>
@@ -70,33 +72,91 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     );
 };
 
+// Hoofdcomponent voor de Beheerpagina
 const AdminPage: React.FC = () => {
     const { users, updateUserRole, removeUser } = useAppContext();
     const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
     const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+    
+    // Filters voor de gebruikerslijst, beheerd via URL-parameters
+    const [searchParams, setSearchParams] = useSearchParams();
+    const userRoleFilter = (searchParams.get('role') || 'alle') as 'alle' | UserRole;
+    const userQuery = searchParams.get('q') || '';
 
+    const setParam = (key: string, val: string) => {
+        const next = new URLSearchParams(searchParams);
+        if (val && val !== 'alle') {
+            next.set(key, val);
+        } else {
+            next.delete(key);
+        }
+        setSearchParams(next, { replace: true });
+    };
+    
     const handleRoleChange = (userId: string, newRole: UserRole) => {
         updateUserRole(userId, newRole);
     };
-
-    const handleAddUser = () => setIsAddUserModalOpen(true);
+    
+    const handleAddUser = () => {
+        setIsAddUserModalOpen(true);
+    };
 
     const handleRemoveUser = (userId: string) => {
-        if (window.confirm('Weet u zeker dat u deze gebruiker wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')) {
+        if(window.confirm('Weet u zeker dat u deze gebruiker wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')) {
             removeUser(userId);
         }
     };
+
+    // Filter de gebruikerslijst op basis van de actieve filters
+    const filteredUsers = useMemo(() => {
+        return users
+            .filter(u => userRoleFilter === 'alle' ? true : u.role === userRoleFilter)
+            .filter(u => {
+                if (!userQuery.trim()) return true;
+                const q = userQuery.toLowerCase();
+                return (
+                    (u.name || '').toLowerCase().includes(q) ||
+                    (u.email || '').toLowerCase().includes(q)
+                );
+            });
+    }, [users, userRoleFilter, userQuery]);
 
     return (
         <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">Beheer</h1>
 
+            {/* Gebruikersbeheer Sectie */}
             <div className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-bold text-gray-900 dark:text-dark-text-primary">Gebruikersbeheer</h2>
                     <button onClick={handleAddUser} className="px-4 py-2 bg-brand-primary text-white font-semibold rounded-lg shadow-md hover:bg-brand-secondary transition-colors">
                         Gebruiker Toevoegen
                     </button>
+                </div>
+                <div className="flex flex-wrap items-end gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Rol</label>
+                        <select
+                            value={userRoleFilter}
+                            onChange={(e) => setParam('role', e.target.value)}
+                            className="mt-1 block bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3"
+                        >
+                            <option value="alle">Alle</option>
+                            {Object.values(UserRole).map(role => (
+                                <option key={role} value={role} className="bg-white dark:bg-dark-surface">{role}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="flex-1 min-w-[220px]">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Zoeken</label>
+                        <input
+                            type="text"
+                            value={userQuery}
+                            onChange={(e) => setParam('q', e.target.value)}
+                            placeholder="Zoek op naam of email"
+                            className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3"
+                        />
+                    </div>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
@@ -109,7 +169,7 @@ const AdminPage: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {users.map((user) => (
+                            {filteredUsers.map(user => (
                                 <tr key={user.id} className="border-b border-gray-200 dark:border-dark-border last:border-0 hover:bg-gray-50 dark:hover:bg-dark-bg">
                                     <td className="p-3 text-gray-800 dark:text-dark-text-primary flex items-center">
                                         <img src={user.avatarUrl} alt={user.name} className="h-8 w-8 rounded-full mr-3" />
@@ -117,12 +177,12 @@ const AdminPage: React.FC = () => {
                                     </td>
                                     <td className="p-3 text-gray-800 dark:text-dark-text-primary">{user.email}</td>
                                     <td className="p-3">
-                                        <select
-                                            value={user.role}
+                                        <select 
+                                            value={user.role} 
                                             onChange={(e) => handleRoleChange(user.id, e.target.value as UserRole)}
                                             className="bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-1 px-2 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
                                         >
-                                            {Object.values(UserRole).map((role) => (
+                                            {Object.values(UserRole).map(role => (
                                                 <option key={role} value={role} className="bg-white dark:bg-dark-surface">{role}</option>
                                             ))}
                                         </select>
@@ -139,6 +199,7 @@ const AdminPage: React.FC = () => {
                 </div>
             </div>
 
+            {/* Projectbeheer Sectie */}
             <div className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-dark-text-primary mb-4">Projectbeheer</h2>
                 <div className="text-center">
@@ -149,6 +210,7 @@ const AdminPage: React.FC = () => {
                 </div>
             </div>
 
+            {/* Modals */}
             <Modal isOpen={isNewProjectModalOpen} onClose={() => setIsNewProjectModalOpen(false)} title="Nieuw Project Aanmaken">
                 <NewProjectForm onClose={() => setIsNewProjectModalOpen(false)} />
             </Modal>

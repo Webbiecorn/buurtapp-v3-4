@@ -8,7 +8,6 @@
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "npm run build && firebase deploy",
-    "icons": "node ./scripts/generate-icons.mjs",
     "fb:login": "firebase login"
   },
   "dependencies": {
@@ -25,7 +24,7 @@
     "date-fns": "3.6.0",
     "esbuild": "^0.25.8",
     "eventemitter3": "latest",
-    "firebase": "^10.12.2",
+    "firebase": "^12.1.0",
     "grommet-icons": "latest",
     "leaflet": "^1.9.4",
     "lodash": "latest",
@@ -42,16 +41,11 @@
     "victory-vendor": "latest"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.11",
     "@types/leaflet": "^1.9.20",
     "@types/node": "^22.14.0",
     "@types/react": "^19.1.9",
     "@types/react-dom": "^19.1.7",
-    "autoprefixer": "^10.4.21",
     "firebase-tools": "^13.13.2",
-    "postcss": "^8.5.6",
-    "sharp": "^0.33.5",
-    "tailwindcss": "^4.1.11",
     "ts-node": "^10.9.2",
     "typescript": "~5.7.2",
     "vite": "^6.2.0"
