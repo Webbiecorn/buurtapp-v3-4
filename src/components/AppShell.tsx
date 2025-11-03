@@ -20,11 +20,12 @@ const navItems: NavItem[] = [
   { path: '/projects', name: 'Projecten', icon: <BriefcaseIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
   { path: '/dossiers', name: 'Woningdossiers', icon: <FolderIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
   // { path: '/map', name: 'Kaart', icon: <MapIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
-  { path: '/time-tracking', name: 'Urenregistratie', icon: <ClockIcon className="h-5 w-5" />, roles: [UserRole.Concierge] },
+  { path: '/time-tracking', name: 'Urenregistratie', icon: <ClockIcon className="h-5 w-5" />, roles: [UserRole.Concierge, UserRole.Beheerder] },
   { path: '/statistics', name: 'Statistieken', icon: <BarChartIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Viewer] },
   { path: '/reports', name: 'Rapportages', icon: <DownloadIcon className="h-5 w-5" />, roles: [UserRole.Beheerder] },
-  { path: '/active', name: 'Actieve Collega\'s', icon: <UsersIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge] },
+  { path: '/contacten', name: 'Contacten', icon: <UsersIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
   { path: '/admin', name: 'Beheer', icon: <SettingsIcon className="h-5 w-5" />, roles: [UserRole.Beheerder] },
+  { path: '/achterpaden', name: 'Achterpaden', icon: <FolderIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
 ];
 
 const NavLinkItem: React.FC<{ item: NavItem, hasUnread?: boolean }> = ({ item, hasUnread }) => (
@@ -65,7 +66,7 @@ const Sidebar: React.FC<{ isOpen: boolean; setIsOpen: (isOpen: boolean) => void 
 
   return (
     <>
-        <aside className={`fixed top-0 left-0 z-40 w-64 h-screen bg-white dark:bg-dark-surface transition-transform md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <aside className={`fixed top-0 left-0 z-40 w-64 h-screen bg-white dark:bg-dark-surface transition-transform md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'} print:hidden`}>
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-dark-border">
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Concierge App</h1>
           <button onClick={() => setIsOpen(false)} className="md:hidden text-gray-500 dark:text-dark-text-secondary">
@@ -74,13 +75,13 @@ const Sidebar: React.FC<{ isOpen: boolean; setIsOpen: (isOpen: boolean) => void 
         </div>
         <nav className="flex-grow p-4 space-y-2">
           {filteredNavItems.map(item => 
-            <div key={item.path} onClick={() => setIsOpen(false)}>
+            <div key={item.path} onClick={() => setIsOpen(false)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsOpen(false); }}>
               <NavLinkItem item={item} hasUnread={getUnreadStatus(item.path)} />
             </div>
           )}
         </nav>
       </aside>
-       {isOpen && <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setIsOpen(false)}></div>}
+  {isOpen && <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setIsOpen(false)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') setIsOpen(false); }}></div>}
     </>
   );
 };
@@ -97,7 +98,7 @@ const Header: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
   };
 
   return (
-    <header className="bg-white/80 dark:bg-dark-surface/80 backdrop-blur-sm sticky top-0 z-20 md:ml-64">
+    <header className="bg-white/80 dark:bg-dark-surface/80 backdrop-blur-sm sticky top-0 z-20 md:ml-64 print:hidden">
       <div className="flex items-center h-16 px-4 md:px-8 border-b border-gray-200 dark:border-dark-border">
         <button onClick={onMenuClick} className="md:hidden text-gray-500 dark:text-dark-text-secondary">
           <MenuIcon className="h-6 w-6" />
@@ -131,15 +132,16 @@ const Header: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
 
 export const AppShell: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-dark-bg">
-      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen}/>
-      <div className="flex flex-col flex-1">
-        <Header onMenuClick={() => setIsSidebarOpen(true)} />
-        <main className="flex-1 p-4 md:p-8 md:ml-64">
-          {children}
-        </main>
+
+    return (
+      <div className={`min-h-screen bg-gray-50 dark:bg-dark-bg print:bg-white`}>
+          <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen}/>
+          <div className="flex flex-col flex-1">
+            <Header onMenuClick={() => setIsSidebarOpen(true)} />
+            <main className="flex-1 p-4 md:p-8 md:ml-64 print:m-0 print:p-0">
+              {children}
+            </main>
+          </div>
       </div>
-    </div>
-  );
+    );
 };

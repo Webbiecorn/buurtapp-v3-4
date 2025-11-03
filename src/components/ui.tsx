@@ -48,27 +48,48 @@ export const getStatusColor = (status: MeldingStatus) => {
     }
 };
 
-export const MeldingCard: React.FC<{ melding: Melding, isUnseen?: boolean }> = ({ melding, isUnseen }) => (
-    <div className="relative bg-white dark:bg-dark-surface rounded-lg overflow-hidden shadow-lg transform hover:scale-105 transition-transform duration-300">
-        {isUnseen && <div className="absolute top-3 right-3 h-3 w-3 rounded-full bg-red-500 z-10 border-2 border-white dark:border-dark-surface animate-pulse"></div>}
-        <img src={melding.attachments[0]} alt={melding.titel} className="w-full h-48 object-cover" />
-        <div className="p-4">
-            <div className="flex justify-between items-start">
-                <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-dark-text-primary">{melding.titel}</h3>
-                <span className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusColor(melding.status)}`}>
-                    {melding.status}
-                </span>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-dark-text-secondary mb-3 line-clamp-2">{melding.omschrijving}</p>
-             <div className="text-xs text-gray-500 dark:text-gray-400 flex justify-between items-center">
-                <span>{format(melding.timestamp, 'dd MMM yyyy', { locale: nl })}</span>
-                {melding.locatie && (
-                     <span className="flex items-center"><MapPinIcon className="h-4 w-4 mr-1"/> {melding.wijk}</span>
-                )}
+export const MeldingCard: React.FC<{ melding: Melding, isUnseen?: boolean }> = ({ melding, isUnseen }) => {
+    const safeFormatDate = (value: any) => {
+        try {
+            const d = value instanceof Date
+                ? value
+                : (value?.toDate ? value.toDate() : (typeof value === 'string' ? new Date(value) : null));
+            if (!d || isNaN(d.getTime())) return '—';
+            return format(d, 'dd MMM yyyy', { locale: nl });
+        } catch {
+            return '—';
+        }
+    };
+
+    const hasImage = Array.isArray(melding.attachments) && melding.attachments[0];
+    const dateLabel = safeFormatDate((melding as any).timestamp);
+
+    return (
+        <div className="relative bg-white dark:bg-dark-surface rounded-lg overflow-hidden shadow-lg transform hover:scale-105 transition-transform duration-300">
+            {isUnseen && <div className="absolute top-3 right-3 h-3 w-3 rounded-full bg-red-500 z-10 border-2 border-white dark:border-dark-surface animate-pulse"></div>}
+            {hasImage ? (
+                <img src={melding.attachments[0]} alt={melding.titel} className="w-full h-48 object-cover" />
+            ) : (
+                <div className="w-full h-48 bg-gray-200 dark:bg-dark-border flex items-center justify-center text-gray-500 text-sm">Geen afbeelding</div>
+            )}
+            <div className="p-4">
+                <div className="flex justify-between items-start">
+                    <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-dark-text-primary">{melding.titel}</h3>
+                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusColor(melding.status)}`}>
+                        {melding.status}
+                    </span>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-dark-text-secondary mb-3 line-clamp-2">{melding.omschrijving}</p>
+                <div className="text-xs text-gray-500 dark:text-gray-400 flex justify-between items-center">
+                    <span>{dateLabel}</span>
+                    {melding.locatie && (
+                        <span className="flex items-center"><MapPinIcon className="h-4 w-4 mr-1"/> {melding.wijk}</span>
+                    )}
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 export const ProjectCard: React.FC<{ project: Project, isUnseen?: boolean }> = ({ project, isUnseen }) => {
     const { users } = useAppContext();
@@ -157,8 +178,8 @@ export const NewProjectForm: React.FC<{ onClose: () => void }> = ({ onClose }) =
             });
             onClose();
 
-        } catch (error) {
-            console.error("Upload mislukt:", error);
+        } catch {
+            // Upload mislukt
             alert("Er is iets misgegaan bij het uploaden van de afbeeldingen.");
         } finally {
             setIsUploading(false);
@@ -166,20 +187,20 @@ export const NewProjectForm: React.FC<{ onClose: () => void }> = ({ onClose }) =
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+            <div className="space-y-2">
                 <label htmlFor="project-title" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Titel *</label>
                 <input type="text" id="project-title" value={title} onChange={e => setTitle(e.target.value)} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary" />
             </div>
-            <div>
+            <div className="space-y-2">
                 <label htmlFor="project-description" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Omschrijving *</label>
                 <textarea id="project-description" value={description} onChange={e => setDescription(e.target.value)} rows={4} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"></textarea>
             </div>
-            <div>
+            <div className="space-y-2">
                 <label htmlFor="project-start-date" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Startdatum *</label>
                 <input type="date" id="project-start-date" value={startDate} onChange={e => setStartDate(e.target.value)} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary" />
             </div>
-            <div>
+            <div className="space-y-2">
                 <label htmlFor="project-end-date" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Einddatum</label>
                 {!endDateUnknown && (
                     <input type="date" id="project-end-date" value={endDate} onChange={e => setEndDate(e.target.value)} min={startDate} className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary" />
@@ -190,13 +211,13 @@ export const NewProjectForm: React.FC<{ onClose: () => void }> = ({ onClose }) =
                 </div>
             </div>
             <div>
-                 <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Bijlagen (optioneel)</label>
+                 <label htmlFor="project-attachments" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Bijlagen (optioneel)</label>
                  <div className="mt-2">
                     <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full flex justify-center items-center px-4 py-2 border border-dashed border-gray-300 dark:border-dark-border rounded-md text-sm font-medium text-gray-500 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg">
                         <PaperclipIcon className="h-5 w-5 mr-2" />
                         Bestanden kiezen
                     </button>
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />
+                    <input id="project-attachments" type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />
                  </div>
                  {attachments.length > 0 && (
                      <div className="mt-4 space-y-2">

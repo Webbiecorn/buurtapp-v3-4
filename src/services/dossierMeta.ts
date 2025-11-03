@@ -129,7 +129,9 @@ export async function fetchDossierMeta(adres: string): Promise<DossierMeta> {
           const data = await resp.json();
           energieLabel = data?.label ?? null;
         }
-      } catch {}
+        } catch (err) {
+          console.warn('energyLabel proxy fetch failed', err);
+        }
     }
   return { woningType, energieLabel, bagId: naId, location };
   } catch (e) {

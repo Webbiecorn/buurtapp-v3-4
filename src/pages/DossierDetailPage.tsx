@@ -53,7 +53,7 @@ const DossierDetailPage: React.FC = () => {
   }
 
   if (loading) {
-    return <div className="p-4">Dossier voor "{adres}" laden...</div>;
+    return <div className="p-4">Dossier voor &quot;{adres}&quot; laden...</div>;
   }
 
   if (!dossier) {
@@ -94,28 +94,30 @@ const DossierDetailPage: React.FC = () => {
   const renderInline = (url: string) => {
     const t = getType(url);
     if (t === 'image') {
-      return <img src={url} alt="Voorbeeld document" className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-2xl" onClick={(e) => e.stopPropagation()} />;
+      return <img src={url} alt="Voorbeeld document" className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-2xl" onClick={(e) => e.stopPropagation()} tabIndex={0} role="button" onKeyDown={(e) => { if (e.key === 'Escape') e.stopPropagation(); }} />;
     }
     if (t === 'video') {
       return (
-        <video controls className="max-h-[85vh] max-w-[90vw] rounded shadow-2xl bg-black" onClick={(e) => e.stopPropagation()}>
+        <video controls aria-label="Voorbeeld video" className="max-h-[85vh] max-w-[90vw] rounded shadow-2xl bg-black" onClick={(e) => e.stopPropagation()} tabIndex={0} onKeyDown={(e) => { if (e.key === 'Escape') e.stopPropagation(); }}>
           <source src={url} />
+          {/* TODO: add real caption file here when available */}
+          <track kind="captions" src="" />
           Je browser ondersteunt de video tag niet.
         </video>
       );
     }
     if (t === 'video-embed') {
       return (
-        <iframe src={url} className="w-[90vw] h-[70vh] rounded shadow-2xl bg-black" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen onClick={(e) => e.stopPropagation()} />
+        <iframe src={url} title="Video embed" className="w-[90vw] h-[70vh] rounded shadow-2xl bg-black" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen onClick={(e) => e.stopPropagation()} tabIndex={0} role="button" onKeyDown={(e) => { if (e.key === 'Escape') e.stopPropagation(); }} />
       );
     }
     if (t === 'pdf') {
       return (
-        <iframe src={`${url}#toolbar=1`} className="w-[90vw] h-[90vh] rounded shadow-2xl bg-white" onClick={(e) => e.stopPropagation()} />
+        <iframe src={`${url}#toolbar=1`} title="PDF preview" className="w-[90vw] h-[90vh] rounded shadow-2xl bg-white" onClick={(e) => e.stopPropagation()} tabIndex={0} role="button" onKeyDown={(e) => { if (e.key === 'Escape') e.stopPropagation(); }} />
       );
     }
     return (
-      <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center px-4 py-2 rounded bg-white text-gray-800 shadow">
+      <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center px-4 py-2 rounded bg-white text-gray-800 shadow" tabIndex={0} role="button" onKeyDown={(e) => e.stopPropagation()}>
         <DownloadIcon className="h-5 w-5 mr-2" /> Download document
       </a>
     );

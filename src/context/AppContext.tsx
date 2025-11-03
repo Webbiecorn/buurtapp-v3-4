@@ -1,10 +1,12 @@
 // Dossier functionaliteit
 // Plaats deze na de imports zodat alle Firestore helpers beschikbaar zijn
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { User, UserRole, AppContextType, Melding, MeldingStatus, Project, Urenregistratie, Taak, Notificatie, ProjectContribution, MeldingUpdate, WoningDossier, DossierNotitie, DossierDocument, DossierBewoner, DossierHistorieItem, DossierReactie, DossierStatus, DossierAfspraak } from '../types';
-import { db, storage } from '../firebase';
-import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, Timestamp, arrayUnion, query, where, getDocs, writeBatch, getDoc, setDoc } from 'firebase/firestore';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { User, UserRole, AppContextType, Melding, MeldingStatus, Project, Urenregistratie, Taak, Notificatie, ProjectContribution, MeldingUpdate, WoningDossier, DossierNotitie, DossierDocument, DossierBewoner, DossierHistorieItem, DossierReactie, DossierStatus, DossierAfspraak, ProjectInvitation } from '../types';
+import { db, storage, auth } from '../firebase';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, Timestamp, arrayUnion, query, where, getDocs, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ExternalContact } from '../types';
 
 const convertTimestamps = (data: any) => {
   const convertedData = { ...data };
@@ -36,28 +38,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [users, setUsers] = useState<User[]>([]);
   const [meldingen, setMeldingen] = useState<Melding[]>([]);
   const [projecten, setProjecten] = useState<Project[]>([]);
+  const [projectInvitations, setProjectInvitations] = useState<ProjectInvitation[]>([]);
   const [urenregistraties, setUrenregistraties] = useState<Urenregistratie[]>([]);
   const [taken] = useState<Taak[]>([]);
   const [notificaties, setNotificaties] = useState<Notificatie[]>([]);
+  const [externalContacts, setExternalContacts] = useState<ExternalContact[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const seededUsers = useRef(false);
 
   const toggleTheme = useCallback(() => {
     setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
   }, []);
 
-  const login = useCallback((role: UserRole) => {
-    const user = users.find(u => u.role === role);
-    if (user) {
-      setCurrentUser(user);
-    } else {
-      console.error(`No user found for role: ${role}, logging in first available user as fallback.`);
-      setCurrentUser(users[0] || null);
-    }
-  }, [users]);
+  const login = useCallback(async (email: string, password: string) => {
+    return signInWithEmailAndPassword(auth, email, password);
+  }, []);
 
-  const logout = useCallback(() => {
-    setCurrentUser(null);
+  const logout = useCallback(async () => {
+    await signOut(auth);
   }, []);
 
   useEffect(() => {
@@ -68,79 +65,118 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [theme]);
 
   useEffect(() => {
-    async function seedDefaultUsers() {
-      const demo = [
-        { name: 'Admin Annie', email: 'admin@example.com', role: UserRole.Beheerder },
-        { name: 'Concierge Chris', email: 'concierge@example.com', role: UserRole.Concierge },
-        { name: 'Viewer Vera', email: 'viewer@example.com', role: UserRole.Viewer },
-      ];
-      for (const u of demo) {
-        await addDoc(collection(db, 'users'), {
-          name: u.name,
-          email: u.email,
-          role: u.role,
-          avatarUrl: `https://i.pravatar.cc/150?u=${encodeURIComponent(u.email)}`,
-          phone: '0612345678',
+    const dataListeners: (() => void)[] = [];
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (authUser) => {
+      // Ruim eerst alle oude data listeners op bij elke auth change
+      dataListeners.forEach(unsubscribe => unsubscribe());
+      dataListeners.length = 0;
+
+      if (authUser) {
+        // Gebruiker is ingelogd.
+        setIsInitialLoading(true);
+
+        // 1. Haal gebruikersprofiel op
+        const userDocRef = doc(db, 'users', authUser.uid);
+        const unsubscribeProfile = onSnapshot(userDocRef, (userDocSnap) => {
+          if (userDocSnap.exists()) {
+            const userProfile = { id: userDocSnap.id, ...convertTimestamps(userDocSnap.data()) } as User;
+            setCurrentUser(userProfile);
+
+            // 2. Zodra profiel is geladen, start alle data listeners.
+            // Deze worden alleen gestart als de gebruiker is ingelogd en een profiel heeft.
+            dataListeners.push(onSnapshot(collection(db, 'users'), (snapshot) => {
+              const list = snapshot.docs.map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as User));
+              setUsers(list);
+            }));
+            
+            dataListeners.push(onSnapshot(collection(db, 'meldingen'), (snapshot) => {
+              const data = snapshot.docs.map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as Melding));
+              setMeldingen(data);
+            }));
+
+            dataListeners.push(onSnapshot(collection(db, 'projecten'), (snapshot) => {
+              const data = snapshot.docs.map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as Project));
+              setProjecten(data);
+            }));
+
+            // Project invitations listener
+            dataListeners.push(onSnapshot(collection(db, 'projectInvitations'), (snapshot) => {
+              const data = snapshot.docs.map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as ProjectInvitation));
+              setProjectInvitations(data);
+            }));
+
+            // Urenregistraties: Beheerder ziet alles, anderen alleen eigen uren
+            {
+              const onNext = (snapshot: any) => {
+                const data = snapshot.docs.map((doc: any) => {
+                  const docData = doc.data();
+                  return {
+                    id: doc.id,
+                    ...convertTimestamps(docData),
+                    start: docData.starttijd ? convertTimestamps(docData).starttijd : convertTimestamps(docData).start,
+                    eind: docData.eindtijd ? convertTimestamps(docData).eindtijd : convertTimestamps(docData).eind,
+                    omschrijving: docData.details || docData.omschrijving || '',
+                  } as Urenregistratie;
+                });
+                setUrenregistraties(data);
+              };
+              const onError = (_err: any) => {
+                // Vermijd crash bij permissie-fout; toon dan geen uren.
+                setUrenregistraties([]);
+              };
+              const isAdmin = userProfile.role === 'Beheerder';
+              if (isAdmin) {
+                dataListeners.push(onSnapshot(collection(db, 'urenregistraties'), onNext, onError));
+              } else {
+                const uq = query(collection(db, 'urenregistraties'), where('gebruikerId', '==', authUser.uid));
+                dataListeners.push(onSnapshot(uq, onNext, onError));
+              }
+            }
+            
+            dataListeners.push(onSnapshot(collection(db, 'external_contacts'), (snapshot) => {
+              const data = snapshot.docs.map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as ExternalContact));
+              setExternalContacts(data);
+            }));
+
+            const q = query(collection(db, 'notificaties'), where("userId", "==", authUser.uid));
+            dataListeners.push(onSnapshot(q, (snapshot) => {
+                const data = snapshot.docs
+                    .filter(doc => doc.data().timestamp)
+                    .map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as Notificatie));
+                setNotificaties(data);
+            }));
+
+            setIsInitialLoading(false); // Stop met laden nadat alles is opgezet
+          } else {
+            // Gebruiker is geauthenticeerd maar heeft geen profiel in Firestore.
+            // Dit kan een fout zijn, of een race condition bij aanmaken. Log uit voor de zekerheid.
+            console.error("Authenticated user has no profile in Firestore. Logging out.");
+            logout();
+          }
         });
+        dataListeners.push(unsubscribeProfile);
+
+      } else {
+        // Gebruiker is niet ingelogd. Reset alle state.
+        setCurrentUser(null);
+        setUsers([]);
+        setMeldingen([]);
+        setProjecten([]);
+        setProjectInvitations([]);
+        setUrenregistraties([]);
+        setNotificaties([]);
+        setExternalContacts([]);
+        setIsInitialLoading(false);
       }
-    }
-
-    const unsubscribeUsers = onSnapshot(collection(db, 'users'), async (snapshot) => {
-      const list = snapshot.docs.map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as User));
-      if (list.length === 0 && import.meta.env.DEV && !seededUsers.current) {
-        try {
-          seededUsers.current = true;
-          await seedDefaultUsers();
-          return; // wacht op volgende snapshot met data
-        } catch (e) {
-          console.warn('Seeden van testgebruikers mislukt:', e);
-          seededUsers.current = false;
-        }
-      }
-      setUsers(list);
-      setIsInitialLoading(false);
-    });
-    
-    const unsubscribeMeldingen = onSnapshot(collection(db, 'meldingen'), (snapshot) => {
-      const data = snapshot.docs
-        .filter(doc => doc.data().timestamp)
-        .map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as Melding));
-      setMeldingen(data);
     });
 
-    const unsubscribeProjecten = onSnapshot(collection(db, 'projecten'), (snapshot) => {
-      const data = snapshot.docs
-        .filter(doc => doc.data().startDate)
-        .map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as Project));
-      setProjecten(data);
-    });
-
-    const unsubscribeUrenregistraties = onSnapshot(collection(db, 'urenregistraties'), (snapshot) => {
-      const data = snapshot.docs
-        .filter(doc => doc.data().starttijd)
-        .map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as Urenregistratie));
-      setUrenregistraties(data);
-    });
-    
-    let unsubscribeNotificaties = () => {};
-    if (currentUser) {
-        const q = query(collection(db, 'notificaties'), where("userId", "==", currentUser.id));
-        unsubscribeNotificaties = onSnapshot(q, (snapshot) => {
-            const data = snapshot.docs
-                .filter(doc => doc.data().timestamp)
-                .map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as Notificatie));
-            setNotificaties(data);
-        });
-    }
-
+    // Cleanup functie voor de auth listener zelf
     return () => {
-      unsubscribeUsers();
-      unsubscribeMeldingen();
-      unsubscribeProjecten();
-      unsubscribeUrenregistraties();
-      unsubscribeNotificaties();
+      unsubscribeAuth();
+      dataListeners.forEach(unsubscribe => unsubscribe());
     };
-  }, [currentUser]);
+  }, [logout]);
 
   const uploadFile = useCallback(async (file: File, path: string): Promise<string> => {
     const storageRef = ref(storage, path);
@@ -149,25 +185,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const addMelding = useCallback(async (melding: Omit<Melding, 'id' | 'timestamp' | 'updates' | 'gebruikerId'>): Promise<void> => {
-    if (!currentUser) return;
+    if (!currentUser) throw new Error('Geen gebruiker ingelogd');
     try {
-      const apiUrl = `${import.meta.env.VITE_API_URL}/createMelding`;
-      
-      // We 'fire and forget' het request. De onSnapshot listener handelt de UI update af.
-  await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...melding,
-          gebruikerId: currentUser.id,
-        }),
-  });
-
+      const dataToSend: any = {
+        ...melding,
+        gebruikerId: currentUser.id,
+        timestamp: serverTimestamp(),
+        updates: [],
+      };
+      if (melding.status === MeldingStatus.Afgerond) {
+        dataToSend.afgerondTimestamp = serverTimestamp();
+      }
+      await addDoc(collection(db, 'meldingen'), dataToSend);
     } catch (error) {
-      console.error("Error adding melding:", error);
-  throw error;
+      // Geef fouten door aan de UI
+      throw error;
     }
   }, [currentUser]);
 
@@ -180,7 +212,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
       await updateDoc(meldingRef, updates);
     } catch (error) {
-      console.error("Error updating melding status:", error);
+      // Error updating melding status
       throw error;
     }
   }, []);
@@ -199,7 +231,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updates: arrayUnion(newUpdate)
       });
     } catch (error) {
-      console.error("Error adding melding update:", error);
+      // Error adding melding update
       throw error;
     }
   }, [currentUser]);
@@ -215,7 +247,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             await updateDoc(notifRef, { isRead: true });
         }
     } catch (error) {
-        console.error("Error marking notifications as read:", error);
+        // Error marking notifications as read
     }
   }, [currentUser, notificaties]);
 
@@ -225,7 +257,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const notifRef = doc(db, 'notificaties', notificationId);
         await updateDoc(notifRef, { isRead: true });
     } catch (error) {
-        console.error("Error marking single notification as read:", error);
+        // Error marking single notification as read
     }
   }, []);
 
@@ -260,16 +292,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             });
         }
     } catch (error) {
-      console.error("Error adding project:", error);
+      // Fout doorgeven zodat UI kan tonen
+      throw error;
     }
   }, [currentUser, users]);
 
-  const updateProject = useCallback(async (projectId: string, data: Partial<Pick<Project, 'title' | 'description' | 'startDate' | 'endDate' | 'status'>>) => {
+  const updateProject = useCallback(async (projectId: string, data: any) => {
     try {
+      console.log('AppContext: Updating project', projectId, 'with data:', data);
       const projectRef = doc(db, 'projecten', projectId);
-      await updateDoc(projectRef, data);
+      
+      // Clean undefined values from data
+      const cleanData = Object.fromEntries(
+        Object.entries(data).filter(([_, value]) => value !== undefined)
+      );
+      
+      await updateDoc(projectRef, cleanData);
+      console.log('AppContext: Project updated successfully');
     } catch (error) {
-      console.error("Error updating project:", error);
+      console.error('AppContext: Error updating project:', error);
+      throw error;
     }
   }, []);
 
@@ -287,7 +329,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         contributions: arrayUnion(newContribution)
       });
     } catch (error) {
-      console.error("Error adding project contribution:", error);
+      // Error adding project contribution
     }
   }, [currentUser]);
 
@@ -299,129 +341,136 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             participantIds: arrayUnion(currentUser.id)
         });
     } catch (error) {
-        console.error("Error joining project:", error);
+        // Error joining project
     }
   }, [currentUser]);
 
-  const getActiveUrenregistratie = useCallback(() => {
-    if (!currentUser) return undefined;
-    return urenregistraties.find(u => u.gebruikerId === currentUser.id && !u.eindtijd);
-  }, [currentUser, urenregistraties]);
-
-  const startUrenregistratie = useCallback(async (data: Omit<Urenregistratie, 'id' | 'gebruikerId' | 'starttijd' | 'eindtijd'>) => {
+  const inviteUserToProject = useCallback(async (projectId: string, userId: string) => {
     if (!currentUser) return;
+    
+    try {
+      // Haal project info op
+      const projectDoc = await getDoc(doc(db, 'projecten', projectId));
+      if (!projectDoc.exists()) {
+        throw new Error('Project niet gevonden');
+      }
+      
+      const projectData = projectDoc.data() as Project;
+      
+      // Controleer of de gebruiker al een uitnodiging heeft
+      const existingInviteQuery = query(
+        collection(db, 'projectInvitations'),
+        where('projectId', '==', projectId),
+        where('invitedUserId', '==', userId),
+        where('status', '==', 'pending')
+      );
+      
+      const existingInvites = await getDocs(existingInviteQuery);
+      if (!existingInvites.empty) {
+        throw new Error('Gebruiker heeft al een openstaande uitnodiging voor dit project');
+      }
+      
+      // Controleer of de gebruiker al deelneemt aan het project
+      if (projectData.participantIds?.includes(userId)) {
+        throw new Error('Gebruiker neemt al deel aan dit project');
+      }
+      
+      // Maak uitnodiging aan
+      const invitation: Omit<ProjectInvitation, 'id'> = {
+        projectId,
+        projectTitle: projectData.title,
+        invitedUserId: userId,
+        invitedByUserId: currentUser.id,
+        invitedByName: currentUser.name,
+        status: 'pending',
+        createdAt: new Date()
+      };
+      
+      await addDoc(collection(db, 'projectInvitations'), invitation);
+      
+      // Maak notificatie aan voor de uitgenodigde gebruiker
+      const notification: Omit<Notificatie, 'id'> = {
+        userId: userId,
+        message: `${currentUser.name} heeft je uitgenodigd voor project "${projectData.title}"`,
+        link: `/projecten`,
+        isRead: false,
+        timestamp: new Date(),
+        targetId: projectId,
+        targetType: 'project'
+      };
+      
+      await addDoc(collection(db, 'notificaties'), notification);
+      
+    } catch (error) {
+      throw error;
+    }
+  }, [currentUser]);
+
+  const respondToProjectInvitation = useCallback(async (invitationId: string, response: 'accepted' | 'declined') => {
+    if (!currentUser) return;
+    
+    try {
+      const invitationRef = doc(db, 'projectInvitations', invitationId);
+      const invitationDoc = await getDoc(invitationRef);
+      
+      if (!invitationDoc.exists()) {
+        throw new Error('Uitnodiging niet gevonden');
+      }
+      
+      const invitationData = invitationDoc.data() as ProjectInvitation;
+      
+      // Controleer of de uitnodiging voor de huidige gebruiker is
+      if (invitationData.invitedUserId !== currentUser.id) {
+        throw new Error('Je bent niet geautoriseerd om op deze uitnodiging te reageren');
+      }
+      
+      // Update uitnodiging status
+      await updateDoc(invitationRef, {
+        status: response,
+        respondedAt: new Date()
+      });
+      
+      // Als geaccepteerd, voeg gebruiker toe aan project
+      if (response === 'accepted') {
+        const projectRef = doc(db, 'projecten', invitationData.projectId);
+        await updateDoc(projectRef, {
+          participantIds: arrayUnion(currentUser.id)
+        });
+      }
+      
+    } catch (error) {
+      throw error;
+    }
+  }, [currentUser]);
+
+  const addUrenregistratie = useCallback(async (data: Omit<Urenregistratie, 'id' | 'gebruikerId'>) => {
+    if (!currentUser) throw new Error('Geen gebruiker ingelogd');
     try {
       await addDoc(collection(db, 'urenregistraties'), {
         ...data,
         gebruikerId: currentUser.id,
-        starttijd: serverTimestamp(),
-        eindtijd: null,
       });
     } catch (error) {
-      console.error("Error starting urenregistratie:", error);
+      throw error;
     }
   }, [currentUser]);
 
-  const switchUrenregistratie = useCallback(async (data: Omit<Urenregistratie, 'id' | 'gebruikerId' | 'starttijd' | 'eindtijd'>) => {
-    if (!currentUser) return;
-    try {
-        const batch = writeBatch(db);
-        const now = new Date(); 
-
-        const q = query(collection(db, 'urenregistraties'), where("gebruikerId", "==", currentUser.id), where("eindtijd", "==", null));
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach(doc => {
-            batch.update(doc.ref, { eindtijd: Timestamp.fromDate(now) });
-        });
-
-        const newEntryRef = doc(collection(db, 'urenregistraties'));
-        batch.set(newEntryRef, {
-            ...data,
-            gebruikerId: currentUser.id,
-            starttijd: Timestamp.fromDate(now),
-            eindtijd: null,
-        });
-
-        await batch.commit();
-    } catch (error) {
-        console.error("Error switching urenregistratie:", error);
-    }
-  }, [currentUser]);
-
-  const stopUrenregistratie = useCallback(async () => {
-    if (!currentUser) return;
-    try {
-        const q = query(collection(db, 'urenregistraties'), where("gebruikerId", "==", currentUser.id), where("eindtijd", "==", null));
-        const querySnapshot = await getDocs(q);
-        for (const docSnap of querySnapshot.docs) {
-            await updateDoc(docSnap.ref, { eindtijd: serverTimestamp() });
-        }
-    } catch (error) {
-      console.error("Error stopping urenregistratie:", error);
-    }
-  }, [currentUser]);
-
-  const updateUrenregistratie = useCallback(async (id: string, patch: Partial<Pick<Urenregistratie, 'starttijd' | 'eindtijd' | 'activiteit' | 'details'>>): Promise<void> => {
+  const updateUrenregistratie = useCallback(async (id: string, patch: Partial<Pick<Urenregistratie, 'start' | 'eind' | 'omschrijving'>>): Promise<void> => {
     if (!currentUser) return;
     try {
       const entryRef = doc(db, 'urenregistraties', id);
       const snap = await getDoc(entryRef);
       if (!snap.exists()) return;
-      const data = snap.data() as any;
+      const data = snap.data() as Urenregistratie;
       // Toestemming: eigenaar of Beheerder mag wijzigen
       if (data.gebruikerId !== currentUser.id && currentUser.role !== UserRole.Beheerder) {
-        console.warn('Geen toestemming om deze urenregistratie te wijzigen.');
         throw new Error('Geen toestemming om deze urenregistratie te wijzigen.');
       }
-      // 21-dagen beperking voor niet-beheerders
-      const ms21d = 21 * 24 * 60 * 60 * 1000;
-      const nowMs = Date.now();
-      const startDate: Date = data.starttijd instanceof Timestamp ? data.starttijd.toDate() : new Date(data.starttijd);
-      const isWithin21Days = (d: Date) => nowMs - d.getTime() <= ms21d;
-      if (currentUser.role !== UserRole.Beheerder) {
-        // bestaande entry moet binnen 21 dagen liggen
-        if (!isWithin21Days(startDate)) {
-          console.warn('Aanpassen beperkt tot 21 dagen na starttijd.');
-          throw new Error('Aanpassen beperkt tot 21 dagen na starttijd.');
-        }
-      }
-
-      // Validaties voor nieuwe tijden
-      const proposedStart = patch.starttijd ? new Date(patch.starttijd) : (data.starttijd instanceof Timestamp ? data.starttijd.toDate() : new Date(data.starttijd));
-      const proposedEnd = patch.eindtijd ? new Date(patch.eindtijd) : (data.eindtijd ? (data.eindtijd instanceof Timestamp ? data.eindtijd.toDate() : new Date(data.eindtijd)) : undefined);
-      if (!proposedEnd) {
-        throw new Error('Eindtijd is verplicht om te kunnen bewerken.');
-      }
-      if (proposedStart.getTime() >= proposedEnd.getTime()) {
-        console.warn('Starttijd moet vóór eindtijd liggen.');
-        throw new Error('Starttijd moet vóór eindtijd liggen.');
-      }
-      if (currentUser.role !== UserRole.Beheerder && proposedStart && !isWithin21Days(proposedStart)) {
-        console.warn('Nieuwe starttijd valt buiten 21 dagen.');
-        throw new Error('Nieuwe starttijd valt buiten 21 dagen.');
-      }
-
-      // Overlap-detectie tegen andere registraties van dezelfde gebruiker
-      const userIdToCheck: string = data.gebruikerId;
-      const startMs = proposedStart.getTime();
-      const endMs = proposedEnd.getTime();
-      const overlaps = urenregistraties.some(u => {
-        if (u.id === id) return false;
-        if (u.gebruikerId !== userIdToCheck) return false;
-        if (!u.eindtijd) return false;
-        const us = new Date(u.starttijd).getTime();
-        const ue = new Date(u.eindtijd).getTime();
-        return startMs < ue && us < endMs; // interval overlap
-      });
-      if (overlaps) {
-        console.warn('Deze tijden overlappen met een andere urenregistratie.');
-        throw new Error('Deze tijden overlappen met een andere urenregistratie.');
-      }
+      
       const sanitized: any = { ...patch };
       Object.keys(sanitized).forEach(k => sanitized[k] === undefined && delete sanitized[k]);
       await updateDoc(entryRef, sanitized);
     } catch (error) {
-      console.error('Error updating urenregistratie:', error);
       throw error;
     }
   }, [currentUser, urenregistraties]);
@@ -443,29 +492,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
       await deleteDoc(entryRef);
     } catch (error) {
-      console.error('Error deleting urenregistratie:', error);
+      // Error deleting urenregistratie
       throw error;
     }
   }, [currentUser]);
-
-  const addUser = useCallback(async (newUser: Omit<User, 'id' | 'avatarUrl' | 'phone'>) => {
-    try {
-      await addDoc(collection(db, 'users'), {
-        ...newUser,
-        avatarUrl: `https://i.pravatar.cc/150?u=user-${Date.now()}`,
-        phone: '06' + Math.floor(10000000 + Math.random() * 90000000),
-      });
-    } catch (error) {
-      console.error("Error adding user:", error);
-    }
-  }, []);
 
   const updateUserRole = useCallback(async (userId: string, newRole: UserRole) => {
     try {
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, { role: newRole });
     } catch (error) {
-      console.error("Error updating user role:", error);
+      // Error updating user role
     }
   }, []);
 
@@ -478,7 +515,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const userRef = doc(db, 'users', userId);
       await deleteDoc(userRef);
     } catch (error) {
-      console.error("Error removing user:", error);
+      // Error removing user
     }
   }, [currentUser]);
 
@@ -490,9 +527,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setCurrentUser(prev => prev ? { ...prev, ...data } : null);
       }
     } catch (error) {
-      console.error("Error updating user profile:", error);
+      // Error updating user profile
     }
   }, [currentUser]);
+
+    const addExternalContact = useCallback(async (contact: Omit<ExternalContact, 'id' | 'creatorId'>) => {
+    if (!currentUser) throw new Error("U moet ingelogd zijn.");
+    await addDoc(collection(db, 'external_contacts'), {
+      ...contact,
+      creatorId: currentUser.id,
+    });
+  }, [currentUser]);
+
+  const updateExternalContact = useCallback(async (contactId: string, data: Partial<ExternalContact>) => {
+    const contactRef = doc(db, 'external_contacts', contactId);
+    await updateDoc(contactRef, data);
+  }, []);
+
+  const deleteExternalContact = useCallback(async (contactId: string) => {
+    const contactRef = doc(db, 'external_contacts', contactId);
+    await deleteDoc(contactRef);
+  }, []);
 
   // Chat/conversatie API
   const getOrCreateConversation = useCallback(async (participants: string[], title?: string) => {
@@ -586,7 +641,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
       }
     } catch (e) {
-      console.error('Error sending chat message:', e);
+      // Error sending chat message
       throw e;
     }
   }, [currentUser, uploadFile]);
@@ -598,17 +653,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // dynamische field path
       await updateDoc(convRef, { [`lastSeen.${currentUser.id}`]: serverTimestamp() });
     } catch (e) {
-      console.warn('Kon conversatie niet als gezien markeren:', e);
+      // Kon conversatie niet als gezien markeren
     }
   }, [currentUser]);
 
   const createNewDossier = useCallback(async (adres: string): Promise<WoningDossier> => {
     const newDossier: WoningDossier = {
       id: adres,
-  adres,
-  location: null,
+      adres,
+      gebruikerId: currentUser?.id || 'onbekend',
+      location: null,
       notities: [],
-  documenten: [],
+      documenten: [],
       afspraken: [],
       bewoners: [],
       historie: [{
@@ -625,16 +681,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const dossierRef = doc(db, 'dossiers', adres);
     await setDoc(dossierRef, newDossier);
     // Achtergrondverrijking met PDOK locatie
-  (async () => {
+    (async () => {
       try {
         const { fetchDossierMeta } = await import('../services/dossierMeta');
         const meta = await fetchDossierMeta(adres);
-    const patch: any = {};
-    if (meta.location) patch.location = meta.location;
-    if (meta.woningType) patch.woningType = meta.woningType;
-    if (Object.keys(patch).length) await updateDoc(dossierRef, patch);
+        const patch: any = {};
+        if (meta.location) patch.location = meta.location;
+        if (meta.woningType) patch.woningType = meta.woningType;
+        if (Object.keys(patch).length) await updateDoc(dossierRef, patch);
       } catch (e) {
-        console.warn('Kon PDOK locatie niet ophalen bij aanmaken dossier:', e);
+        // Kon PDOK locatie niet ophalen bij aanmaken dossier
       }
     })();
     return newDossier;
@@ -647,21 +703,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (docSnap.exists()) {
         const data = { id: docSnap.id, ...convertTimestamps(docSnap.data()) } as WoningDossier;
         // Verrijk met PDOK locatie als nog niet aanwezig
-    if (!data.location || !data.woningType) {
+        if (!data.location || !data.woningType) {
           try {
             const { fetchDossierMeta } = await import('../services/dossierMeta');
             const meta = await fetchDossierMeta(adres);
-      const patch: any = {};
-      if (!data.location && meta.location) { patch.location = meta.location; data.location = meta.location; }
-      if (!data.woningType && meta.woningType) { patch.woningType = meta.woningType; data.woningType = meta.woningType; }
-      if (Object.keys(patch).length) await updateDoc(dossierRef, patch);
-          } catch {}
+            const patch: any = {};
+            if (!data.location && meta.location) { patch.location = meta.location; data.location = meta.location; }
+            if (!data.woningType && meta.woningType) { patch.woningType = meta.woningType; data.woningType = meta.woningType; }
+            if (Object.keys(patch).length) await updateDoc(dossierRef, patch);
+          } catch (err) {
+            // PDOK enrich failed
+          }
         }
         return data;
       }
       return null;
     } catch (error) {
-      console.error('Error fetching dossier:', error);
+      // Error fetching dossier
       return null;
     }
   }, []);
@@ -680,7 +738,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         notities: arrayUnion(newNotitie)
       });
     } catch (error) {
-      console.error('Error adding dossier notitie:', error);
+      // Error adding dossier notitie
     }
   }, [currentUser]);
 
@@ -702,7 +760,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
       return docObj;
     } catch (error) {
-      console.error('Error uploading dossier document:', error);
+      // Error uploading dossier document
       throw error;
     }
   }, [currentUser, uploadFile]);
@@ -721,7 +779,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } as DossierAfspraak;
       await updateDoc(dossierRef, { afspraken: arrayUnion(newItem) });
     } catch (error) {
-      console.error('Error adding dossier afspraak:', error);
+      // Error adding dossier afspraak
     }
   }, [currentUser]);
 
@@ -739,7 +797,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       items[idx] = merged as DossierAfspraak;
       await updateDoc(dossierRef, { afspraken: items });
     } catch (error) {
-      console.error('Error updating dossier afspraak:', error);
+      // Error updating dossier afspraak
     }
   }, []);
 
@@ -753,7 +811,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const filtered = items.filter(a => a.id !== afspraakId);
       await updateDoc(dossierRef, { afspraken: filtered });
     } catch (error) {
-      console.error('Error removing dossier afspraak:', error);
+      // Error removing dossier afspraak
     }
   }, []);
 
@@ -762,21 +820,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const dossierRef = doc(db, 'dossiers', adres);
       await updateDoc(dossierRef, { status });
     } catch (error) {
-      console.error('Error updating dossier status:', error);
+      // Error updating dossier status
     }
   }, []);
-
+  
   const addDossierBewoner = useCallback(async (adres: string, bewoner: Omit<DossierBewoner, 'id'>): Promise<void> => {
     try {
       const dossierRef = doc(db, 'dossiers', adres);
-  // undefined-velden strippen om Firestore errors te voorkomen
-  const cleaned = Object.fromEntries(Object.entries(bewoner).filter(([_, v]) => v !== undefined)) as Omit<DossierBewoner, 'id'>;
-  const bewonerObj: DossierBewoner = { ...cleaned, id: `bewoner-${Date.now()}` } as DossierBewoner;
+      // undefined-velden strippen om Firestore errors te voorkomen
+      const cleaned = Object.fromEntries(Object.entries(bewoner).filter(([_, v]) => v !== undefined)) as Omit<DossierBewoner, 'id'>;
+      const bewonerObj: DossierBewoner = { ...cleaned, id: `bewoner-${Date.now()}` } as DossierBewoner;
       await updateDoc(dossierRef, {
         bewoners: arrayUnion(bewonerObj)
       });
     } catch (error) {
-      console.error('Error adding dossier bewoner:', error);
+      // Error adding dossier bewoner
     }
   }, []);
 
@@ -787,15 +845,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!dossierSnap.exists()) return;
       const data = dossierSnap.data() as any;
       const bewoners: DossierBewoner[] = data.bewoners || [];
-  const idx = bewoners.findIndex(b => b.id === bewonerId);
+      const idx = bewoners.findIndex(b => b.id === bewonerId);
       if (idx === -1) return;
-  const merged: any = { ...bewoners[idx], ...patch };
-  // strip undefined properties so Firestore doesn't store undefined
-  Object.keys(merged).forEach(k => merged[k] === undefined && delete merged[k]);
-  bewoners[idx] = merged as DossierBewoner;
+      const merged: any = { ...bewoners[idx], ...patch };
+      // strip undefined properties so Firestore doesn't store undefined
+      Object.keys(merged).forEach(k => merged[k] === undefined && delete merged[k]);
+      bewoners[idx] = merged as DossierBewoner;
       await updateDoc(dossierRef, { bewoners });
     } catch (error) {
-      console.error('Error updating dossier bewoner:', error);
+      // Error updating dossier bewoner
     }
   }, []);
 
@@ -809,7 +867,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const filtered = bewoners.filter(b => b.id !== bewonerId);
       await updateDoc(dossierRef, { bewoners: filtered });
     } catch (error) {
-      console.error('Error removing dossier bewoner:', error);
+      // Error removing dossier bewoner
     }
   }, []);
 
@@ -826,7 +884,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         historie: arrayUnion(historieObj)
       });
     } catch (error) {
-      console.error('Error adding dossier historie:', error);
+      // Error adding dossier historie
     }
   }, [currentUser]);
 
@@ -851,7 +909,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       notities[idx].reacties.push(reactieObj);
       await updateDoc(dossierRef, { notities });
     } catch (error) {
-      console.error('Error adding dossier reactie:', error);
+      // Error adding dossier reactie
     }
   }, [currentUser]);
 
@@ -878,34 +936,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateProject,
     addProjectContribution,
     joinProject,
-    startUrenregistratie,
-    switchUrenregistratie,
-    stopUrenregistratie,
-    getActiveUrenregistratie,
-  updateUrenregistratie,
-  deleteUrenregistratie,
-    addUser,
+    inviteUserToProject,
+    respondToProjectInvitation,
+    projectInvitations,
+    addUrenregistratie,
+    updateUrenregistratie,
+    deleteUrenregistratie,
     updateUserRole,
     removeUser,
     updateUserProfile,
+    externalContacts,
+    addExternalContact,
+    updateExternalContact,
+    deleteExternalContact,
     // Dossier methods
     createNewDossier,
     getDossier,
     addDossierNotitie,
-  uploadDossierDocument,
-  addDossierAfspraak,
-  updateDossierAfspraak,
-  removeDossierAfspraak,
-    updateDossierStatus,
+    uploadDossierDocument,
+    addDossierAfspraak,
+    updateDossierAfspraak,
+    removeDossierAfspraak,
+  updateDossierStatus,
     addDossierBewoner,
-  updateDossierBewoner,
-  removeDossierBewoner,
+    updateDossierBewoner,
+    removeDossierBewoner,
     addDossierHistorie,
     addDossierReactie,
-  // Chat
-  getOrCreateConversation,
-  sendChatMessage,
-  markConversationSeen,
+    // Chat
+    getOrCreateConversation,
+    sendChatMessage,
+    markConversationSeen,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

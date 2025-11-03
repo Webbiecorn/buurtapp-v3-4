@@ -1,14 +1,43 @@
 
 {
-  "short_name": "ConciergeApp",
-  "name": "Buurtconciërge App V3-3",
+  "short_name": "BuurtApp",
+  "name": "Buurtconciërge App V3-4",
+  "description": "Buurtconciërge applicatie voor wijkbeheer",
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/apple-touch-icon.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#111827",
-  "background_color": "#111827"
+  "orientation": "portrait",
+  "theme_color": "#1e40af",
+  "background_color": "#ffffff",
+  "categories": ["productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Nieuwe Melding",
+      "short_name": "Melding",
+      "description": "Maak een nieuwe melding aan",
+      "url": "/issues/nieuw",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Projecten",
+      "short_name": "Projecten",
+      "description": "Bekijk en beheer projecten",
+      "url": "/projects",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Uren",
+      "short_name": "Uren",
+      "description": "Registreer gewerkte uren",
+      "url": "/time-tracking",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
 }

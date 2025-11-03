@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Melding, MeldingStatus } from '../types';
+import { MeldingStatus } from '../types';
 import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow } from '@vis.gl/react-google-maps';
 
 // De sleutels zijn nu direct ingevuld

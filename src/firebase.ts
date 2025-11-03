@@ -1,7 +1,8 @@
-// Importeer de benodigde functies van de Firebase SDK
-import { initializeApp } from "firebase/app";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
-import { getStorage, connectStorageEmulator } from "firebase/storage";
+import { initializeApp, getApp, getApps, FirebaseApp } from "firebase/app";
+import { getFirestore, connectFirestoreEmulator, Firestore, setLogLevel } from "firebase/firestore";
+import { getStorage, connectStorageEmulator, FirebaseStorage } from "firebase/storage";
+import { getAuth, connectAuthEmulator, Auth } from "firebase/auth";
+import { getFunctions, connectFunctionsEmulator, Functions } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDdNt987MgEFsi2AUsYTV-kyvXK_y9gmIs",
@@ -12,21 +13,46 @@ const firebaseConfig = {
   appId: "1:740445217879:web:afa1154ca0c5894a29af12"
 };
 
-// Initialiseer de Firebase app met jouw configuratie
-const app = initializeApp(firebaseConfig);
+// Singleton pattern om race conditions te voorkomen
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
+let storage: FirebaseStorage;
+let functions: Functions;
 
-// Exporteer de services zodat andere bestanden deze kunnen gebruiken
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+function initializeFirebase() {
+  if (!getApps().length) {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+    functions = getFunctions(app, 'us-central1'); // Specificeer regio indien nodig
 
-// Gebruik emulators alleen als expliciet aangezet via VITE_USE_EMULATORS=true
-const useEmulators = import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true';
-if (useEmulators) {
-  // Verbind met de Firestore emulator
-  connectFirestoreEmulator(db, '127.0.0.1', 8083);
-  // Verbind met de Storage emulator
-  connectStorageEmulator(storage, '127.0.0.1', 9201);
-  console.log("Applicatie is verbonden met de lokale Firebase emulators op aangepaste poorten.");
-} else if (import.meta.env.DEV) {
-  console.log("DEV zonder emulators: verbonden met Firebase project 'buurtapp-v3-4'. Zet VITE_USE_EMULATORS=true om lokaal te verbinden.");
+    const useEmulators = import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true';
+    if (useEmulators) {
+      console.log("Connecting to Firebase Emulators...");
+      connectFirestoreEmulator(db, '127.0.0.1', 8083);
+      connectStorageEmulator(storage, '127.0.0.1', 9201);
+      connectAuthEmulator(auth, 'http://127.0.0.1:9100');
+      connectFunctionsEmulator(functions, "127.0.0.1", 5101);
+    }
+  } else {
+    app = getApp();
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+    functions = getFunctions(app, 'us-central1');
+  }
 }
+
+// Initialiseer direct
+initializeFirebase();
+
+// In productie, zet het log level op 'error' om interne SDK fouten te voorkomen en console noise te verminderen.
+if (import.meta.env.PROD) {
+  setLogLevel('error');
+}
+
+// Exporteer de instanties
+export { app, auth, db, storage, functions };
+

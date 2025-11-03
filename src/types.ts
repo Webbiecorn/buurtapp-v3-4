@@ -56,12 +56,13 @@ export interface DossierReactie {
   text: string;
 }
 
-export type DossierStatus = 'actief' | 'afgesloten' | 'in onderzoek';
+export type DossierStatus = 'actief' | 'afgesloten' | 'in onderzoek' | 'afspraak'; // <-- WIJZIGING HIER
 export type DossierLabel = 'woning' | 'bedrijf' | 'overig';
 
 export interface WoningDossier {
   id: string; // adres
   adres: string;
+  gebruikerId: string;
   location?: { lat: number; lon: number } | null;
   woningType?: string | null;
   notities: DossierNotitie[];
@@ -135,10 +136,15 @@ export interface Melding {
 export interface Urenregistratie {
   id: string;
   gebruikerId: string;
-  starttijd: Date;
-  eindtijd?: Date;
-  activiteit: string;
-  details: string;
+  start: Date;
+  eind: Date;
+  // Nieuwe gestructureerde velden
+  activiteit: 'Project' | 'Wijkronde' | 'Intern overleg' | 'Extern overleg' | 'Persoonlijke ontwikkeling' | 'Overig';
+  projectId?: string;
+  projectName?: string;
+  wijk?: 'Atol' | 'Boswijk' | 'Jol' | 'Waterwijk' | 'Zuiderzeewijk';
+  overlegPartner?: string;
+  omschrijving?: string; // Voor 'Overig' of algemene notities
 }
 
 export interface ProjectContribution {
@@ -153,23 +159,26 @@ export interface Project {
   id: string;
   title: string;
   description: string;
+  location?: string;
+  budget?: number;
+  startDate: Date;
+  endDate?: Date;
+  status: ProjectStatus;
   creatorId: string;
   participantIds: string[];
-  status: ProjectStatus;
-  startDate: Date;
-  endDate?: Date | null;
-  attachments: string[];
   contributions: ProjectContribution[];
-  imageUrl: string;
+  attachments: string[];
+  imageUrl?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface Taak {
-  id: string;
-  title: string;
-  start: Date;
-  end: Date;
-  userId: string;
-  extendedProps?: { [key: string]: any };
+    id: string;
+    titel: string;
+    deadline?: Date;
+    isAfgerond: boolean;
+    gebruikerId?: string;
 }
 
 export interface Notificatie {
@@ -180,8 +189,21 @@ export interface Notificatie {
   isRead: boolean;
   timestamp: Date;
   targetId: string;
-  targetType: 'melding' | 'project' | 'message';
+  targetType: 'message' | 'project' | 'melding';
 }
+
+export interface ProjectInvitation {
+  id: string;
+  projectId: string;
+  projectTitle: string;
+  invitedUserId: string;
+  invitedByUserId: string;
+  invitedByName: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: Date;
+  respondedAt?: Date;
+}
+
 
 // Chat/conversatie types
 export interface ChatAttachment {
@@ -211,6 +233,18 @@ export interface Conversation {
   lastSeen?: Record<string, Date>;
 }
 
+export interface ExternalContact {
+  id: string;
+  creatorId: string;
+  name: string;
+  organisation: 'Gemeente' | 'Centrada' | 'Politie' | 'Boa' | 'Bewoner/Vrijwilliger' | 'Welzijn Lelystad' | 'Overig';
+  extraInfo?: string;
+  phone: string;
+  email?: string;
+  type: 'algemeen' | 'wijk';
+  wijk?: string;
+}
+
 // Context Types
 export interface AppContextType {
   createNewDossier: (adres: string) => Promise<WoningDossier>;
@@ -230,8 +264,8 @@ export interface AppContextType {
   theme: 'light' | 'dark';
   toggleTheme: () => void;
   currentUser: User | null;
-  login: (role: UserRole) => void;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<any>;
+  logout: () => Promise<void>;
   users: User[];
   meldingen: Melding[];
   projecten: Project[];
@@ -245,23 +279,26 @@ export interface AppContextType {
   markNotificationsAsRead: (targetType: 'melding' | 'project', targetId: string) => void;
   // CORRECTIE: Nieuwe functie toegevoegd voor het markeren van een enkele notificatie.
   markSingleNotificationAsRead: (notificationId: string) => void;
-  addUser: (newUser: Omit<User, 'id' | 'avatarUrl' | 'phone'>) => void;
   addProject: (project: Omit<Project, 'id' | 'creatorId' | 'contributions' | 'participantIds' | 'imageUrl'>) => void;
-  updateProject: (projectId: string, data: Partial<Pick<Project, 'title' | 'description' | 'startDate' | 'endDate' | 'status'>>) => void;
+  updateProject: (projectId: string, data: Partial<Pick<Project, 'title' | 'description' | 'startDate' | 'endDate' | 'status' | 'imageUrl'>>) => void;
   addProjectContribution: (projectId: string, contribution: Omit<ProjectContribution, 'id' | 'timestamp' | 'userId'>) => void;
   joinProject: (projectId: string) => void;
-  startUrenregistratie: (data: Omit<Urenregistratie, 'id' | 'gebruikerId' | 'starttijd' | 'eindtijd'>) => void;
-  switchUrenregistratie: (data: Omit<Urenregistratie, 'id' | 'gebruikerId' | 'starttijd' | 'eindtijd'>) => void;
-  stopUrenregistratie: () => void;
-  getActiveUrenregistratie: () => Urenregistratie | undefined;
-  updateUrenregistratie: (id: string, patch: Partial<Pick<Urenregistratie, 'starttijd' | 'eindtijd' | 'activiteit' | 'details'>>) => Promise<void>;
+  inviteUserToProject: (projectId: string, userId: string) => Promise<void>;
+  respondToProjectInvitation: (invitationId: string, response: 'accepted' | 'declined') => Promise<void>;
+  projectInvitations: ProjectInvitation[];
+  addUrenregistratie: (data: Omit<Urenregistratie, 'id' | 'gebruikerId'>) => Promise<void>;
+  updateUrenregistratie: (id: string, patch: Partial<Pick<Urenregistratie, 'start' | 'eind' | 'omschrijving'>>) => Promise<void>;
   deleteUrenregistratie: (id: string) => Promise<void>;
-  updateUserRole: (userId: string, newRole: UserRole) => void;
-  removeUser: (userId: string) => void;
-  updateUserProfile: (userId: string, data: Partial<Pick<User, 'name' | 'email' | 'phone' | 'avatarUrl'>>) => void;
+  updateUserRole: (userId: string, newRole: UserRole) => Promise<void>;
+  removeUser: (userId: string) => Promise<void>;
+  updateUserProfile: (userId: string, data: Partial<Pick<User, 'name' | 'email' | 'phone' | 'avatarUrl'>>) => Promise<void>;
+  externalContacts: ExternalContact[];
+  addExternalContact: (contact: Omit<ExternalContact, 'id' | 'creatorId'>) => Promise<void>;
+  updateExternalContact: (contactId: string, data: Partial<ExternalContact>) => Promise<void>;
+  deleteExternalContact: (contactId: string) => Promise<void>;
 
-  // Chat API
-  getOrCreateConversation: (participants: string[], title?: string) => Promise<Conversation>;
+  // Chat
+  getOrCreateConversation: (participants: string[], title?: string) => Promise<any>;
   sendChatMessage: (conversationId: string, input: { text?: string; files?: File[] }) => Promise<void>;
   markConversationSeen: (conversationId: string) => Promise<void>;
 }

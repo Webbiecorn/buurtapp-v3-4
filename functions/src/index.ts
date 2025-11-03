@@ -1,49 +1,25 @@
-import cors from 'cors';
-import express from 'express';
-import * as functions from 'firebase-functions';
-import createDossierRouter from './createDossier';
-import { db, serverTimestamp } from './firebase-admin-init';
+import * as functions from "firebase-functions";
+import express from "express"; // Correcte import voor express
+import cors from "cors"; // Correcte import voor cors
+import "./firebase-admin-init"; // Importeer voor side-effect (initialisatie)
 
 const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
-app.use(createDossierRouter);
 
-app.post('/createMelding', async (req: express.Request, res: express.Response) => {
-    try {
-    const { titel, omschrijving, locatie, wijk, categorie, gebruikerId, attachments, status } = req.body;
-
-        if (!titel || !omschrijving || !wijk || !gebruikerId) {
-            return res.status(400).send({ error: 'Verplichte velden ontbreken.' });
-        }
-
-        // Valideer status; standaard naar 'In behandeling' als onbekend of leeg
-        const allowedStatuses = ['In behandeling', 'Fixi melding gemaakt', 'Afgerond'];
-        const safeStatus = allowedStatuses.includes(status) ? status : 'In behandeling';
-
-        const newMelding = {
-            titel,
-            omschrijving,
-            locatie: locatie || null,
-            wijk,
-            categorie: categorie || 'Overig',
-            gebruikerId,
-            attachments: attachments || [],
-            status: safeStatus,
-            timestamp: serverTimestamp(), // LET OP: NU AANGEROEPEN ALS FUNCTIE
-            updates: [],
-        };
-
-        const docRef = await db.collection('meldingen').add(newMelding);
-        const docSnapshot = await docRef.get();
-        
-        return res.status(201).send({ id: docRef.id, ...docSnapshot.data() });
-
-    } catch (error: any) {
-        console.error('FATALE FOUT bij aanmaken melding:', error);
-        return res.status(500).send({ error: 'Interne serverfout', details: error.message });
-    }
+app.get('/hello', (req, res) => {
+    functions.logger.info("Hello logs!", {structuredData: true});
+    res.status(200).send('Hello, world!');
 });
 
+// Exporteer de express app als een http functie genaamd 'api'
 export const api = functions.https.onRequest(app);
+
+// Exporteer de inviteUser functie
+export { inviteUser } from './inviteUser';
+
+// Exporteer de sendWelcomeEmail functie
+export { sendWelcomeEmail } from './sendWelcomeEmail';
+
+
 

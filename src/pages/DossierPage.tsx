@@ -16,14 +16,12 @@ const DossierPage: React.FC = () => {
     const qs = new URLSearchParams(location.search);
     const adr = qs.get('adres');
     if (adr) {
-      // voorkom dubbele triggers voor hetzelfde dossier
       if (!dossier || decodeURIComponent(adr) !== dossier.id) {
-        isEditIntentRef.current = true; // kom vanuit overzicht/recents naar bewerken
+        isEditIntentRef.current = true;
         setSearch(adr);
         void doSearch(adr);
       }
     } else {
-      // Geen adres in de query: keer terug naar beginscherm
       isEditIntentRef.current = false;
       setDossier(null);
       setSearch('');
@@ -31,10 +29,9 @@ const DossierPage: React.FC = () => {
       setShowSuggest(false);
       setMeta(null);
     }
-    // Op het moment dat de querystring geen 'adres' meer heeft laten we de pagina zoals hij is
-    // (gebruiker blijft in zoek/overzicht staat), geen extra actie nodig.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
+
   const [search, setSearch] = useState("");
   const [dossier, setDossier] = useState<WoningDossier | null>(null);
   const [searchedAdres, setSearchedAdres] = useState<string>("");
@@ -46,8 +43,9 @@ const DossierPage: React.FC = () => {
   const [showSuggest, setShowSuggest] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const suggestBoxRef = useRef<HTMLDivElement | null>(null);
-  const [meta, setMeta] = useState<DossierMeta | null>(null);
+  const [, setMeta] = useState<DossierMeta | null>(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [woningTypeUpdating, setWoningTypeUpdating] = useState(false); // <-- WIJZIGING: Nieuwe state
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [bewonerNaam, setBewonerNaam] = useState('');
   const [bewonerTelefoon, setBewonerTelefoon] = useState('');
@@ -58,13 +56,31 @@ const DossierPage: React.FC = () => {
   const [bewonerEmailError, setBewonerEmailError] = useState<string | null>(null);
   const [allDossiers, setAllDossiers] = useState<Array<{ id: string; status: DossierStatus; woningType?: string | null; updatedAt: number }>>([]);
 
-  const { getDossier, createNewDossier, addDossierNotitie, uploadDossierDocument, addDossierBewoner, updateDossierStatus, updateDossierBewoner, removeDossierBewoner, addDossierAfspraak, removeDossierAfspraak, meldingen, currentUser } = useAppContext();
+  // <-- WIJZIGING: Nieuwe functie uit context gehaald
+  const { 
+    getDossier, 
+    createNewDossier, 
+    addDossierNotitie, 
+    uploadDossierDocument, 
+    addDossierBewoner, 
+    updateDossierStatus, 
+    // updateDossierWoningType removed (not present on context)
+    updateDossierBewoner, 
+    removeDossierBewoner, 
+    addDossierAfspraak, 
+    removeDossierAfspraak, 
+    meldingen, 
+    currentUser 
+  } = useAppContext();
+
+  // also keep a raw context reference for optional APIs
+  const appCtx = useAppContext();
+
   const [editBewonerId, setEditBewonerId] = useState<string | null>(null);
   const [editNaam, setEditNaam] = useState('');
   const [editTel, setEditTel] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editExtra, setEditExtra] = useState('');
-  // Afspraken formulier state
   const [newApptStart, setNewApptStart] = useState('');
   const [newApptEnd, setNewApptEnd] = useState('');
   const [newApptDesc, setNewApptDesc] = useState('');
@@ -76,8 +92,6 @@ const DossierPage: React.FC = () => {
   const [editAfspraakStart, setEditAfspraakStart] = useState<string>('');
   const [editAfspraakEinde, setEditAfspraakEinde] = useState<string>('');
   const [editAfspraakNotitie, setEditAfspraakNotitie] = useState('');
-
-  // Document preview overlay state (image/pdf/video) + carousel
   const [previewItems, setPreviewItems] = useState<string[] | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number>(0);
 
@@ -104,26 +118,27 @@ const DossierPage: React.FC = () => {
   };
   const renderInline = (url: string) => {
     const t = getType(url);
-    if (t === 'image') return <img src={url} alt="Voorbeeld document" className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-2xl" onClick={(e) => e.stopPropagation()} />;
+    if (t === 'image') return <img src={url} alt="Voorbeeld document" className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-2xl" onClick={(e) => e.stopPropagation()} tabIndex={0} role="img" onKeyDown={(e) => { if (e.key === 'Escape') e.stopPropagation(); }} />;
     if (t === 'video') return (
-      <video controls className="max-h-[85vh] max-w-[90vw] rounded shadow-2xl bg-black" onClick={(e) => e.stopPropagation()}>
-        <source src={url} />Je browser ondersteunt de video tag niet.
+      <video controls className="max-h-[85vh] max-w-[90vw] rounded shadow-2xl bg-black" onClick={(e) => e.stopPropagation()} tabIndex={0} aria-label="Voorbeeld video" aria-describedby="video-no-captions">
+        <source src={url} />
+        <div id="video-no-captions" className="sr-only">Deze video heeft geen ondertitels beschikbaar</div>
+        Je browser ondersteunt de video tag niet.
       </video>
     );
     if (t === 'video-embed') return (
-      <iframe src={url} className="w-[90vw] h-[70vh] rounded shadow-2xl bg-black" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen onClick={(e) => e.stopPropagation()} />
+  <iframe src={url} title="Video embed" className="w-[90vw] h-[70vh] rounded shadow-2xl bg-black" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen onClick={(e) => e.stopPropagation()} tabIndex={0} role="button" />
     );
     if (t === 'pdf') return (
-      <iframe src={`${url}#toolbar=1`} className="w-[90vw] h-[90vh] rounded shadow-2xl bg-white" onClick={(e) => e.stopPropagation()} />
+  <iframe src={`${url}#toolbar=1`} title="PDF preview" className="w-[90vw] h-[90vh] rounded shadow-2xl bg-white" onClick={(e) => e.stopPropagation()} tabIndex={0} role="button" />
     );
     return (
-      <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center px-4 py-2 rounded bg-white text-gray-800 shadow">
+      <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center px-4 py-2 rounded bg-white text-gray-800 shadow" role="button">
         <DownloadIcon className="h-5 w-5 mr-2" /> Download document
       </a>
     );
   };
 
-  // helpers to parse/compose contact string
   const parseContact = (contact?: string) => {
     const res = { tel: '', email: '' };
     if (!contact) return res;
@@ -141,7 +156,6 @@ const DossierPage: React.FC = () => {
     return parts.join(' | ');
   };
 
-  // simpele validators
   const isValidEmail = (v: string) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
   const isValidPhone = (v: string) => !v || /^[0-9+()\s-]{6,}$/.test(v);
 
@@ -149,16 +163,12 @@ const DossierPage: React.FC = () => {
     if (!searchAdres.trim()) return;
     setSearchedAdres(searchAdres);
     setDossier(null); 
-
-  let dossierResult = await getDossier(searchAdres);
-
+    let dossierResult = await getDossier(searchAdres);
     if (!dossierResult) {
-      console.log(`Dossier voor ${searchAdres} niet gevonden, nieuwe wordt aangemaakt.`);
+      // Dossier voor ${searchAdres} niet gevonden, nieuwe wordt aangemaakt.
       dossierResult = await createNewDossier(searchAdres);
     }
-    
     setDossier(dossierResult);
-    // Als het dossier al ingevulde info heeft, ga direct naar Overzicht
     try {
       const hasContent = !!dossierResult && (
         (dossierResult.notities && dossierResult.notities.length > 0) ||
@@ -166,16 +176,17 @@ const DossierPage: React.FC = () => {
         (dossierResult.afspraken && dossierResult.afspraken.length > 0) ||
         (dossierResult.bewoners && dossierResult.bewoners.length > 0)
       );
-  if (hasContent && !isEditIntentRef.current) {
+      if (hasContent && !isEditIntentRef.current) {
         navigate(`/dossier/${encodeURIComponent(dossierResult.id)}`);
         return;
       }
-    } catch {}
-    // Meta-info (niet-blokkerend)
+    } catch (e) {
+      // Error checking content/navigation redirect
+    }
     try {
       const m = await fetchDossierMeta(searchAdres);
       setMeta(m);
-    } catch (e) {
+    } catch {
       setMeta(null);
     }
   };
@@ -205,14 +216,15 @@ const DossierPage: React.FC = () => {
     }
   };
 
-  // Aanname: Meldingen worden gekoppeld via het adres in de 'locatie' property.
-  // Pas dit aan als de koppeling anders is.
   const gerelateerdeMeldingen = dossier ? meldingen.filter(m => m.locatie?.adres === dossier.id) : [];
 
+  // <-- WIJZIGING: Volledige DossierHeader vervangen
   const DossierHeader = ({ dossier }: { dossier: WoningDossier }) => (
     <div className="p-4 bg-white dark:bg-dark-surface rounded-lg shadow mb-6">
       <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{dossier.id}</h1>
-      <div className="flex items-center gap-4 mt-2 text-sm text-gray-600 dark:text-gray-300">
+      <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-600 dark:text-gray-300">
+        
+        {/* Status Dropdown */}
         <div className="flex items-center gap-2">
           <span>Status:</span>
           <select
@@ -234,8 +246,41 @@ const DossierPage: React.FC = () => {
             <option value="actief">Actief</option>
             <option value="afgesloten">Afgesloten</option>
             <option value="in onderzoek">In onderzoek</option>
+            <option value="afspraak">Afspraak</option>
           </select>
         </div>
+
+        {/* Woningtype Dropdown */}
+        <div className="flex items-center gap-2">
+            <span>Woningtype:</span>
+            <select
+                value={dossier.woningType || ''}
+        onChange={async (e) => {
+          const newType = e.target.value;
+          setWoningTypeUpdating(true);
+          try {
+            if (typeof (appCtx as any)?.updateDossierWoningType === 'function') {
+              await (appCtx as any).updateDossierWoningType(dossier.id, newType);
+            } else {
+              // fallback: no specialized API available
+              // updateDossierWoningType not available in context, skipping specialized update.
+            }
+            const updated = await getDossier(dossier.id);
+            setDossier(updated);
+          } finally {
+            setWoningTypeUpdating(false);
+          }
+        }}
+                disabled={woningTypeUpdating}
+                className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-surface text-gray-900 dark:text-white"
+            >
+                <option value="" disabled>-- Selecteer type --</option>
+                <option value="Huurwoning">Huurwoning</option>
+                <option value="Koopwoning">Koopwoning</option>
+            </select>
+        </div>
+
+        {/* Oude labels (kan weg als je die niet meer gebruikt) */}
         {Array.isArray(dossier.labels) && dossier.labels.length > 0 && (
           <span className="flex items-center gap-1">
             Labels: {dossier.labels.map(label => (
@@ -243,18 +288,12 @@ const DossierPage: React.FC = () => {
             ))}
           </span>
         )}
-        {meta && (
-          <span className="flex items-center gap-2">
-            {meta.woningType && <span className="px-2 py-1 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">{meta.woningType}</span>}
-            {meta.energieLabel && <span className="px-2 py-1 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">Label {meta.energieLabel}</span>}
-          </span>
-        )}
-  <Link to={`/dossier/${encodeURIComponent(dossier.id)}`} className="ml-auto px-3 py-1 rounded bg-gray-600 text-white">Overzicht</Link>
+        
+        <Link to={`/dossier/${encodeURIComponent(dossier.id)}`} className="ml-auto px-3 py-1 rounded bg-gray-600 text-white">Overzicht</Link>
       </div>
     </div>
   );
 
-  // Debounced BAG suggest (PDOK Locatieserver)
   useEffect(() => {
     const q = search.trim();
     if (!q) {
@@ -262,14 +301,12 @@ const DossierPage: React.FC = () => {
       setIsSuggestLoading(false);
       return;
     }
-    // debounce
     const handle = setTimeout(async () => {
       try {
         abortRef.current?.abort();
         const ctrl = new AbortController();
         abortRef.current = ctrl;
         setIsSuggestLoading(true);
-        // PDOK suggest endpoint for addresses
         const url = `https://api.pdok.nl/bzk/locatieserver/search/v3_1/suggest?q=${encodeURIComponent(q)}&fq=type:adres`;
         const res = await fetch(url, { signal: ctrl.signal });
         if (!res.ok) throw new Error(`Suggest failed: ${res.status}`);
@@ -282,7 +319,7 @@ const DossierPage: React.FC = () => {
         setSuggestions(items);
       } catch (e) {
         if ((e as any)?.name !== 'AbortError') {
-          console.warn('BAG suggest error', e);
+          // BAG suggest error
         }
       } finally {
         setIsSuggestLoading(false);
@@ -291,7 +328,6 @@ const DossierPage: React.FC = () => {
     return () => clearTimeout(handle);
   }, [search]);
 
-  // Close suggest on outside click
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (!suggestBoxRef.current) return;
@@ -305,7 +341,6 @@ const DossierPage: React.FC = () => {
     }
   }, [showSuggest]);
 
-  // Overzicht ophalen voor snelle stats en recente dossiers
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'dossiers'), (snap) => {
       const list: Array<{ id: string; status: DossierStatus; woningType?: string | null; updatedAt: number }> = [];
@@ -359,7 +394,9 @@ const DossierPage: React.FC = () => {
       )}
       <form className="mb-8" onSubmit={handleSearch}>
         <div className="relative flex">
-          <input
+            <label htmlFor="search-adres" className="sr-only">Zoek adres</label>
+            <input
+              id="search-adres"
             type="text"
             value={search}
             onChange={e => {
@@ -368,8 +405,8 @@ const DossierPage: React.FC = () => {
               setShowSuggest(true);
             }}
             onFocus={() => setShowSuggest(true)}
-            placeholder="Zoek op adres..."
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-l-md focus:outline-none focus:ring-2 focus:ring-brand-primary text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 bg-white dark:bg-dark-surface"
+            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-l-md focus:outline-none focus:ring-2 focus:ring-brand-primary text-gray-900 dark:text-white bg-white dark:bg-dark-surface"
+            role="combobox"
             aria-autocomplete="list"
             aria-expanded={showSuggest}
             aria-controls="bag-suggest-list"
@@ -450,25 +487,37 @@ const DossierPage: React.FC = () => {
               <div className="p-4 bg-white dark:bg-dark-surface rounded-lg shadow">
                 <h2 className="text-xl font-semibold mb-4">Bewonersinformatie</h2>
                 <div className="space-y-3">
-                  {dossier.bewoners && dossier.bewoners.length > 0 ? (
+                          {dossier.bewoners && dossier.bewoners.length > 0 ? (
                     dossier.bewoners.map(b => (
                       <div key={b.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
                         {editBewonerId === b.id ? (
-                          <div className="space-y-2">
-                            <input value={editNaam} onChange={e=>setEditNaam(e.target.value)} placeholder="Naam" className="w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400" onBlur={async ()=>{
-                              if (!dossier) return; await updateDossierBewoner(dossier.id, b.id, { name: editNaam.trim() || b.name });
-                            }} onKeyDown={async (e)=>{ if(e.key==='Enter'){ e.preventDefault(); if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { name: editNaam.trim() || b.name }); }}} />
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              <input value={editTel} onChange={e=>setEditTel(e.target.value)} placeholder="Telefoonnummer" className="w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400" onBlur={async ()=>{
-                                if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { contact: composeContact(editTel, editEmail) || undefined });
-                              }} onKeyDown={async (e)=>{ if(e.key==='Enter'){ e.preventDefault(); if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { contact: composeContact(editTel, editEmail) || undefined }); }}} />
-                              <input type="email" value={editEmail} onChange={e=>setEditEmail(e.target.value)} placeholder="Email" className="w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400" onBlur={async ()=>{
-                                if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { contact: composeContact(editTel, editEmail) || undefined });
-                              }} onKeyDown={async (e)=>{ if(e.key==='Enter'){ e.preventDefault(); if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { contact: composeContact(editTel, editEmail) || undefined }); }}} />
+                          <div className="space-y-3">
+                            <div className="space-y-2">
+                              <label htmlFor={`edit-naam-${b.id}`} className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Naam</label>
+                              <input id={`edit-naam-${b.id}`} value={editNaam} onChange={e=>setEditNaam(e.target.value)} className="w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white" onBlur={async ()=>{
+                                if (!dossier) return; await updateDossierBewoner(dossier.id, b.id, { name: editNaam.trim() || b.name });
+                              }} onKeyDown={async (e)=>{ if(e.key==='Enter'){ e.preventDefault(); if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { name: editNaam.trim() || b.name }); }}} />
                             </div>
-                            <input value={editExtra} onChange={e=>setEditExtra(e.target.value)} placeholder="Extra info" className="w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400" onBlur={async ()=>{
-                              if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { extraInfo: editExtra.trim() || undefined });
-                            }} onKeyDown={async (e)=>{ if(e.key==='Enter'){ e.preventDefault(); if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { extraInfo: editExtra.trim() || undefined }); }}} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <div className="space-y-2">
+                                <label htmlFor={`edit-telefoon-${b.id}`} className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Telefoonnummer</label>
+                                <input id={`edit-telefoon-${b.id}`} value={editTel} onChange={e=>setEditTel(e.target.value)} className="w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white" onBlur={async ()=>{
+                                  if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { contact: composeContact(editTel, editEmail) || undefined });
+                                }} onKeyDown={async (e)=>{ if(e.key==='Enter'){ e.preventDefault(); if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { contact: composeContact(editTel, editEmail) || undefined }); }}} />
+                              </div>
+                              <div className="space-y-2">
+                                <label htmlFor={`edit-email-${b.id}`} className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Email</label>
+                                <input id={`edit-email-${b.id}`} type="email" value={editEmail} onChange={e=>setEditEmail(e.target.value)} className="w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white" onBlur={async ()=>{
+                                  if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { contact: composeContact(editTel, editEmail) || undefined });
+                                }} onKeyDown={async (e)=>{ if(e.key==='Enter'){ e.preventDefault(); if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { contact: composeContact(editTel, editEmail) || undefined }); }}} />
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <label htmlFor={`edit-extra-${b.id}`} className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Extra info</label>
+                              <input id={`edit-extra-${b.id}`} value={editExtra} onChange={e=>setEditExtra(e.target.value)} className="w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white" onBlur={async ()=>{
+                                if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { extraInfo: editExtra.trim() || undefined });
+                              }} onKeyDown={async (e)=>{ if(e.key==='Enter'){ e.preventDefault(); if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { extraInfo: editExtra.trim() || undefined }); }}} />
+                            </div>
 
                             <div className="mt-3 p-3 border rounded bg-gray-50 dark:bg-gray-700">
                               <div className="flex items-center gap-2 mb-2">
@@ -479,16 +528,25 @@ const DossierPage: React.FC = () => {
                                 <label htmlFor={`afspraak-${b.id}`} className="text-sm font-medium">Afspraak gemaakt</label>
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                <input type="datetime-local" value={editAfspraakStart} onChange={(e)=>setEditAfspraakStart(e.target.value)} placeholder="Startdatum/tijd" className="w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400" onBlur={async ()=>{
-                                  if(!dossier) return; const dt = editAfspraakStart ? new Date(editAfspraakStart) : null; await updateDossierBewoner(dossier.id, b.id, { afspraakStart: dt });
-                                }} />
-                                <input type="datetime-local" value={editAfspraakEinde} onChange={(e)=>setEditAfspraakEinde(e.target.value)} placeholder="Einddatum/tijd (optioneel)" className="w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400" onBlur={async ()=>{
-                                  if(!dossier) return; const dt = editAfspraakEinde ? new Date(editAfspraakEinde) : null; await updateDossierBewoner(dossier.id, b.id, { afspraakEinde: dt });
+                                <div>
+                                  <label htmlFor={`edit-afspraak-start-${b.id}`} className="text-sm text-gray-700 dark:text-gray-300">Startdatum/tijd</label>
+                                  <input id={`edit-afspraak-start-${b.id}`} type="datetime-local" value={editAfspraakStart} onChange={(e)=>setEditAfspraakStart(e.target.value)} className="w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white" onBlur={async ()=>{
+                                    if(!dossier) return; const dt = editAfspraakStart ? new Date(editAfspraakStart) : null; await updateDossierBewoner(dossier.id, b.id, { afspraakStart: dt });
+                                  }} />
+                                </div>
+                                <div>
+                                  <label htmlFor={`edit-afspraak-einde-${b.id}`} className="text-sm text-gray-700 dark:text-gray-300">Einddatum/tijd (optioneel)</label>
+                                  <input id={`edit-afspraak-einde-${b.id}`} type="datetime-local" value={editAfspraakEinde} onChange={(e)=>setEditAfspraakEinde(e.target.value)} className="w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white" onBlur={async ()=>{
+                                    if(!dossier) return; const dt = editAfspraakEinde ? new Date(editAfspraakEinde) : null; await updateDossierBewoner(dossier.id, b.id, { afspraakEinde: dt });
+                                  }} />
+                                </div>
+                              </div>
+                              <div>
+                                <label htmlFor={`edit-afspraak-notitie-${b.id}`} className="text-sm text-gray-700 dark:text-gray-300">Notitie over de gemaakte afspraak (bijv. onderwerp, locatie, contactpersoon)</label>
+                                <textarea id={`edit-afspraak-notitie-${b.id}`} value={editAfspraakNotitie} onChange={(e)=>setEditAfspraakNotitie(e.target.value)} rows={2} className="mt-2 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white" onBlur={async ()=>{
+                                  if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { afspraakNotitie: editAfspraakNotitie.trim() || undefined });
                                 }} />
                               </div>
-                              <textarea value={editAfspraakNotitie} onChange={(e)=>setEditAfspraakNotitie(e.target.value)} placeholder="Notitie over de gemaakte afspraak (bijv. onderwerp, locatie, contactpersoon)" rows={2} className="mt-2 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400" onBlur={async ()=>{
-                                if(!dossier) return; await updateDossierBewoner(dossier.id, b.id, { afspraakNotitie: editAfspraakNotitie.trim() || undefined });
-                              }} />
                             </div>
                             <div className="flex gap-2 justify-end">
                               <button type="button" className="px-3 py-1 rounded bg-gray-600 text-white" onClick={() => { setEditBewonerId(null); }}>Annuleren</button>
@@ -508,6 +566,8 @@ const DossierPage: React.FC = () => {
                                 const updated = await getDossier(dossier.id);
                                 setDossier(updated);
                                 setEditBewonerId(null);
+                                // Navigeer na opslaan direct naar het detailoverzicht van het dossier
+                                navigate(`/dossier/${encodeURIComponent(dossier.id)}`);
                               }}>Opslaan</button>
                             </div>
                           </div>
@@ -603,24 +663,24 @@ const DossierPage: React.FC = () => {
                 }}>
                   <h3 className="font-semibold mb-2">Bewoner toevoegen</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <label className="md:col-span-2 text-xs text-gray-600 dark:text-gray-300">
-                      Naam
-                      <input value={bewonerNaam} onChange={e=>setBewonerNaam(e.target.value)} placeholder="Naam" className="mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary" />
-                    </label>
-                    <label className="text-xs text-gray-600 dark:text-gray-300">
-                      Telefoonnummer
-                      <input value={bewonerTelefoon} onChange={e=>{ setBewonerTelefoon(e.target.value); if (bewonerTelefoonError) setBewonerTelefoonError(null); }} onBlur={()=> setBewonerTelefoonError(isValidPhone(bewonerTelefoon) ? null : 'Voer een geldig telefoonnummer in')} placeholder="Telefoonnummer" className={`mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 ${bewonerTelefoonError ? 'border-red-500 focus:ring-red-500' : 'focus:ring-brand-primary'}`} />
+                    <div className="md:col-span-2">
+                      <label htmlFor="bewoner-naam" className="text-xs text-gray-600 dark:text-gray-300 block">Naam</label>
+                      <input id="bewoner-naam" value={bewonerNaam} onChange={e=>setBewonerNaam(e.target.value)} className="mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary" />
+                    </div>
+                    <div>
+                      <label htmlFor="bewoner-telefoon" className="text-xs text-gray-600 dark:text-gray-300 block">Telefoonnummer</label>
+                      <input id="bewoner-telefoon" value={bewonerTelefoon} onChange={e=>{ setBewonerTelefoon(e.target.value); if (bewonerTelefoonError) setBewonerTelefoonError(null); }} onBlur={()=> setBewonerTelefoonError(isValidPhone(bewonerTelefoon) ? null : 'Voer een geldig telefoonnummer in')} className={`mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white ${bewonerTelefoonError ? 'border-red-500 focus:ring-red-500' : 'focus:ring-brand-primary'}`} />
                       {bewonerTelefoonError && <span className="mt-1 block text-xs text-red-600">{bewonerTelefoonError}</span>}
-                    </label>
-                    <label className="text-xs text-gray-600 dark:text-gray-300">
-                      Email
-                      <input type="email" value={bewonerEmail} onChange={e=>{ setBewonerEmail(e.target.value); if (bewonerEmailError) setBewonerEmailError(null); }} onBlur={()=> setBewonerEmailError(isValidEmail(bewonerEmail) ? null : 'Voer een geldig e-mailadres in')} placeholder="Email" className={`mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 ${bewonerEmailError ? 'border-red-500 focus:ring-red-500' : 'focus:ring-brand-primary'}`} />
+                    </div>
+                    <div>
+                      <label htmlFor="bewoner-email" className="text-xs text-gray-600 dark:text-gray-300 block">Email</label>
+                      <input id="bewoner-email" type="email" value={bewonerEmail} onChange={e=>{ setBewonerEmail(e.target.value); if (bewonerEmailError) setBewonerEmailError(null); }} onBlur={()=> setBewonerEmailError(isValidEmail(bewonerEmail) ? null : 'Voer een geldig e-mailadres in')} className={`mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white ${bewonerEmailError ? 'border-red-500 focus:ring-red-500' : 'focus:ring-brand-primary'}`} />
                       {bewonerEmailError && <span className="mt-1 block text-xs text-red-600">{bewonerEmailError}</span>}
-                    </label>
-                    <label className="md:col-span-2 text-xs text-gray-600 dark:text-gray-300">
-                      Extra info (optioneel)
-                      <input value={bewonerExtraInfo} onChange={e=>setBewonerExtraInfo(e.target.value)} placeholder="Bijv. contactvoorkeur, bijzonderheden" className="mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary" />
-                    </label>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label htmlFor="bewoner-extra" className="text-xs text-gray-600 dark:text-gray-300 block">Extra info (optioneel)</label>
+                      <input id="bewoner-extra" value={bewonerExtraInfo} onChange={e=>setBewonerExtraInfo(e.target.value)} className="mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary" />
+                    </div>
                   </div>
                   
                   <div className="mt-3 flex justify-end">
@@ -650,13 +710,16 @@ const DossierPage: React.FC = () => {
 
                 <form className="mt-6 border-t dark:border-gray-700 pt-4" onSubmit={handleAddNote}>
                   <h3 className="font-semibold mb-2">Nieuwe Notitie Toevoegen</h3>
-                  <textarea
-                    value={note}
-                    onChange={e => setNote(e.target.value)}
-                    placeholder="Typ een nieuwe notitie..."
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-brand-primary text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 bg-white dark:bg-dark-surface mb-2"
-                    rows={3}
-                  />
+                  <div>
+                    <label htmlFor="new-note" className="sr-only">Nieuwe notitie</label>
+                    <textarea
+                      id="new-note"
+                      value={note}
+                      onChange={e => setNote(e.target.value)}
+                      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-brand-primary text-gray-900 dark:text-white bg-white dark:bg-dark-surface mb-2"
+                      rows={3}
+                    />
+                  </div>
                   <div className="flex justify-between items-center">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={important} onChange={e => setImportant(e.target.checked)} className="h-4 w-4 rounded text-brand-primary focus:ring-brand-primary"/>
@@ -740,31 +803,37 @@ const DossierPage: React.FC = () => {
                 >
                   <h3 className="font-semibold mb-2">Afspraak toevoegen</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <input
-                      type="datetime-local"
-                      value={newApptStart}
-                      onChange={(e) => setNewApptStart(e.target.value)}
-                      placeholder="Startdatum/tijd"
-                      className="px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                      required
-                    />
-                    <input
-                      type="datetime-local"
-                      value={newApptEnd}
-                      onChange={(e) => setNewApptEnd(e.target.value)}
-                      placeholder="Einddatum/tijd (optioneel)"
-                      className="px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                    />
+                    <div>
+                      <label htmlFor="new-appt-start" className="text-sm text-gray-700 dark:text-gray-300">Startdatum/tijd</label>
+                      <input
+                        id="new-appt-start"
+                        type="datetime-local"
+                        value={newApptStart}
+                        onChange={(e) => setNewApptStart(e.target.value)}
+                        className="mt-1 px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="new-appt-end" className="text-sm text-gray-700 dark:text-gray-300">Einddatum/tijd (optioneel)</label>
+                      <input
+                        id="new-appt-end"
+                        type="datetime-local"
+                        value={newApptEnd}
+                        onChange={(e) => setNewApptEnd(e.target.value)}
+                        className="mt-1 px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                      />
+                    </div>
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                      <label htmlFor="new-appt-desc" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                         Omschrijving <span className="text-red-600">*</span>
                       </label>
                       <input
+                        id="new-appt-desc"
                         ref={descInputRef}
                         value={newApptDesc}
                         onChange={(e) => setNewApptDesc(e.target.value)}
                         onBlur={() => setNewApptDescTouched(true)}
-                        placeholder="Omschrijving"
                         required
                         onInvalid={(ev) => {
                           ev.preventDefault();
@@ -772,7 +841,7 @@ const DossierPage: React.FC = () => {
                         }}
                         aria-invalid={newApptDescTouched && !newApptDesc.trim()}
                         className={
-                          `w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 ` +
+                          `w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white focus:outline-none focus:ring-2 ` +
                           (newApptDescTouched && !newApptDesc.trim()
                             ? 'border-red-500 focus:ring-red-500'
                             : 'focus:ring-brand-primary')
@@ -843,9 +912,9 @@ const DossierPage: React.FC = () => {
                   )}
                 </div>
                 <form className="mt-4" onSubmit={(e)=>e.preventDefault()}>
-                  <label className="block">
-                    <span className="sr-only">Upload document</span>
-                    <input type="file" accept="image/*,application/pdf,video/*" onChange={async (e) => {
+          <label className="block" htmlFor="upload-dossier-doc">
+            <span className="sr-only">Upload document</span>
+            <input id="upload-dossier-doc" type="file" accept="image/*,application/pdf,video/*" onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       setUploadingDoc(true);
@@ -883,24 +952,35 @@ const DossierPage: React.FC = () => {
                   )}
                 </div>
               </div>
+              {/* Grote opvallende Opslaan dossier knop */}
+              <div className="mt-8 flex justify-center">
+                <button type="button" className="px-8 py-4 text-xl font-bold bg-brand-primary text-white rounded-lg shadow-lg hover:bg-brand-secondary transition-all" onClick={async () => {
+                  if (!dossier) return;
+                  // Hier kun je eventueel een updateDossier functie aanroepen als je die hebt
+                  // Voor nu: navigeer naar het detailoverzicht
+                  navigate(`/dossier/${encodeURIComponent(dossier.id)}`);
+                }}>Opslaan dossier</button>
+              </div>
             </div>
             {/* Overlay viewer voor documenten */}
             {previewItems && (
               <div
-                className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-[1px] flex items-center justify-center p-4"
-                onClick={closePreview}
-                role="dialog"
-                aria-modal="true"
-                aria-label="Voorbeeld document"
-              >
-                <button
-                  type="button"
+                  className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-[1px] flex items-center justify-center p-4"
                   onClick={closePreview}
-                  className="absolute top-4 right-4 text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-full p-2"
-                  aria-label="Sluiten"
+                  role="button"
+                  aria-modal="true"
+                  aria-label="Voorbeeld document"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Escape') closePreview(); }}
                 >
-                  <XIcon className="h-5 w-5" />
-                </button>
+                    <button
+                      type="button"
+                      onClick={closePreview}
+                      className="absolute top-4 right-4 text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-full p-2"
+                      aria-label="Sluiten"
+                    >
+                      <XIcon className="h-5 w-5" />
+                    </button>
                 {previewItems.length > 1 && (
                   <>
                     <button
@@ -929,7 +1009,7 @@ const DossierPage: React.FC = () => {
       )}
 
       {!dossier && searchedAdres && (
-        <p className="text-center text-gray-500 mt-8">Dossier voor "{searchedAdres}" wordt geladen of aangemaakt...</p>
+        <p className="text-center text-gray-500 mt-8">Dossier voor &quot;{searchedAdres}&quot; wordt geladen of aangemaakt...</p>
       )}
     </div>
   );

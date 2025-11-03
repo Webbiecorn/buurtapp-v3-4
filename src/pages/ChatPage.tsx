@@ -123,14 +123,32 @@ const ChatPage: React.FC = () => {
         <div ref={bottomRef} />
       </div>
 
+      {/* Preview van geselecteerde bestanden */}
+      {files.length > 0 && (
+        <div className="border-t bg-gray-50 dark:bg-dark-bg p-3 flex flex-wrap gap-3 items-center">
+          {files.map((file, idx) => (
+            <div key={idx} className="flex items-center gap-2 bg-white dark:bg-dark-surface border rounded px-2 py-1">
+              <span className="text-sm">{file.name}</span>
+              {file.type.startsWith('image/') && (
+                <img src={URL.createObjectURL(file)} alt="preview" className="h-12 w-12 object-cover rounded" />
+              )}
+              <button type="button" onClick={() => setFiles(files.filter((_, i) => i !== idx))} className="text-red-500 ml-2" title="Verwijder bestand">✕</button>
+            </div>
+          ))}
+        </div>
+      )}
       <form onSubmit={handleSend} className="border-t bg-white dark:bg-dark-surface p-3 flex items-center gap-2">
-        <input
-          type="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          className="flex-1 rounded border border-gray-300 dark:border-dark-border bg-gray-50 dark:bg-dark-bg px-3 py-2"
-          placeholder="Typ een bericht..."
-        />
+        <div className="flex-1">
+          <label htmlFor="chat-message-input" className="sr-only">Typ een bericht</label>
+          <input
+            id="chat-message-input"
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            className="w-full rounded border border-gray-300 dark:border-dark-border bg-gray-50 dark:bg-dark-bg px-3 py-2"
+            aria-label="Typ een bericht"
+          />
+        </div>
         <input
           id="chat-file-input"
           type="file"

@@ -1,9 +1,100 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Tijdelijk permissief voor ontwikkeling/productievalidatie
-    match /{document=**} {
-      allow read, write: if true;
+
+    // Functie om te controleren of een gebruiker een Beheerder of Concierge is.
+    function isBeheerderOrConcierge(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role in ['Beheerder', 'Concierge'];
+    }
+
+    // Functie om te controleren of een gebruiker een Beheerder is.
+    function isBeheerder(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'Beheerder';
+    }
+
+    // Functie om te controleren of een gebruiker lees-rechten heeft (Beheerder, Concierge of Viewer)
+    function canRead(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role in ['Beheerder', 'Concierge', 'Viewer'];
+    }
+
+    // Gebruikers kunnen hun eigen profiel lezen en aanpassen.
+    // Beheerders kunnen alle profielen lezen en aanpassen.
+    match /users/{userId} {
+      // Ingelogde gebruikers mogen alle profielen lezen (lijst en get), voor namen/avatar etc.
+      allow read: if request.auth != null;
+      // Bijwerken alleen door eigenaar of Beheerder
+      allow update: if request.auth.uid == userId || isBeheerder(request.auth.uid);
+      // Alleen beheerders mogen gebruikers aanmaken of verwijderen (via backend functies).
+      allow create, delete: if isBeheerder(request.auth.uid);
+    }
+
+    // Urenregistraties: Gebruikers beheren hun eigen uren. Beheerders beheren alles.
+    match /urenregistraties/{entryId} {
+      allow create: if request.auth.uid == request.resource.data.gebruikerId;
+      allow read, update, delete: if resource.data.gebruikerId == request.auth.uid || isBeheerder(request.auth.uid);
+  // Opmerking: geen aparte 'list' regel; queries vallen onder 'read' en worden door Firestore geëvalueerd.
+    }
+
+    // Meldingen, Projecten, Notificaties, Dossiers:
+    // Ingelogde gebruikers met Beheerder/Concierge/Viewer rol kunnen lezen.
+    // Alleen Beheerder en Concierge kunnen schrijven.
+    match /meldingen/{meldingId} {
+      allow read: if canRead(request.auth.uid);
+      allow write: if isBeheerderOrConcierge(request.auth.uid);
+    }
+
+    match /projecten/{projectId} {
+      allow read: if canRead(request.auth.uid);
+      allow write: if isBeheerderOrConcierge(request.auth.uid);
+    }
+    
+    match /dossiers/{dossierId} {
+      allow read: if canRead(request.auth.uid);
+      allow write: if isBeheerderOrConcierge(request.auth.uid);
+    }
+
+    // Externe contacten: lezen voor Beheerder/Concierge/Viewer, beheer door Beheerder of Concierge
+    match /external_contacts/{contactId} {
+      allow read: if canRead(request.auth.uid);
+      allow write: if isBeheerderOrConcierge(request.auth.uid);
+    }
+
+    // Achterpaden-registraties: lezen voor Beheerder/Concierge/Viewer, schrijven door Beheerder of Concierge
+    match /achterpaden/{padId} {
+      allow read: if canRead(request.auth.uid);
+      allow write: if isBeheerderOrConcierge(request.auth.uid);
+    }
+
+    // Project uitnodigingen: lezen voor Beheerder/Concierge/Viewer, beheer door Beheerder of Concierge
+    match /projectInvitations/{invitationId} {
+      allow read: if canRead(request.auth.uid);
+      allow write: if isBeheerderOrConcierge(request.auth.uid);
+    }
+
+    match /notificaties/{notifId} {
+  // Eigen notificaties lezen/bijwerken/verwijderen toegestaan
+  allow read, update, delete: if resource.data.userId == request.auth.uid;
+  // Aanmaken van notificaties toegestaan voor ingelogde gebruikers (voor systeem-/chatnotificaties)
+  allow create: if request.auth != null;
+    }
+    
+    match /conversations/{convId} {
+        // Lijsten van gesprekken toestaan voor ingelogde gebruikers; daadwerkelijke document-toegang wordt per doc gecontroleerd.
+        allow list: if request.auth != null;
+        // Document lezen (get) en wijzigen alleen voor deelnemers
+        allow get, update, delete: if request.auth.uid in resource.data.participants;
+        // Aanmaken: controleer tegen het nieuwe document (request.resource)
+        allow create: if request.resource.data.participants != null && request.auth.uid in request.resource.data.participants;
+
+        // Berichten in het gesprek
+        match /messages/{messageId} {
+          // Deelnemers mogen berichten lezen (en queries/listen uitvoeren)
+          allow read, list: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
+          // Deelnemers mogen berichten plaatsen
+          allow create: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
+          // Updaten/verwijderen van berichten standaard niet toegestaan
+        }
     }
   }
 }

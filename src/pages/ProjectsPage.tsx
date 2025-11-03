@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Project, ProjectStatus, UserRole } from '../types';
 import { ProjectCard, Modal, NewProjectForm } from '../components/ui';
+import { InviteUserModal } from '../components/InviteUserModal';
 import { PlusCircleIcon, UsersIcon, PaperclipIcon, EditIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '../components/Icons';
 import { format } from 'date-fns';
-import nl from 'date-fns/locale/nl';
+import { nl } from 'date-fns/locale';
 
 type Tab = 'Lopend' | 'Afgerond';
 
@@ -20,6 +21,10 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
     const [editedStartDate, setEditedStartDate] = useState(format(project.startDate, 'yyyy-MM-dd'));
     const [editedEndDate, setEditedEndDate] = useState(project.endDate ? format(project.endDate, 'yyyy-MM-dd') : '');
     const [editedStatus, setEditedStatus] = useState(project.status);
+    const [editedImageFile, setEditedImageFile] = useState<File | null>(null);
+    const [editedImagePreview, setEditedImagePreview] = useState<string>(project.imageUrl || '');
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [showInviteModal, setShowInviteModal] = useState(false);
 
     const [newContributionText, setNewContributionText] = useState("");
     const [newContributionAttachments, setNewContributionAttachments] = useState<File[]>([]);
@@ -29,17 +34,34 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
     const [previewItems, setPreviewItems] = useState<string[] | null>(null);
     const [previewIndex, setPreviewIndex] = useState<number>(0);
     const contributionFileInputRef = React.useRef<HTMLInputElement>(null);
+    const imageFileInputRef = React.useRef<HTMLInputElement>(null);
 
     const canEditProject = currentUser?.role === UserRole.Beheerder || currentUser?.id === project.creatorId;
     const canAddContribution = isParticipant && currentUser?.role !== UserRole.Viewer;
+
+    // Sync state with project changes
+    useEffect(() => {
+        setEditedTitle(project.title);
+        setEditedDescription(project.description);
+        setEditedStartDate(format(project.startDate, 'yyyy-MM-dd'));
+        setEditedEndDate(project.endDate ? format(project.endDate, 'yyyy-MM-dd') : '');
+        setEditedStatus(project.status);
+        setEditedImagePreview(project.imageUrl || '');
+        // Reset file when project changes
+        setEditedImageFile(null);
+        if (imageFileInputRef.current) {
+            imageFileInputRef.current.value = '';
+        }
+    }, [project]);
 
     const handleJoin = () => {
         joinProject(project.id);
     };
     
     const handleContributionFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            setNewContributionAttachments(prev => [...prev, ...Array.from(e.target.files)]);
+        const files = e.target.files;
+        if (files && files.length) {
+            setNewContributionAttachments(prev => [...prev, ...Array.from(files)]);
         }
     };
 
@@ -73,34 +95,105 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
             setTimeout(() => setShowSuccessMessage(false), 3000);
 
         } catch (error) {
-            console.error("Contribution upload failed:", error);
+            // Contribution upload failed
             alert("Fout bij het uploaden van de bijlagen.");
         } finally {
             setIsUploading(false);
         }
     };
 
-    const handleUpdateProject = (e: React.FormEvent) => {
+    const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setEditedImageFile(file);
+            // Create preview URL
+            const previewUrl = URL.createObjectURL(file);
+            setEditedImagePreview(previewUrl);
+        }
+    };
+
+    const handleRemoveImage = () => {
+        setEditedImageFile(null);
+        setEditedImagePreview('');
+        // Clear the file input
+        if (imageFileInputRef.current) {
+            imageFileInputRef.current.value = '';
+        }
+    };
+
+    const handleUpdateProject = async (e: React.FormEvent) => {
         e.preventDefault();
-        updateProject(project.id, {
-            title: editedTitle,
-            description: editedDescription,
-            startDate: new Date(editedStartDate),
-            endDate: editedEndDate ? new Date(editedEndDate) : null,
-            status: editedStatus,
-        });
-        setIsEditing(false);
-        // We sluiten de modal na het updaten voor een betere UX
-        onClose();
+        setIsUpdating(true);
+        
+        try {
+            // Prepare update data
+            const updateData: any = {
+                title: editedTitle,
+                description: editedDescription,
+                startDate: new Date(editedStartDate),
+                status: editedStatus,
+            };
+
+            // Only add endDate if it exists
+            if (editedEndDate) {
+                updateData.endDate = new Date(editedEndDate);
+            }
+            
+            // Handle image updates
+            if (editedImageFile) {
+                console.log('Uploading new image:', editedImageFile.name);
+                const randomId = Math.random().toString(36).substring(2);
+                const filePath = `projects/${project.id}/${randomId}_${editedImageFile.name}`;
+                const imageUrl = await uploadFile(editedImageFile, filePath);
+                console.log('Image uploaded successfully:', imageUrl);
+                updateData.imageUrl = imageUrl;
+            } else if (!editedImagePreview && project.imageUrl) {
+                // If image was removed and project had an image
+                console.log('Image removed');
+                updateData.imageUrl = null; // Use null instead of undefined for Firestore
+            } else if (editedImagePreview && editedImagePreview === project.imageUrl) {
+                // No change to image, don't include imageUrl in update
+                console.log('No image change');
+            }
+
+            console.log('Updating project with data:', updateData);
+
+            await updateProject(project.id, updateData);
+            
+            console.log('Project updated successfully');
+            setIsEditing(false);
+            // Clean up preview URL if it was created
+            if (editedImageFile && editedImagePreview && editedImagePreview.startsWith('blob:')) {
+                URL.revokeObjectURL(editedImagePreview);
+            }
+            // We sluiten de modal na het updaten voor een betere UX
+            onClose();
+        } catch (error) {
+            console.error('Error updating project:', error);
+            alert("Fout bij het bijwerken van het project: " + (error instanceof Error ? error.message : 'Onbekende fout'));
+        } finally {
+            setIsUpdating(false);
+        }
     };
 
     const handleCancelEdit = () => {
+        setIsEditing(false);
+        // Reset all edit states
         setEditedTitle(project.title);
         setEditedDescription(project.description);
         setEditedStartDate(format(project.startDate, 'yyyy-MM-dd'));
         setEditedEndDate(project.endDate ? format(project.endDate, 'yyyy-MM-dd') : '');
         setEditedStatus(project.status);
-        setIsEditing(false);
+        setEditedImageFile(null);
+        setEditedImagePreview(project.imageUrl || '');
+        // Clean up preview URL if it was created
+        if (editedImageFile && editedImagePreview && editedImagePreview.startsWith('blob:')) {
+            URL.revokeObjectURL(editedImagePreview);
+        }
+        // Clear the file input
+        if (imageFileInputRef.current) {
+            imageFileInputRef.current.value = '';
+        }
     };
 
     // Close preview with Escape key when open
@@ -134,28 +227,30 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
     const renderInline = (url: string) => {
         const t = getType(url);
         if (t === 'image') {
-            return <img src={url} alt="Voorbeeld bijlage" className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-2xl" onClick={(e) => e.stopPropagation()} />;
+            return <img src={url} alt="Voorbeeld bijlage" className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-2xl" onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation(); }} />;
         }
         if (t === 'video') {
             return (
-                <video controls className="max-h-[85vh] max-w-[90vw] rounded shadow-2xl bg-black" onClick={(e) => e.stopPropagation()}>
-                    <source src={url} />
-                    Je browser ondersteunt de video tag niet.
-                </video>
+                                <video controls aria-label="Voorbeeld video" className="max-h-[85vh] max-w-[90vw] rounded shadow-2xl bg-black" onClick={(e) => e.stopPropagation()}>
+                                    <source src={url} />
+                                    {/* TODO: add captions file */}
+                                    <track kind="captions" src="" />
+                                    Je browser ondersteunt de video tag niet.
+                                </video>
             );
         }
         if (t === 'video-embed') {
             return (
-                <iframe src={url} className="w-[90vw] h-[70vh] rounded shadow-2xl bg-black" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen onClick={(e) => e.stopPropagation()} />
+                <iframe src={url} title="Video embed" className="w-[90vw] h-[70vh] rounded shadow-2xl bg-black" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation(); }} />
             );
         }
         if (t === 'pdf') {
             return (
-                <iframe src={`${url}#toolbar=1`} className="w-[90vw] h-[90vh] rounded shadow-2xl bg-white" onClick={(e) => e.stopPropagation()} />
+                <iframe src={`${url}#toolbar=1`} title="PDF preview" className="w-[90vw] h-[90vh] rounded shadow-2xl bg-white" onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation(); }} />
             );
         }
         return (
-            <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center px-4 py-2 rounded bg-white text-gray-800 shadow">
+            <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center px-4 py-2 rounded bg-white text-gray-800 shadow" role="button">
                 <DownloadIcon className="h-5 w-5 mr-2" /> Download bijlage
             </a>
         );
@@ -166,32 +261,83 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
             {isEditing ? (
                 <form onSubmit={handleUpdateProject} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Titel</label>
-                        <input type="text" value={editedTitle} onChange={e => setEditedTitle(e.target.value)} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary" />
+                        <label htmlFor="project-title" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Titel</label>
+                        <input id="project-title" type="text" value={editedTitle} onChange={e => setEditedTitle(e.target.value)} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Omschrijving</label>
-                        <textarea value={editedDescription} onChange={e => setEditedDescription(e.target.value)} rows={4} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"></textarea>
+                        <label htmlFor="project-description" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Omschrijving</label>
+                        <textarea id="project-description" value={editedDescription} onChange={e => setEditedDescription(e.target.value)} rows={4} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"></textarea>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-2">Projectafbeelding</label>
+                        <div className="space-y-3">
+                            {editedImagePreview && (
+                                <div className="relative">
+                                    <img src={editedImagePreview} alt="Project preview" className="w-full h-32 object-cover rounded-lg" />
+                                    <button
+                                        type="button"
+                                        onClick={handleRemoveImage}
+                                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
+                                        title="Afbeelding verwijderen"
+                                    >
+                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            )}
+                            <div>
+                                <input
+                                    ref={imageFileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageFileChange}
+                                    className="hidden"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => imageFileInputRef.current?.click()}
+                                    className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-dark-border rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-dark-text-secondary bg-white dark:bg-dark-bg hover:bg-gray-50 dark:hover:bg-dark-border"
+                                >
+                                    <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    {editedImagePreview ? 'Afbeelding wijzigen' : 'Afbeelding toevoegen'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Startdatum</label>
-                            <input type="date" value={editedStartDate} onChange={e => setEditedStartDate(e.target.value)} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary" />
+                            <label htmlFor="project-start-date" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Startdatum</label>
+                            <input id="project-start-date" type="date" value={editedStartDate} onChange={e => setEditedStartDate(e.target.value)} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Einddatum</label>
-                            <input type="date" value={editedEndDate} onChange={e => setEditedEndDate(e.target.value)} min={editedStartDate} className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary" />
+                            <label htmlFor="project-end-date" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Einddatum</label>
+                            <input id="project-end-date" type="date" value={editedEndDate} onChange={e => setEditedEndDate(e.target.value)} min={editedStartDate} className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Status</label>
-                        <select value={editedStatus} onChange={e => setEditedStatus(e.target.value as ProjectStatus)} className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary">
+                        <label htmlFor="project-status" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Status</label>
+                        <select id="project-status" value={editedStatus} onChange={e => setEditedStatus(e.target.value as ProjectStatus)} className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary">
                             {Object.values(ProjectStatus).map(s => <option key={s} value={s} className="bg-white dark:bg-dark-surface">{s}</option>)}
                         </select>
                     </div>
-                    <div className="flex justify-end space-x-4 pt-4">
-                        <button type="button" onClick={handleCancelEdit} className="px-4 py-2 text-sm font-medium rounded-md text-gray-700 dark:text-dark-text-secondary bg-gray-200 dark:bg-dark-border hover:bg-gray-300 dark:hover:bg-gray-600">Annuleren</button>
-                        <button type="submit" className="px-4 py-2 text-sm font-medium rounded-md text-white bg-brand-primary hover:bg-brand-secondary">Opslaan</button>
+                    <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-dark-border">
+                        <button
+                            type="button"
+                            onClick={() => setShowInviteModal(true)}
+                            className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-dark-border text-sm font-medium rounded-md text-gray-700 dark:text-dark-text-secondary bg-white dark:bg-dark-bg hover:bg-gray-50 dark:hover:bg-dark-border"
+                        >
+                            <PlusCircleIcon className="h-4 w-4 mr-2" />
+                            Collega's uitnodigen
+                        </button>
+                        <div className="flex space-x-3">
+                            <button type="button" onClick={handleCancelEdit} className="px-4 py-2 text-sm font-medium rounded-md text-gray-700 dark:text-dark-text-secondary bg-gray-200 dark:bg-dark-border hover:bg-gray-300 dark:hover:bg-gray-600">Annuleren</button>
+                            <button type="submit" disabled={isUpdating} className="px-4 py-2 text-sm font-medium rounded-md text-white bg-brand-primary hover:bg-brand-secondary disabled:bg-gray-400">
+                                {isUpdating ? 'Bezig...' : 'Opslaan'}
+                            </button>
+                        </div>
                     </div>
                 </form>
             ) : (
@@ -204,7 +350,9 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
                         )}
                     </div>
 
-                    <img src={project.imageUrl} alt={project.title} className="w-full h-64 object-cover rounded-lg" />
+                    {project.imageUrl && (
+                        <img src={project.imageUrl} alt={project.title} className="w-full h-64 object-cover rounded-lg" />
+                    )}
                     
                     <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-dark-text-secondary">
                         <span><strong>Status:</strong> <span className={`font-semibold px-2 py-0.5 rounded ${project.status === 'Lopend' ? 'bg-blue-500' : 'bg-green-500'} text-white`}>{project.status}</span></span>
@@ -215,7 +363,18 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
                     <p className="text-gray-600 dark:text-dark-text-secondary">{project.description}</p>
                     
                     <div>
-                        <h3 className="font-semibold text-lg text-gray-900 dark:text-dark-text-primary mb-2">Deelnemers ({participants.length})</h3>
+                        <div className="flex justify-between items-center mb-2">
+                            <h3 className="font-semibold text-lg text-gray-900 dark:text-dark-text-primary">Deelnemers ({participants.length})</h3>
+                            {canEditProject && (
+                                <button
+                                    onClick={() => setShowInviteModal(true)}
+                                    className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-dark-border text-sm font-medium rounded-md text-gray-700 dark:text-dark-text-secondary bg-white dark:bg-dark-bg hover:bg-gray-50 dark:hover:bg-dark-border"
+                                >
+                                    <PlusCircleIcon className="h-4 w-4 mr-2" />
+                                    Uitnodigen
+                                </button>
+                            )}
+                        </div>
                         <div className="flex flex-wrap gap-4">
                             {participants.map(p => (
                                 <div key={p.id} className="flex items-center space-x-2 bg-gray-100 dark:bg-dark-bg p-2 rounded-lg">
@@ -288,16 +447,17 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
                     </div>
 
                     {canAddContribution && (
-                        <form onSubmit={handleAddContribution} className="pt-4 border-t border-gray-200 dark:border-dark-border">
-                             <h3 className="font-semibold text-lg text-gray-900 dark:text-dark-text-primary mb-2">Bijdrage toevoegen</h3>
-                             <textarea 
-                                value={newContributionText}
-                                onChange={(e) => setNewContributionText(e.target.value)}
-                                className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
-                                placeholder="Deel een update..."
-                                rows={3}
-                             />
-                             {newContributionAttachments.length > 0 && (
+                              <form onSubmit={handleAddContribution} className="pt-4 border-t border-gray-200 dark:border-dark-border">
+                                          <h3 className="font-semibold text-lg text-gray-900 dark:text-dark-text-primary mb-2">Bijdrage toevoegen</h3>
+                                          <label htmlFor="project-update" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Deel een update</label>
+                                          <textarea 
+                                              id="project-update"
+                                              value={newContributionText}
+                                              onChange={(e) => setNewContributionText(e.target.value)}
+                                              className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
+                                              rows={3}
+                                          />
+                                         {newContributionAttachments.length > 0 && (
                                  <div className="mt-2 grid grid-cols-3 gap-2">
                                      {newContributionAttachments.map((file, index) => (
                                          <div key={index} className="relative">
@@ -328,7 +488,7 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
                         </form>
                     )}
 
-                    {!isParticipant && currentUser?.role === UserRole.Concierge && (
+                    {!isParticipant && (currentUser?.role === UserRole.Concierge || currentUser?.role === UserRole.Beheerder) && (
                         <div className="pt-4 border-t border-gray-200 dark:border-dark-border text-center">
                             <button onClick={handleJoin} className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700">
                                 <UsersIcon className="h-6 w-6 mr-2" /> Ik wil helpen!
@@ -342,9 +502,11 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
                 <div
                     className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-[1px] flex items-center justify-center p-4"
                     onClick={closePreview}
-                    role="dialog"
+                    role="button"
                     aria-modal="true"
                     aria-label="Voorbeeld bijlage"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Escape') closePreview(); }}
                 >
                     <button
                         type="button"
@@ -377,6 +539,14 @@ const ProjectDetailModal: React.FC<{ project: Project; onClose: () => void }> = 
                     {renderInline(previewItems[previewIndex])}
                 </div>
             )}
+            
+            <InviteUserModal
+                isOpen={showInviteModal}
+                onClose={() => setShowInviteModal(false)}
+                projectId={project.id}
+                projectTitle={project.title}
+                currentParticipantIds={project.participantIds}
+            />
         </Modal>
     );
 };
@@ -444,7 +614,7 @@ const ProjectsPage: React.FC = () => {
                     <div key={project.id} onClick={() => {
                         setSelectedProject(project);
                         markNotificationsAsRead('project', project.id);
-                        }} className="cursor-pointer">
+                        }} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setSelectedProject(project); markNotificationsAsRead('project', project.id); } }} className="cursor-pointer">
                         <ProjectCard project={project} isUnseen={isUnseen(project.id)} />
                     </div>
                 ))}

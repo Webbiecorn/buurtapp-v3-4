@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { Link } from 'react-router-dom';
 import { Melding, MeldingStatus, UserRole } from '../types';
 import { MeldingCard, Modal, getStatusColor } from '../components/ui';
 import { PlusCircleIcon, CameraIcon, MapPinIcon, SendIcon, TrashIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '../components/Icons';
@@ -10,6 +11,26 @@ import { MOCK_WIJKEN } from '../data/mockData';
 type Tab = 'Lopende' | 'Fixi Meldingen' | 'Afgeronde';
 
 type Toast = { type: 'success' | 'error'; message: string };
+
+// Null-safe datumhelpers om crashes te voorkomen wanneer serverTimestamp nog niet is ingevuld
+const getTimeSafe = (d: any): number => {
+    if (!d) return 0;
+    if (d instanceof Date) return d.getTime();
+    const dt = new Date(d as any);
+    const t = dt.getTime();
+    return isNaN(t) ? 0 : t;
+};
+
+const formatSafe = (d: any, fmt: string): string => {
+    try {
+        if (!d) return '—';
+        const date = d instanceof Date ? d : new Date(d as any);
+        if (isNaN(date.getTime())) return '—';
+        return format(date, fmt, { locale: nl });
+    } catch {
+        return '—';
+    }
+};
 const NewMeldingForm: React.FC<{ onClose: () => void; onToast: (t: Toast) => void }> = ({ onClose, onToast }) => {
     const { addMelding, uploadFile } = useAppContext();
     const [titel, setTitel] = useState('');
@@ -71,7 +92,7 @@ const NewMeldingForm: React.FC<{ onClose: () => void; onToast: (t: Toast) => voi
             onClose();
 
         } catch (error: any) {
-            console.error("Upload mislukt:", error);
+            // Upload mislukt
             onToast({ type: 'error', message: error?.message || 'Upload mislukt.' });
     } finally {
             setIsUploading(false);
@@ -79,8 +100,8 @@ const NewMeldingForm: React.FC<{ onClose: () => void; onToast: (t: Toast) => voi
     };
     
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+            <div className="space-y-2">
                 <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Titel</label>
                 <input type="text" id="title" value={titel} onChange={e => setTitel(e.target.value)} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary" />
             </div>
@@ -97,12 +118,12 @@ const NewMeldingForm: React.FC<{ onClose: () => void; onToast: (t: Toast) => voi
                     {Object.values(MeldingStatus).map(s => <option key={s} value={s} className="bg-white dark:bg-dark-surface">{s}</option>)}
                 </select>
             </div>
-            <div>
+            <div className="space-y-2">
                 <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Omschrijving</label>
                 <textarea id="description" value={omschrijving} onChange={e => setOmschrijving(e.target.value)} rows={4} required className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"></textarea>
             </div>
-             <div className="space-y-4">
-                 <div className="flex space-x-4">
+          <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:space-x-4 gap-3">
                      <button type="button" onClick={() => fileInputRef.current?.click()} className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700">
                         <CameraIcon className="h-5 w-5 mr-2" /> Foto/Bestand
                     </button>
@@ -110,7 +131,9 @@ const NewMeldingForm: React.FC<{ onClose: () => void; onToast: (t: Toast) => voi
                         <MapPinIcon className="h-5 w-5 mr-2" /> GPS Locatie
                     </button>
                  </div>
+                          <label htmlFor="new-melding-files" className="sr-only">Bijlagen</label>
                           <input
+                    id="new-melding-files"
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileChange}
@@ -181,28 +204,30 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
     const renderInline = (url: string) => {
         const t = getType(url);
         if (t === 'image') {
-            return <img src={url} alt="Voorbeeld bijlage" className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-2xl" onClick={(e) => e.stopPropagation()} />;
+            return <img src={url} alt="Voorbeeld bijlage" className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-2xl" onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation(); }} />;
         }
         if (t === 'video') {
             return (
-                <video controls className="max-h-[85vh] max-w-[90vw] rounded shadow-2xl bg-black" onClick={(e) => e.stopPropagation()}>
-                    <source src={url} />
-                    Je browser ondersteunt de video tag niet.
-                </video>
+                                <video controls aria-label="Voorbeeld video" className="max-h-[85vh] max-w-[90vw] rounded shadow-2xl bg-black" onClick={(e) => e.stopPropagation()}>
+                                    <source src={url} />
+                                    {/* TODO: add captions file */}
+                                    <track kind="captions" src="" />
+                                    Je browser ondersteunt de video tag niet.
+                                </video>
             );
         }
         if (t === 'video-embed') {
             return (
-                <iframe src={url} className="w-[90vw] h-[70vh] rounded shadow-2xl bg-black" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen onClick={(e) => e.stopPropagation()} />
+                <iframe src={url} title="Video embed" className="w-[90vw] h-[70vh] rounded shadow-2xl bg-black" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation(); }} />
             );
         }
         if (t === 'pdf') {
             return (
-                <iframe src={`${url}#toolbar=1`} className="w-[90vw] h-[90vh] rounded shadow-2xl bg-white" onClick={(e) => e.stopPropagation()} />
+                <iframe src={`${url}#toolbar=1`} title="PDF preview" className="w-[90vw] h-[90vh] rounded shadow-2xl bg-white" onClick={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation(); }} />
             );
         }
         return (
-            <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center px-4 py-2 rounded bg-white text-gray-800 shadow">
+            <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center px-4 py-2 rounded bg-white text-gray-800 shadow" role="button">
                 <DownloadIcon className="h-5 w-5 mr-2" /> Download bijlage
             </a>
         );
@@ -239,7 +264,7 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
             onClose();
 
         } catch (error) {
-            console.error("Update upload mislukt:", error);
+            // Update upload mislukt
             alert("Fout bij uploaden van bijlagen voor update.");
         } finally {
             setIsUploading(false);
@@ -275,6 +300,9 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
                                 alt={melding.titel}
                                 className="w-full h-64 object-cover rounded-lg cursor-zoom-in"
                                 onClick={() => openPreview(melding.attachments, 0)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openPreview(melding.attachments, 0); }}
                             />
                         ) : (
                             <button
@@ -320,7 +348,7 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
                     <div className="text-sm text-gray-600 dark:text-dark-text-secondary space-y-1">
                         <p><strong>Categorie:</strong> {melding.categorie}</p>
                         <p><strong>Wijk:</strong> {melding.wijk}</p>
-                        <p><strong>Gemeld op:</strong> {format(melding.timestamp, 'dd MMM yyyy, HH:mm', { locale: nl })}</p>
+                        <p><strong>Gemeld op:</strong> {formatSafe(melding.timestamp, 'dd MMM yyyy, HH:mm')}</p>
                     </div>
                 </div>
 
@@ -341,7 +369,7 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
                     <div className="flex-grow flex flex-col min-h-0">
                         <h3 className="font-semibold text-lg text-gray-900 dark:text-dark-text-primary mb-2">Updates</h3>
                         <div className="space-y-4 flex-grow overflow-y-auto pr-2 max-h-60 bg-gray-50 dark:bg-dark-bg p-2 rounded-md">
-                            {[...melding.updates].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).map(update => {
+                            {[...melding.updates].sort((a, b) => getTimeSafe(b.timestamp) - getTimeSafe(a.timestamp)).map(update => {
                                 const user = users.find(u => u.id === update.userId);
                                 return (
                                     <div key={update.id} className="flex space-x-3">
@@ -349,7 +377,7 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
                                         <div className="flex-1 bg-white dark:bg-dark-surface p-2 rounded-lg">
                                             <div className="flex justify-between items-center text-xs">
                                                 <span className="font-semibold text-gray-800 dark:text-dark-text-primary">{user?.name}</span>
-                                                <span className="text-gray-500 dark:text-gray-400">{format(update.timestamp, 'dd MMM, HH:mm', { locale: nl })}</span>
+                                                <span className="text-gray-500 dark:text-gray-400">{formatSafe(update.timestamp, 'dd MMM, HH:mm')}</span>
                                             </div>
                                             <p className="text-sm text-gray-600 dark:text-dark-text-secondary mt-1">{update.text}</p>
                                             {update.attachments && update.attachments.length > 0 && (
@@ -387,48 +415,60 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
                     </div>
 
                     {canEdit && (
-                        <form onSubmit={handleUpdateSubmit} className="pt-4 border-t border-gray-200 dark:border-dark-border">
-                             <h3 className="font-semibold text-lg text-gray-900 dark:text-dark-text-primary mb-2">Update Toevoegen</h3>
-                             <textarea 
-                                value={newUpdateText}
-                                onChange={(e) => setNewUpdateText(e.target.value)}
-                                className="w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
-                                placeholder="Voeg een opmerking toe..."
-                                rows={3}
-                             />
-                                                                                            <input
-                                type="file"
-                                ref={updateFileInputRef}
-                                onChange={handleUpdateFileChange}
-                                multiple
-                                                                                                accept="image/*,application/pdf,video/*"
-                                className="hidden"
-                            />
-                             {newUpdateAttachments.length > 0 && (
-                                 <div className="mt-2 space-y-2">
-                                     {newUpdateAttachments.map((file, index) => (
-                                         <div key={index} className="flex items-center justify-between p-2 text-sm bg-gray-100 dark:bg-dark-bg rounded-md">
-                                             <span className="text-gray-600 dark:text-dark-text-secondary truncate">{file.name}</span>
-                                             <button type="button" onClick={() => removeUpdateAttachment(index)} className="text-red-500 hover:text-red-400">
-                                                 <TrashIcon className="h-4 w-4" />
-                                             </button>
-                                         </div>
-                                     ))}
-                                 </div>
-                             )}
-                             <div className="flex justify-between items-center mt-2">
-                                <button type="button" onClick={() => updateFileInputRef.current?.click()} className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-dark-border text-sm font-medium rounded-md text-gray-700 dark:text-dark-text-secondary bg-white dark:bg-dark-bg hover:bg-gray-100 dark:hover:bg-dark-border">
-                                    <CameraIcon className="h-4 w-4 mr-2"/> Foto/Bestand
-                                </button>
-                                <div className="flex items-center space-x-2">
-                                   <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-300 dark:border-dark-border text-sm font-medium rounded-md text-gray-700 dark:text-dark-text-secondary bg-white dark:bg-dark-bg hover:bg-gray-100 dark:hover:bg-dark-border">
-                                       Sluiten
-                                   </button>
-                                   <button type="submit" disabled={isUploading} className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary disabled:bg-gray-400">
-                                       <SendIcon className="h-4 w-4 mr-2" /> {isUploading ? 'Plaatsen...' : 'Plaatsen'}
-                                   </button>
+                        <form onSubmit={handleUpdateSubmit} className="pt-4 border-t border-gray-200 dark:border-dark-border space-y-4">
+                            <h3 className="font-semibold text-lg text-gray-900 dark:text-dark-text-primary">Update Toevoegen</h3>
+
+                            <div className="space-y-2">
+                                <label htmlFor="issue-update-text" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Opmerking</label>
+                                <textarea
+                                    id="issue-update-text"
+                                    value={newUpdateText}
+                                    onChange={(e) => setNewUpdateText(e.target.value)}
+                                    className="w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
+                                    rows={3}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label htmlFor="issue-update-files" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Bijlagen</label>
+                                <input
+                                    id="issue-update-files"
+                                    type="file"
+                                    ref={updateFileInputRef}
+                                    onChange={handleUpdateFileChange}
+                                    multiple
+                                    accept="image/*,application/pdf,video/*"
+                                    className="hidden"
+                                />
+
+                                {newUpdateAttachments.length > 0 && (
+                                    <div className="mt-2 space-y-2">
+                                        {newUpdateAttachments.map((file, index) => (
+                                            <div key={index} className="flex items-center justify-between p-2 text-sm bg-gray-100 dark:bg-dark-bg rounded-md">
+                                                <span className="text-gray-600 dark:text-dark-text-secondary truncate">{file.name}</span>
+                                                <button type="button" onClick={() => removeUpdateAttachment(index)} className="text-red-500 hover:text-red-400">
+                                                    <TrashIcon className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className="flex justify-between items-center mt-2">
+                                    <button type="button" onClick={() => updateFileInputRef.current?.click()} className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-dark-border text-sm font-medium rounded-md text-gray-700 dark:text-dark-text-secondary bg-white dark:bg-dark-bg hover:bg-gray-100 dark:hover:bg-dark-border">
+                                        <CameraIcon className="h-4 w-4 mr-2"/> Foto/Bestand
+                                    </button>
+
+                                    <div className="flex items-center space-x-2">
+                                        <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-300 dark:border-dark-border text-sm font-medium rounded-md text-gray-700 dark:text-dark-text-secondary bg-white dark:bg-dark-bg hover:bg-gray-100 dark:hover:bg-dark-border">
+                                            Sluiten
+                                        </button>
+                                        <button type="submit" disabled={isUploading} className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary disabled:bg-gray-400">
+                                            <SendIcon className="h-4 w-4 mr-2" /> {isUploading ? 'Plaatsen...' : 'Plaatsen'}
+                                        </button>
+                                    </div>
                                 </div>
-                             </div>
+                            </div>
                         </form>
                     )}
                 </div>
@@ -444,9 +484,11 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
             <div
                 className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-[1px] flex items-center justify-center p-4"
                 onClick={closePreview}
-                role="dialog"
+                role="button"
                 aria-modal="true"
                 aria-label="Voorbeeld bijlage"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Escape') closePreview(); }}
             >
                 <button
                     type="button"
@@ -514,7 +556,7 @@ const IssuesPage: React.FC = () => {
             default:
                 return true;
         }
-    }).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    }).sort((a, b) => getTimeSafe(b.timestamp) - getTimeSafe(a.timestamp));
     
     const tabs: Tab[] = ['Lopende', 'Fixi Meldingen', 'Afgeronde'];
     
@@ -525,10 +567,10 @@ const IssuesPage: React.FC = () => {
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">Meldingen</h1>
                 {currentUser?.role !== UserRole.Viewer && (
-                     <button onClick={() => setIsNewModalOpen(true)} className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary">
+                    <Link to="/issues/nieuw" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary">
                         <PlusCircleIcon className="h-5 w-5 mr-2"/>
                         Nieuwe Melding
-                    </button>
+                    </Link>
                 )}
             </div>
             
@@ -554,12 +596,17 @@ const IssuesPage: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredMeldingen.map(melding => (
-                    <div key={melding.id} onClick={() => {
-                        setSelectedMelding(melding);
-                        markNotificationsAsRead('melding', melding.id);
-                        }} className="cursor-pointer">
+                    <button
+                        key={melding.id}
+                        type="button"
+                        onClick={() => {
+                            setSelectedMelding(melding);
+                            markNotificationsAsRead('melding', melding.id);
+                        }}
+                        className="cursor-pointer p-0 border-0 bg-transparent text-left w-full"
+                    >
                         <MeldingCard melding={melding} isUnseen={isUnseen(melding.id)} />
-                    </div>
+                    </button>
                 ))}
             </div>
 

@@ -18,3 +18,138 @@
 	outline: none;
 	box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.5); /* brand-primary ring */
 }
+
+/* Zorgt ervoor dat de browser's eigen date/time picker UI ook donker wordt */
+.dark input[type="datetime-local"] {
+    color-scheme: dark;
+    color: white;
+}
+
+/* Mobile & Touch optimizations */
+@media (max-width: 768px) {
+  /* Larger touch targets */
+  button, a, input, select, textarea {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+  
+  /* Prevent zoom on double-tap */
+  * {
+    touch-action: manipulation;
+  }
+  
+  /* Better scrolling on iOS */
+  body {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Larger padding on mobile */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Better tap highlight */
+* {
+  -webkit-tap-highlight-color: rgba(30, 64, 175, 0.1);
+}
+
+/* Prevent text selection on buttons */
+button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Safe area for notch devices */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Print styles for PDF generation */
+@media print {
+  /* Force white background for print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  
+  /* Page setup */
+  @page {
+    size: A4;
+    margin: 1.5cm;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  /* Hide navigation and non-essential elements */
+  nav, aside, .no-print {
+    display: none !important;
+  }
+  
+  /* Ensure content fits on pages */
+  .print\:break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  
+  /* Show hidden print elements */
+  .print\:block {
+    display: block !important;
+  }
+  
+  .print\:hidden {
+    display: none !important;
+  }
+  
+  /* Better spacing for print */
+  .print\:space-y-4 > * + * {
+    margin-top: 1rem !important;
+  }
+  
+  /* Remove shadows for print */
+  .print\:shadow-none {
+    box-shadow: none !important;
+  }
+  
+  /* White backgrounds for print */
+  .print\:bg-white {
+    background-color: white !important;
+  }
+  
+  /* Ensure gradients print correctly */
+  .bg-gradient-to-r, .bg-gradient-to-br, .bg-gradient-to-l {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* Grid layouts for print */
+  .print\:grid-cols-1 {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+  }
+  
+  /* Links should show URLs */
+  a[href]:after {
+    content: none; /* Don't show URLs in this app */
+  }
+  
+  /* Ensure colored backgrounds print */
+  .bg-red-50, .bg-yellow-50, .bg-green-50, .bg-blue-50,
+  .bg-red-600, .bg-yellow-600, .bg-green-600, .bg-blue-600 {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
