@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import AchterpadenRegistratie from './AchterpadenRegistratie';
 import AchterpadenOverzicht from './AchterpadenOverzicht';
+import AchterpadenKaartOverzicht from './AchterpadenKaartOverzicht';
 import AchterpadenStatistieken from './AchterpadenStatistieken';
 
 const tabs = [
   { key: 'registratie', label: 'Registratie' },
-  { key: 'overzicht', label: 'Overzicht' },
+  { key: 'kaart', label: 'Kaart Overzicht' },
+  { key: 'overzicht', label: 'Detail Overzicht' },
   { key: 'stats', label: 'Statestieken' },
 ];
 
 const AchterpadenPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'registratie' | 'overzicht' | 'stats'>('registratie');
+  const [activeTab, setActiveTab] = useState<'registratie' | 'kaart' | 'overzicht' | 'stats'>('registratie');
 
   return (
     <div>
@@ -30,7 +32,8 @@ const AchterpadenPage: React.FC = () => {
         ))}
       </div>
       <div className="dark:text-dark-text-primary">
-  {activeTab === 'registratie' && <AchterpadenRegistratie onSuccess={() => setActiveTab('overzicht')} />}
+  {activeTab === 'registratie' && <AchterpadenRegistratie onSuccess={() => setActiveTab('kaart')} />}
+  {activeTab === 'kaart' && <AchterpadenKaartOverzicht />}
   {activeTab === 'overzicht' && <AchterpadenOverzicht />}
   {activeTab === 'stats' && <AchterpadenStatistieken />}
       </div>

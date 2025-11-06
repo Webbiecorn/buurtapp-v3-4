@@ -5,6 +5,51 @@ import { collection, onSnapshot, doc, updateDoc, arrayUnion, getDoc } from "fire
 import AchterpadCard from '../components/AchterpadCard';
 import AchterpadenStats from '../components/AchterpadenStats';
 import { UserRole } from "../types";
+import { APIProvider, Map, Marker, useMap } from '@vis.gl/react-google-maps';
+import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
+
+// Polyline component voor route op kaart
+const RoutePolyline: React.FC<{ 
+  start: { lat: number; lng: number }; 
+  end: { lat: number; lng: number }; 
+  color?: string 
+}> = ({ start, end, color = '#3B82F6' }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (!map || !window.google) return;
+    
+    const polyline = new window.google.maps.Polyline({
+      path: [start, end],
+      geodesic: true,
+      strokeColor: color,
+      strokeOpacity: 1.0,
+      strokeWeight: 3,
+      map: map
+    });
+    
+    return () => {
+      polyline.setMap(null);
+    };
+  }, [map, start, end, color]);
+  
+  return null;
+};
+
+// Status kleur helper
+const getStatusColor = (staat: string): string => {
+  switch (staat?.toLowerCase()) {
+    case 'goed':
+      return '#10B981'; // groen
+    case 'matig':
+      return '#F59E0B'; // oranje
+    case 'slecht':
+      return '#EF4444'; // rood
+    default:
+      return '#6B7280'; // grijs
+  }
+};
 
 // Modal component voor bewerken van achterpad
 type EditAchterpadModalProps = {

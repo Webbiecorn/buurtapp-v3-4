@@ -144,7 +144,8 @@ ${newUserWelcome}
 - Gemiddeld deze week: ${avgMeldingenPerDay.toFixed(1)} meldingen per dag
 - Vandaag: ${data.newMeldingen.length} meldingen ${comparison}
 
-${nameText?.toLowerCase() === 'peter' ? `\n**👔 Speciaal voor Peter:**\nVergeet niet om aan het einde een speciaal compliment toe te voegen over Peters leiderschap en onmisbare rol in het team. Gebruik zinnen zoals "En natuurlijk niet te vergeten..." of "Speciaal voor Peter...". Maak het grappig maar respectvol - een intern grapje dat Peter waardeert.\n` : ''}
+**👔 Speciaal detail:**
+Vergeet niet om aan het einde een speciaal compliment toe te voegen over Peters leiderschap en onmisbare rol in het team. Gebruik zinnen zoals "En natuurlijk niet te vergeten..." of "Speciaal voor Peter...". Maak het grappig maar respectvol - een intern grapje dat iedereen waardeert.
 
 Geef een **korte, persoonlijke en motiverende** dagelijkse update in het Nederlands speciaal voor ${nameText}.
 
@@ -202,18 +203,16 @@ Focus op: hoogtepunten, context, en wat aandacht verdient vandaag.`;
       fallback += `\n👋 Welkom ${newUsers.map(u => u.name).join(' en ')}!\n`;
     }
     
-    // Speciaal voor Peter 👔
-    if (nameText?.toLowerCase() === 'peter') {
-      const peterMessages = [
-        '👔 **En natuurlijk niet te vergeten:** Zonder jouw leiderschap zou dit team nergens zijn, Peter!',
-        '🎩 **Speciaal voor Peter:** Het team draait dankzij jouw visie en toewijding!',
-        '👑 **En natuurlijk niet te vergeten:** Jij houdt de boel hier draaiende, baas!',
-        '💼 **Speciaal voor Peter:** Zonder jou was het hier chaos - gelukkig hebben we jou!',
-        '⭐ **En natuurlijk niet te vergeten:** De wijken bloeien op onder jouw leiding!',
-      ];
-      const randomMessage = peterMessages[Math.floor(Math.random() * peterMessages.length)];
-      fallback += `\n\n${randomMessage}`;
-    }
+    // Speciaal compliment voor Peter - zichtbaar voor iedereen! 👔
+    const peterMessages = [
+      '👔 **En natuurlijk niet te vergeten:** Zonder Peters leiderschap zou dit team nergens zijn!',
+      '🎩 **Speciaal voor Peter:** Het team draait dankzij jouw visie en toewijding!',
+      '👑 **En natuurlijk niet te vergeten:** Peter houdt de boel hier draaiende!',
+      '💼 **Speciaal voor Peter:** Zonder jou was het hier chaos - gelukkig hebben we jou!',
+      '⭐ **En natuurlijk niet te vergeten:** De wijken bloeien op onder Peters leiding!',
+    ];
+    const randomMessage = peterMessages[Math.floor(Math.random() * peterMessages.length)];
+    fallback += `\n\n${randomMessage}`;
     
     fallback += `\n💪 Succes vandaag!`;
     
@@ -303,6 +302,7 @@ export function identifyPriorities(meldingen: Melding[], projecten: Project[]): 
   // High priority: Lopende projecten zonder recente updates
   projecten
     .filter(p => p.status === 'Lopend')
+    .filter(p => !p.title.includes('Jolande Wold 17-10')) // Exclusief specifiek oud project
     .forEach(p => {
       const daysSince = differenceInDays(today, p.startDate);
       if (daysSince >= 30) {
