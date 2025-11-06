@@ -397,9 +397,7 @@ const AchterpadenKaartOverzicht: React.FC = () => {
           <div className="bg-white dark:bg-dark-bg rounded-xl overflow-hidden shadow-lg">
             <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
               <Map
-                defaultCenter={
-                  filteredData[0]?.gpsBeginpunt || { lat: 52.0907, lng: 5.1214 }
-                }
+                defaultCenter={{ lat: 52.5085, lng: 5.4750 }}
                 defaultZoom={13}
                 mapId={import.meta.env.VITE_GOOGLE_MAP_LIGHT_ID}
                 style={{ width: '100%', height: '600px' }}

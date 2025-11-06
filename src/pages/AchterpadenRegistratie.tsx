@@ -27,6 +27,12 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
   const [beginpunt, setBeginpunt] = useState<GPSCoord | null>(null);
   const [eindpunt, setEindpunt] = useState<GPSCoord | null>(null);
   const [gpsLoading, setGpsLoading] = useState<'begin' | 'eind' | null>(null);
+  
+  // GPS Tracking state
+  const [isTracking, setIsTracking] = useState(false);
+  const [routePoints, setRoutePoints] = useState<GPSCoord[]>([]);
+  const trackingIntervalRef = React.useRef<number | null>(null);
+  
   const [paden, setPaden] = useState<Array<{ naam: string; huisnummers: string }>>([
     { naam: "Pad 1", huisnummers: "" }
   ]);
@@ -113,11 +119,112 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
 
   // Automatisch lengte berekenen als beide punten bekend zijn
   React.useEffect(() => {
-    if (beginpunt && eindpunt) {
+    // Als tracking actief is, bereken route lengte
+    if (routePoints.length >= 2) {
+      let totalDistance = 0;
+      for (let i = 0; i < routePoints.length - 1; i++) {
+        totalDistance += calculateDistance(routePoints[i], routePoints[i + 1]);
+      }
+      setForm(prev => ({ ...prev, lengte: totalDistance.toString() }));
+    }
+    // Anders gebruik handmatige begin/eindpunt
+    else if (beginpunt && eindpunt && !isTracking) {
       const afstand = calculateDistance(beginpunt, eindpunt);
       setForm(prev => ({ ...prev, lengte: afstand.toString() }));
     }
-  }, [beginpunt, eindpunt]);
+  }, [beginpunt, eindpunt, routePoints, isTracking]);
+
+  // GPS Tracking functies
+  const startTracking = () => {
+    if (!navigator.geolocation) {
+      alert('GPS is niet beschikbaar op dit apparaat');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coord = { lat: position.coords.latitude, lng: position.coords.longitude };
+        setBeginpunt(coord);
+        setRoutePoints([coord]);
+        setIsTracking(true);
+
+        // Tracking elke 5 seconden
+        trackingIntervalRef.current = window.setInterval(() => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const newPoint = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+              setRoutePoints(prev => [...prev, newPoint]);
+            },
+            (error) => console.error('Tracking error:', error),
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          );
+        }, 5000);
+      },
+      (error) => alert(`GPS kon niet worden bepaald: ${error.message}`),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  const stopTracking = () => {
+    if (trackingIntervalRef.current) {
+      clearInterval(trackingIntervalRef.current);
+      trackingIntervalRef.current = null;
+    }
+
+    if (routePoints.length > 0) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const coord = { lat: position.coords.latitude, lng: position.coords.longitude };
+          setEindpunt(coord);
+          setRoutePoints(prev => [...prev, coord]);
+          setIsTracking(false);
+        },
+        () => {
+          setEindpunt(routePoints[routePoints.length - 1]);
+          setIsTracking(false);
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    } else {
+      setIsTracking(false);
+    }
+  };
+
+  const addWaypoint = () => {
+    if (!isTracking) {
+      alert('Start eerst GPS tracking');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coord = { lat: position.coords.latitude, lng: position.coords.longitude };
+        setRoutePoints(prev => [...prev, coord]);
+      },
+      () => alert('Kon waypoint niet toevoegen'),
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+  };
+
+  const resetTracking = () => {
+    if (trackingIntervalRef.current) {
+      clearInterval(trackingIntervalRef.current);
+    }
+    setBeginpunt(null);
+    setEindpunt(null);
+    setRoutePoints([]);
+    setIsTracking(false);
+  };
+
+  // Cleanup bij unmount
+  // Cleanup bij unmount
+  React.useEffect(() => {
+    return () => {
+      if (trackingIntervalRef.current) {
+        clearInterval(trackingIntervalRef.current);
+      }
+    };
+  }, []);
 
   const resetGPS = () => {
     setBeginpunt(null);
@@ -126,32 +233,38 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
   };
 
   // Component om de route op de kaart te tekenen
-  const RoutePolyline = ({ start, end }: { start: GPSCoord; end: GPSCoord }) => {
+  const RoutePolyline = () => {
     const map = useMap();
     
     React.useEffect(() => {
       if (!map) return;
       
-      // Teken lijn tussen begin en eind
+      // Gebruik route points als die beschikbaar zijn, anders begin/eindpunt
+      const path = routePoints.length >= 2 
+        ? routePoints 
+        : (beginpunt && eindpunt ? [beginpunt, eindpunt] : []);
+      
+      if (path.length < 2) return;
+      
+      // Teken lijn door alle punten
       const line = new google.maps.Polyline({
-        path: [start, end],
+        path: path,
         geodesic: true,
-        strokeColor: '#1d4ed8',
+        strokeColor: isTracking ? '#10B981' : '#1d4ed8', // Groen tijdens tracking
         strokeOpacity: 1.0,
         strokeWeight: 4,
         map: map
       });
 
-      // Pas viewport aan zodat beide punten zichtbaar zijn
+      // Pas viewport aan zodat alle punten zichtbaar zijn
       const bounds = new google.maps.LatLngBounds();
-      bounds.extend(start);
-      bounds.extend(end);
+      path.forEach(point => bounds.extend(point));
       map.fitBounds(bounds, 50);
 
       return () => {
         line.setMap(null);
       };
-    }, [map, start, end]);
+    }, [map, beginpunt, eindpunt, routePoints, isTracking]);
 
     return null;
   };
@@ -191,6 +304,7 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
       media: mediaUrls,
       gpsBeginpunt: beginpunt,
       gpsEindpunt: eindpunt,
+      gpsRoute: routePoints.length > 0 ? routePoints : null,
       createdAt: Timestamp.now(),
     });
 
@@ -210,6 +324,7 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
     });
     setBeginpunt(null);
     setEindpunt(null);
+    setRoutePoints([]);
     setMedia([]);
     setPaden([{ naam: "Pad 1", huisnummers: "" }]);
     
@@ -275,140 +390,228 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
         <div>
           <h2 className="text-lg font-semibold mb-2 text-brand-primary dark:text-brand-primary">📍 GPS Locatie & Afmetingen</h2>
           
-          {/* GPS Knoppen */}
+          {/* GPS Tracking */}
           <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <p className="text-sm text-gray-700 dark:text-dark-text-secondary mb-3">
-              Gebruik GPS om het beginpunt en eindpunt van het achterpad vast te leggen. De lengte wordt automatisch berekend!
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => getGPSLocation('begin')}
-                disabled={gpsLoading !== null}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  beginpunt 
-                    ? 'bg-green-500 hover:bg-green-600 text-white' 
-                    : 'bg-brand-primary hover:bg-brand-primary/90 text-white'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                {gpsLoading === 'begin' ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                    </svg>
-                    Bezig...
-                  </>
-                ) : beginpunt ? (
-                  <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Beginpunt vastgelegd
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    📍 Beginpunt markeren
-                  </>
-                )}
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => getGPSLocation('eind')}
-                disabled={gpsLoading !== null}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  eindpunt 
-                    ? 'bg-green-500 hover:bg-green-600 text-white' 
-                    : 'bg-brand-primary hover:bg-brand-primary/90 text-white'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                {gpsLoading === 'eind' ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                    </svg>
-                    Bezig...
-                  </>
-                ) : eindpunt ? (
-                  <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Eindpunt vastgelegd
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    📍 Eindpunt markeren
-                  </>
-                )}
-              </button>
-              
-              {(beginpunt || eindpunt) && (
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm text-gray-700 dark:text-dark-text-secondary">
+                🚶 Start GPS tracking en loop het achterpad af. De route wordt automatisch vastgelegd!
+              </p>
+              {routePoints.length > 0 && !isTracking && (
                 <button
                   type="button"
-                  onClick={resetGPS}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-dark-border dark:hover:bg-dark-bg text-gray-700 dark:text-dark-text-primary rounded-lg font-medium transition-colors"
+                  onClick={resetTracking}
+                  className="text-xs px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Reset GPS
+                  🔄 Reset
                 </button>
               )}
             </div>
-            
-            {/* Status weergave */}
-            {(beginpunt || eindpunt) && (
-              <div className="mt-3 space-y-3">
-                <div className="text-sm space-y-1">
-                  {beginpunt && (
-                    <p className="text-green-700 dark:text-green-400">
-                      ✓ Beginpunt: {beginpunt.lat.toFixed(6)}, {beginpunt.lng.toFixed(6)}
-                    </p>
-                  )}
-                  {eindpunt && (
-                    <p className="text-green-700 dark:text-green-400">
-                      ✓ Eindpunt: {eindpunt.lat.toFixed(6)}, {eindpunt.lng.toFixed(6)}
-                    </p>
-                  )}
-                  {beginpunt && eindpunt && form.lengte && (
-                    <p className="text-blue-700 dark:text-blue-400 font-semibold">
-                      📏 Berekende lengte: {form.lengte} meter
-                    </p>
-                  )}
-                </div>
 
-                {/* Interactieve kaart */}
-                {beginpunt && eindpunt && (
-                  <div className="border border-gray-300 dark:border-dark-border rounded-lg overflow-hidden">
-                    <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
-                      <Map
-                        defaultCenter={beginpunt}
-                        defaultZoom={16}
-                        mapId={import.meta.env.VITE_GOOGLE_MAP_LIGHT_ID}
-                        style={{ width: '100%', height: '300px' }}
-                        gestureHandling="cooperative"
+            {/* Tracking niet gestart */}
+            {!isTracking && routePoints.length === 0 && (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={startTracking}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors bg-green-600 hover:bg-green-700 text-white shadow-lg"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  🚶 Start GPS Tracking
+                </button>
+                
+                {/* Fallback: Handmatige GPS knoppen */}
+                <details className="mt-3">
+                  <summary className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200">
+                    Of markeer handmatig begin/eindpunt
+                  </summary>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => getGPSLocation('begin')}
+                      disabled={gpsLoading !== null}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                        beginpunt 
+                          ? 'bg-green-500 hover:bg-green-600 text-white' 
+                          : 'bg-brand-primary hover:bg-brand-primary/90 text-white'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {gpsLoading === 'begin' ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                          </svg>
+                          Bezig...
+                        </>
+                      ) : beginpunt ? (
+                        <>✓ Beginpunt</>
+                      ) : (
+                        <>📍 Beginpunt</>
+                      )}
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => getGPSLocation('eind')}
+                      disabled={gpsLoading !== null}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                        eindpunt 
+                          ? 'bg-green-500 hover:bg-green-600 text-white' 
+                          : 'bg-brand-primary hover:bg-brand-primary/90 text-white'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {gpsLoading === 'eind' ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                          </svg>
+                          Bezig...
+                        </>
+                      ) : eindpunt ? (
+                        <>✓ Eindpunt</>
+                      ) : (
+                        <>🏁 Eindpunt</>
+                      )}
+                    </button>
+                    
+                    {(beginpunt || eindpunt) && (
+                      <button
+                        type="button"
+                        onClick={resetGPS}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-dark-border dark:hover:bg-dark-bg text-gray-700 dark:text-dark-text-primary rounded-lg font-medium transition-colors"
                       >
-                        <Marker position={beginpunt} title="Beginpunt" />
-                        <Marker position={eindpunt} title="Eindpunt" />
-                        <RoutePolyline start={beginpunt} end={eindpunt} />
-                      </Map>
-                    </APIProvider>
-                    <div className="bg-gray-50 dark:bg-dark-bg px-3 py-2 text-xs text-gray-600 dark:text-dark-text-secondary border-t border-gray-200 dark:border-dark-border">
-                      🗺️ Route tussen begin- en eindpunt (blauwe lijn = {form.lengte}m)
-                    </div>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Reset
+                      </button>
+                    )}
+                    
+                    {/* Status weergave handmatige punten */}
+                    {(beginpunt || eindpunt) && (
+                      <div className="w-full mt-2 text-sm space-y-1">
+                        {beginpunt && (
+                          <p className="text-green-700 dark:text-green-400">
+                            ✓ Beginpunt: {beginpunt.lat.toFixed(6)}, {beginpunt.lng.toFixed(6)}
+                          </p>
+                        )}
+                        {eindpunt && (
+                          <p className="text-green-700 dark:text-green-400">
+                            ✓ Eindpunt: {eindpunt.lat.toFixed(6)}, {eindpunt.lng.toFixed(6)}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                )}
+                </details>
+              </div>
+            )}
+
+            {/* Tracking actief */}
+            {isTracking && (
+              <div className="space-y-3">
+                <div className="bg-green-50 dark:bg-green-900/30 border-2 border-green-500 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                      </span>
+                      <span className="font-semibold text-green-700 dark:text-green-400">
+                        Tracking actief
+                      </span>
+                    </div>
+                    <span className="text-sm text-green-600 dark:text-green-400">
+                      {routePoints.length} punt{routePoints.length !== 1 ? 'en' : ''}
+                    </span>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={stopTracking}
+                      className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-semibold"
+                    >
+                      🛑 Stop Tracking
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addWaypoint}
+                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      ➕ Waypoint
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tracking voltooid */}
+            {!isTracking && routePoints.length > 0 && (
+              <div className="space-y-3">
+                <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-lg p-4">
+                  <p className="text-green-700 dark:text-green-400 font-semibold mb-2">
+                    ✓ Route vastgelegd!
+                  </p>
+                  <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                    <p>📍 {routePoints.length} GPS punt{routePoints.length !== 1 ? 'en' : ''} opgenomen</p>
+                    {form.lengte && (
+                      <p className="font-semibold text-blue-600 dark:text-blue-400">
+                        📏 Totale lengte: {form.lengte} meter
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Kaart weergave (tijdens of na tracking) */}
+            {routePoints.length >= 2 && (
+              <div className="mt-3 border border-gray-300 dark:border-dark-border rounded-lg overflow-hidden">
+                <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
+                  <Map
+                    defaultCenter={routePoints[0]}
+                    defaultZoom={16}
+                    mapId={import.meta.env.VITE_GOOGLE_MAP_LIGHT_ID}
+                    style={{ width: '100%', height: '300px' }}
+                    gestureHandling="cooperative"
+                  >
+                    <Marker position={routePoints[0]} title="Start" />
+                    {!isTracking && routePoints.length > 1 && (
+                      <Marker position={routePoints[routePoints.length - 1]} title="Einde" />
+                    )}
+                    <RoutePolyline />
+                  </Map>
+                </APIProvider>
+                <div className="bg-gray-50 dark:bg-dark-bg px-3 py-2 text-xs text-gray-600 dark:text-dark-text-secondary border-t border-gray-200 dark:border-dark-border">
+                  🗺️ {isTracking ? 'Live tracking route (groene lijn)' : `Vastgelegde route (${form.lengte}m)`}
+                </div>
+              </div>
+            )}
+
+            {/* Kaart voor handmatige begin/eindpunt */}
+            {routePoints.length === 0 && beginpunt && eindpunt && (
+              <div className="mt-3 border border-gray-300 dark:border-dark-border rounded-lg overflow-hidden">
+                <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
+                  <Map
+                    defaultCenter={beginpunt}
+                    defaultZoom={16}
+                    mapId={import.meta.env.VITE_GOOGLE_MAP_LIGHT_ID}
+                    style={{ width: '100%', height: '300px' }}
+                    gestureHandling="cooperative"
+                  >
+                    <Marker position={beginpunt} title="Beginpunt" />
+                    <Marker position={eindpunt} title="Eindpunt" />
+                    <RoutePolyline />
+                  </Map>
+                </APIProvider>
+                <div className="bg-gray-50 dark:bg-dark-bg px-3 py-2 text-xs text-gray-600 dark:text-dark-text-secondary border-t border-gray-200 dark:border-dark-border">
+                  🗺️ Route tussen begin- en eindpunt (blauwe lijn = {form.lengte}m)
+                </div>
               </div>
             )}
           </div>
