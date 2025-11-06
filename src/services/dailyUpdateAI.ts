@@ -93,12 +93,12 @@ export async function generateDailyUpdate(data: DailyUpdateData, userName?: stri
     ? ` • Rustig in: ${quietWijken.slice(0, 3).join(', ')}`
     : '';
   
-  // 5. TEAM INSIGHTS & NIEUWE MEDEWERKERS
+  // 5. TEAM INSIGHTS & NIEUWE MEDEWERKERS (alleen vandaag aangemaakt)
   const newUsers = data.allUsers.filter(u => {
     const createdAt = (u as any).createdAt;
     if (!createdAt) return false;
     const userDate = createdAt instanceof Date ? createdAt : new Date(createdAt);
-    return differenceInDays(today, userDate) <= 7; // Laatste 7 dagen
+    return format(userDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd'); // Alleen vandaag
   });
   
   const newUserWelcome = newUsers.length > 0
@@ -130,7 +130,6 @@ ${weatherText}
 - 📝 Nieuwe meldingen: ${data.newMeldingen.length} (${comparison})
 ${data.newMeldingen.length > 0 ? `  Categorieën: ${[...new Set(data.newMeldingen.map(m => m.categorie))].join(', ')}` : ''}
 - 🚀 Nieuwe projecten: ${data.newProjects.length}
-- 🏠 Nieuwe dossiers: ${data.newDossiers.length}
 - ✅ Opgeloste meldingen: ${data.resolvedMeldingen.length}
 - 🎉 Afgeronde projecten: ${data.completedProjects.length}
 
@@ -145,6 +144,8 @@ ${newUserWelcome}
 - Gemiddeld deze week: ${avgMeldingenPerDay.toFixed(1)} meldingen per dag
 - Vandaag: ${data.newMeldingen.length} meldingen ${comparison}
 
+${nameText?.toLowerCase() === 'peter' ? `\n**👔 Speciaal voor Peter:**\nVergeet niet om aan het einde een speciaal compliment toe te voegen over Peters leiderschap en onmisbare rol in het team. Gebruik zinnen zoals "En natuurlijk niet te vergeten..." of "Speciaal voor Peter...". Maak het grappig maar respectvol - een intern grapje dat Peter waardeert.\n` : ''}
+
 Geef een **korte, persoonlijke en motiverende** dagelijkse update in het Nederlands speciaal voor ${nameText}.
 
 **Instructies:**
@@ -153,12 +154,12 @@ Geef een **korte, persoonlijke en motiverende** dagelijkse update in het Nederla
 3. Noem belangrijkste cijfers en vergelijking met gemiddelde
 4. Als er prioriteiten zijn, noem kort de 1-2 belangrijkste
 5. Zo relevant: welkom nieuwe teamleden hartelijk
-6. Eindig met een motiverende opmerking of praktische tip voor vandaag
+6. ${nameText?.toLowerCase() === 'peter' ? 'BELANGRIJK: Eindig met een grappig maar respectvol compliment over Peters leiderschap (bijv. "En natuurlijk niet te vergeten: zonder jouw visie zou dit team nergens zijn!")' : 'Eindig met een motiverende opmerking of praktische tip voor vandaag'}
 
 **Stijl:**
 - Persoonlijk en direct (spreek ${nameText} aan)
 - Gebruik emojis om het levendiger te maken
-- Bondig (max 120 woorden)
+- Bondig (max ${nameText?.toLowerCase() === 'peter' ? '140' : '120'} woorden)
 - Positief en motiverend
 - Praktisch en actionable
 
@@ -201,6 +202,19 @@ Focus op: hoogtepunten, context, en wat aandacht verdient vandaag.`;
       fallback += `\n👋 Welkom ${newUsers.map(u => u.name).join(' en ')}!\n`;
     }
     
+    // Speciaal voor Peter 👔
+    if (nameText?.toLowerCase() === 'peter') {
+      const peterMessages = [
+        '👔 **En natuurlijk niet te vergeten:** Zonder jouw leiderschap zou dit team nergens zijn, Peter!',
+        '🎩 **Speciaal voor Peter:** Het team draait dankzij jouw visie en toewijding!',
+        '👑 **En natuurlijk niet te vergeten:** Jij houdt de boel hier draaiende, baas!',
+        '💼 **Speciaal voor Peter:** Zonder jou was het hier chaos - gelukkig hebben we jou!',
+        '⭐ **En natuurlijk niet te vergeten:** De wijken bloeien op onder jouw leiding!',
+      ];
+      const randomMessage = peterMessages[Math.floor(Math.random() * peterMessages.length)];
+      fallback += `\n\n${randomMessage}`;
+    }
+    
     fallback += `\n💪 Succes vandaag!`;
     
     return fallback;
@@ -213,7 +227,6 @@ export async function generateWeeklyUpdate(data: WeeklyUpdateData): Promise<stri
   
   const today = startOfToday();
   const weekStart = startOfWeek(today, { locale: nl });
-  const todayStr = format(today, 'EEEE d MMMM yyyy', { locale: nl });
   const weekStr = format(weekStart, 'd MMMM', { locale: nl }) + ' - ' + format(today, 'd MMMM yyyy', { locale: nl });
   
   const prompt = `Je bent een AI-assistent voor een buurtconciërge app die wekelijkse updates genereert.
@@ -224,7 +237,6 @@ export async function generateWeeklyUpdate(data: WeeklyUpdateData): Promise<stri
 - 📝 Nieuwe meldingen: ${data.newMeldingen.length}
 - 🚀 Nieuwe projecten: ${data.newProjects.length}
 - ✅ Afgeronde projecten: ${data.completedProjects.length}
-- 🏠 Nieuwe dossiers: ${data.newDossiers.length}
 - ⏱️ Urenregistraties: ${data.todayUren.length}
 
 **Top wijken met activiteit:**
