@@ -3,9 +3,10 @@ import { useAppContext } from '../context/AppContext';
 import { MeldingStatus } from '../types';
 import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow } from '@vis.gl/react-google-maps';
 
-// De sleutels zijn nu direct ingevuld
-const GOOGLE_MAPS_API_KEY = 'AIzaSyD9BrD8NTc5cynkTNL9PPfcp-A76Kb8o3Q';
-const GOOGLE_MAP_ID = 'a685a3b57e7894f1a94dffc2'; // Uw correcte Map ID
+// ⚠️ BELANGRIJK: Deze keys moeten in .env.local staan!
+// Gebruik deze keys ALLEEN voor development/testing
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyD9BrD8NTc5cynkTNL9PPfcp-A76Kb8o3Q';
+const GOOGLE_MAP_ID = import.meta.env.VITE_GOOGLE_MAP_LIGHT_ID || 'a685a3b57e7894f1a94dffc2';
 
 // Functie om de kleur van de pin te bepalen op basis van de status
 const getStatusPinColor = (status: MeldingStatus) => {

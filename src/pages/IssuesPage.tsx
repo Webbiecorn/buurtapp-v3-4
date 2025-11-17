@@ -7,6 +7,7 @@ import { PlusCircleIcon, CameraIcon, MapPinIcon, SendIcon, TrashIcon, XIcon, Che
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale/nl';
 import { MOCK_WIJKEN } from '../data/mockData';
+import FixiMeldingModal from '../components/FixiMeldingModal';
 
 type Tab = 'Lopende' | 'Fixi Meldingen' | 'Afgeronde';
 
@@ -530,6 +531,7 @@ const IssuesPage: React.FC = () => {
     const { meldingen, currentUser, notificaties, markNotificationsAsRead } = useAppContext();
     const [activeTab, setActiveTab] = useState<Tab>('Lopende');
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+    const [isFixiModalOpen, setIsFixiModalOpen] = useState(false);
     const [selectedMelding, setSelectedMelding] = useState<Melding | null>(null);
     const [pageToast, setPageToast] = useState<Toast | null>(null);
 
@@ -564,13 +566,21 @@ const IssuesPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-3">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">Meldingen</h1>
                 {currentUser?.role !== UserRole.Viewer && (
-                    <Link to="/issues/nieuw" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary">
-                        <PlusCircleIcon className="h-5 w-5 mr-2"/>
-                        Nieuwe Melding
-                    </Link>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setIsFixiModalOpen(true)}
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 transition-colors"
+                        >
+                            🔧 Fixi Melding
+                        </button>
+                        <Link to="/issues/nieuw" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary">
+                            <PlusCircleIcon className="h-5 w-5 mr-2"/>
+                            Nieuwe Melding
+                        </Link>
+                    </div>
                 )}
             </div>
             
@@ -619,6 +629,11 @@ const IssuesPage: React.FC = () => {
             <Modal isOpen={isNewModalOpen} onClose={() => setIsNewModalOpen(false)} title="Nieuwe Melding Maken">
                 <NewMeldingForm onClose={() => setIsNewModalOpen(false)} onToast={(t)=>{ setPageToast(t); setTimeout(()=>setPageToast(null), 2500); }} />
             </Modal>
+            
+            <FixiMeldingModal 
+                isOpen={isFixiModalOpen} 
+                onClose={() => setIsFixiModalOpen(false)} 
+            />
             
             {meldingForModal && (
               <MeldingDetailModal melding={meldingForModal} onClose={() => setSelectedMelding(null)} />

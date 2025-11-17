@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# Firebase
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+firebase-emulator-data/
+.firebase/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,12 +29,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-# Environment variables
+# Environment variables - NEVER commit these!
 .env
 .env.local
 .env.development
 .env.production
 .env.*.local
+.env.test
+*.env
 
 # Allow .env.example template
 !.env.example
