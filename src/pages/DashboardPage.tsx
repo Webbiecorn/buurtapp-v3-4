@@ -227,10 +227,18 @@ const DailyUpdateCard: React.FC = () => {
 const DashboardPage: React.FC = () => {
   // Filter meldingen/uren/dossiers op geselecteerde gebruiker
   const { meldingen, urenregistraties, projecten, theme, users, currentUser } = useAppContext();
+  const { data: rawDossiers } = useDossiers();
+  const dossiers: SlimDossier[] = useMemo(() => 
+    (rawDossiers || []).map(d => ({
+      id: d.id,
+      status: d.status,
+      woningType: d.woningType,
+      createdAt: d.createdAt ? toDate(d.createdAt) : null,
+      gebruikerId: d.gebruikerId
+    })), [rawDossiers]);
   const isConcierge = currentUser?.role === 'Concierge';
   const isAdmin = currentUser?.role === UserRole.Beheerder;
   const [selectedUser, setSelectedUser] = useState<string>(isConcierge ? currentUser?.id ?? '' : 'totaal');
-  // dossiers derived from useDossiers hook via useMemo
   const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month' | 'year' | 'total'>('total');
   // Filter meldingen/uren/dossiers op geselecteerde gebruiker
   const filteredMeldingenByUser = useMemo(() => {
