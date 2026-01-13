@@ -18,6 +18,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { MOCK_WIJKEN } from '../data/mockData';
 import { ExternalContact } from '../types';
 import { collection, onSnapshot } from 'firebase/firestore';
+import { toDate } from '../utils/dateHelpers';
 import { db } from '../firebase';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -98,7 +99,7 @@ const WijkRapport: React.FC<{ wijk: string }> = ({ wijk }) => {
 
         try {
             const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp"});
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
             
             const prompt = `
 Je bent een data-analist voor een gemeente. Analyseer de volgende data over meldingen in wijk '${wijk}' en genereer een korte, duidelijke managementsamenvatting in het Nederlands.
@@ -362,23 +363,9 @@ export const ReportsPage: React.FC = () => {
                 return true; // Include dossiers without date in report
             }
             
-            try {
-                // Handle Firestore Timestamp
-                let createdDate: Date;
-                if (d.createdAt.toDate) {
-                    createdDate = d.createdAt.toDate();
-                } else if (d.createdAt instanceof Date) {
-                    createdDate = d.createdAt;
-                } else if (d.createdAt.seconds) {
-                    createdDate = new Date(d.createdAt.seconds * 1000);
-                } else {
-                    createdDate = new Date(d.createdAt);
-                }
-                return isWithinInterval(createdDate, { start, end });
-            } catch (error) {
-                console.error('Error parsing dossier date:', d.id, error);
-                return true; // Include in report on error
-            }
+            const createdDate = toDate(d.createdAt);
+            if (!createdDate) return true; // Include on parse error
+            return isWithinInterval(createdDate, { start, end });
         });
 
         // Filter achterpaden
@@ -392,23 +379,9 @@ export const ReportsPage: React.FC = () => {
                 return true; // Include achterpaden without date in report
             }
             
-            try {
-                // Handle Firestore Timestamp
-                let timestamp: Date;
-                if (a.timestamp.toDate) {
-                    timestamp = a.timestamp.toDate();
-                } else if (a.timestamp instanceof Date) {
-                    timestamp = a.timestamp;
-                } else if (a.timestamp.seconds) {
-                    timestamp = new Date(a.timestamp.seconds * 1000);
-                } else {
-                    timestamp = new Date(a.timestamp);
-                }
-                return isWithinInterval(timestamp, { start, end });
-            } catch (error) {
-                console.error('Error parsing achterpad date:', a.id, error);
-                return true; // Include in report on error
-            }
+            const timestamp = toDate(a.timestamp);
+            if (!timestamp) return true; // Include on parse error
+            return isWithinInterval(timestamp, { start, end });
         });
 
         console.log('📊 Filtered data:', {

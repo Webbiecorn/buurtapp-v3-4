@@ -13,6 +13,7 @@ import { exportToExcel } from '../services/excelExport';
 import { exportMeldingenToPDF, exportProjectenToPDF, exportStatisticsToPDF } from '../services/pdfExport';
 import { db } from '../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
+import { toDate } from '../utils/dateHelpers';
 
 const COLORS = ['#f59e0b', '#8b5cf6', '#22c55e'];
 
@@ -227,7 +228,7 @@ const StatisticsPage: React.FC = () => {
         let created: Date | null = null;
         if (Array.isArray(v.historie) && v.historie.length) {
           const dates = v.historie
-            .map((h: any) => h?.date instanceof Date ? h.date : (h?.date?.toDate ? h.date.toDate() : (h?.date ? new Date(h.date) : null)))
+            .map((h: any) => toDate(h?.date))
             .filter(Boolean) as Date[];
           if (dates.length) created = new Date(Math.min(...dates.map(d => d.getTime())));
         }

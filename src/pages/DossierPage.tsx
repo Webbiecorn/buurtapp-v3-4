@@ -6,6 +6,7 @@ import { fetchDossierMeta, type DossierMeta } from '../services/dossierMeta';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
+import { toDate, getTimeSafe } from '../utils/dateHelpers';
 
 const DossierPage: React.FC = () => {
   const navigate = useNavigate();
@@ -351,12 +352,12 @@ const DossierPage: React.FC = () => {
         const dates: number[] = [];
         const hist = Array.isArray(data?.historie) ? data.historie : [];
         for (const h of hist) {
-          const d = (h?.date && typeof h.date?.toDate === 'function') ? h.date.toDate() : (h?.date ? new Date(h.date) : null);
+          const d = toDate(h?.date);
           if (d && !isNaN(d.getTime())) dates.push(d.getTime());
         }
         const notes = Array.isArray(data?.notities) ? data.notities : [];
         for (const n of notes) {
-          const d = (n?.timestamp && typeof n.timestamp?.toDate === 'function') ? n.timestamp.toDate() : (n?.timestamp ? new Date(n.timestamp) : null);
+          const d = toDate(n?.timestamp);
           if (d && !isNaN(d.getTime())) dates.push(d.getTime());
         }
         const updatedAt = dates.length ? Math.max(...dates) : 0;
