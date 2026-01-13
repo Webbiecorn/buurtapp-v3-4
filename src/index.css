@@ -1,155 +1,55 @@
-/* Dark mode formulier leesbaarheid */
-.dark input,
-.dark textarea,
-.dark select {
-	color: #f9fafb; /* text-white */
-	background-color: #1f2937; /* dark-surface */
-	border-color: #374151; /* dark-border */
+@import "tailwindcss";
+
+/* Custom colors for BuurtApp */
+@theme {
+  --color-brand-primary: #1e40af;
+  --color-brand-secondary: #1d4ed8;
+  --color-dark-bg: #111827;
+  --color-dark-surface: #1f2937;
+  --color-dark-border: #374151;
+  --color-dark-text-primary: #f9fafb;
+  --color-dark-text-secondary: #d1d5db;
 }
 
-.dark input::placeholder,
-.dark textarea::placeholder {
-	color: #9ca3af; /* gray-400 */
-}
-
-.dark input:focus,
-.dark textarea:focus,
-.dark select:focus {
-	outline: none;
-	box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.5); /* brand-primary ring */
-}
-
-/* Zorgt ervoor dat de browser's eigen date/time picker UI ook donker wordt */
-.dark input[type="datetime-local"] {
-    color-scheme: dark;
-    color: white;
-}
-
-/* Mobile & Touch optimizations */
-@media (max-width: 768px) {
-  /* Larger touch targets */
-  button, a, input, select, textarea {
-    min-height: 44px;
-    touch-action: manipulation;
-  }
-  
-  /* Prevent zoom on double-tap */
-  * {
-    touch-action: manipulation;
-  }
-  
-  /* Better scrolling on iOS */
-  body {
-    -webkit-overflow-scrolling: touch;
-  }
-  
-  /* Larger padding on mobile */
-  .container {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-}
-
-/* Smooth scroll behavior */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Better tap highlight */
-* {
-  -webkit-tap-highlight-color: rgba(30, 64, 175, 0.1);
-}
-
-/* Prevent text selection on buttons */
-button {
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-/* Safe area for notch devices */
-@supports (padding: max(0px)) {
-  body {
-    padding-left: max(0px, env(safe-area-inset-left));
-    padding-right: max(0px, env(safe-area-inset-right));
-    padding-bottom: max(0px, env(safe-area-inset-bottom));
-  }
-}
-
-/* Print styles for PDF generation */
+/* Print styles */
 @media print {
-  /* Force white background for print */
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-    color-adjust: exact !important;
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  
-  /* Page setup */
+  body * {
+    visibility: hidden;
+  }
+  .printable-report, .printable-report * {
+    visibility: visible;
+  }
+  .printable-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    color: #000;
+    background-color: #fff;
+  }
   @page {
     size: A4;
     margin: 1.5cm;
   }
-  
-  body {
-    background: white !important;
-    color: black !important;
+  .printable-report h1, .printable-report h2, .printable-report h3 {
+    color: #000;
+    page-break-after: avoid;
   }
-  
-  /* Hide navigation and non-essential elements */
-  nav, aside, .no-print {
-    display: none !important;
-  }
-  
-  /* Ensure content fits on pages */
-  .print\:break-inside-avoid {
-    break-inside: avoid;
+  .printable-report table {
+    width: 100%;
+    border-collapse: collapse;
     page-break-inside: avoid;
   }
-  
-  /* Show hidden print elements */
-  .print\:block {
-    display: block !important;
+  .printable-report th, .printable-report td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    color: #000;
   }
-  
-  .print\:hidden {
-    display: none !important;
-  }
-  
-  /* Better spacing for print */
-  .print\:space-y-4 > * + * {
-    margin-top: 1rem !important;
-  }
-  
-  /* Remove shadows for print */
-  .print\:shadow-none {
-    box-shadow: none !important;
-  }
-  
-  /* White backgrounds for print */
-  .print\:bg-white {
-    background-color: white !important;
-  }
-  
-  /* Ensure gradients print correctly */
-  .bg-gradient-to-r, .bg-gradient-to-br, .bg-gradient-to-l {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  
-  /* Grid layouts for print */
-  .print\:grid-cols-1 {
-    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
-  }
-  
-  /* Links should show URLs */
-  a[href]:after {
-    content: none; /* Don't show URLs in this app */
-  }
-  
-  /* Ensure colored backgrounds print */
-  .bg-red-50, .bg-yellow-50, .bg-green-50, .bg-blue-50,
-  .bg-red-600, .bg-yellow-600, .bg-green-600, .bg-blue-600 {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+  .printable-report th {
+    background-color: #f2f2f2;
   }
 }
