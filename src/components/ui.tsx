@@ -3,8 +3,7 @@ import { MeldingStatus, ProjectStatus } from '../types';
 import type { StatCardProps, ModalProps, Melding, Project } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { MapPinIcon, XIcon, PaperclipIcon, TrashIcon } from './Icons';
-import { format } from 'date-fns';
-import { nl } from 'date-fns/locale/nl';
+import { formatSafe } from '../utils/dateHelpers';
 
 export const StatCard: React.FC<StatCardProps> = ({ icon, title, value, color }) => (
   <div className="bg-white dark:bg-dark-surface p-4 rounded-lg shadow-md flex items-center">
@@ -49,20 +48,8 @@ export const getStatusColor = (status: MeldingStatus) => {
 };
 
 export const MeldingCard: React.FC<{ melding: Melding, isUnseen?: boolean }> = ({ melding, isUnseen }) => {
-    const safeFormatDate = (value: any) => {
-        try {
-            const d = value instanceof Date
-                ? value
-                : (value?.toDate ? value.toDate() : (typeof value === 'string' ? new Date(value) : null));
-            if (!d || isNaN(d.getTime())) return '—';
-            return format(d, 'dd MMM yyyy', { locale: nl });
-        } catch {
-            return '—';
-        }
-    };
-
     const hasImage = Array.isArray(melding.attachments) && melding.attachments[0];
-    const dateLabel = safeFormatDate((melding as any).timestamp);
+    const dateLabel = formatSafe((melding as any).timestamp, 'dd MMM yyyy', '—');
 
     return (
         <div className="relative bg-white dark:bg-dark-surface rounded-lg overflow-hidden shadow-lg transform hover:scale-105 transition-transform duration-300">
