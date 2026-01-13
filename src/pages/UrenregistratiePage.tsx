@@ -5,6 +5,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInter
 
 import { CalendarIcon, DownloadIcon, FolderIcon, TrendingUpIcon, XIcon, SaveIcon, SearchIcon, EditIcon, PlusIcon, MinusIcon } from '../components/Icons';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { toDate } from '../utils/dateHelpers';
 import { db } from '../firebase';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -15,20 +16,7 @@ const ACTIVITEITEN = ['Project', 'Wijkronde', 'Intern overleg', 'Extern overleg'
 const UrenregistratiePage: React.FC = () => {
   const { currentUser, urenregistraties, addUrenregistratie, projecten } = useAppContext();
   
-  // Helpers om veilig met datums om te gaan (voorkomt 'Invalid time value' crashes)
-  const toSafeDate = (d: any): Date | null => {
-    if (!d) return null;
-    if (d instanceof Date) return isNaN(d.getTime()) ? null : d;
-    if (typeof d?.toDate === 'function') {
-      const t = d.toDate();
-      return isNaN(t.getTime()) ? null : t;
-    }
-    if (typeof d === 'string' || typeof d === 'number') {
-      const t = new Date(d);
-      return isNaN(t.getTime()) ? null : t;
-    }
-    return null;
-  };
+
   
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
@@ -207,8 +195,8 @@ const UrenregistratiePage: React.FC = () => {
     const overlapping = urenregistraties.filter(reg => {
       if (reg.gebruikerId !== currentUser.id) return false;
       
-      const regStart = toSafeDate(reg.start);
-      const regEnd = toSafeDate(reg.eind);
+      const regStart = toDate(reg.start);
+      const regEnd = toDate(reg.eind);
       
       if (!regStart || !regEnd) return false;
       
@@ -262,7 +250,7 @@ const UrenregistratiePage: React.FC = () => {
     const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
     const thisWeek = userRegistraties.filter(u => {
-      const start = toSafeDate(u.start);
+      const start = toDate(u.start);
       return start && isWithinInterval(start, { start: weekStart, end: weekEnd });
     });
     
@@ -270,7 +258,7 @@ const UrenregistratiePage: React.FC = () => {
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
     const thisMonth = userRegistraties.filter(u => {
-      const start = toSafeDate(u.start);
+      const start = toDate(u.start);
       return start && isWithinInterval(start, { start: monthStart, end: monthEnd });
     });
     
@@ -278,14 +266,14 @@ const UrenregistratiePage: React.FC = () => {
     const lastMonthStart = startOfMonth(subMonths(now, 1));
     const lastMonthEnd = endOfMonth(subMonths(now, 1));
     const lastMonth = userRegistraties.filter(u => {
-      const start = toSafeDate(u.start);
+      const start = toDate(u.start);
       return start && isWithinInterval(start, { start: lastMonthStart, end: lastMonthEnd });
     });
     
     const calculateTotalHours = (registraties: any[]) => {
       return registraties.reduce((total, u) => {
-        const start = toSafeDate(u.start);
-        const end = toSafeDate(u.eind);
+        const start = toDate(u.start);
+        const end = toDate(u.eind);
         if (start && end) {
           return total + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
         }
@@ -337,7 +325,7 @@ const UrenregistratiePage: React.FC = () => {
 
   // Check if registration can still be edited (within 7 days)
   const canEdit = useCallback((registratie: Urenregistratie) => {
-    const start = toSafeDate(registratie.start);
+    const start = toDate(registratie.start);
     if (!start) return false;
     
     const now = new Date();
@@ -349,8 +337,8 @@ const UrenregistratiePage: React.FC = () => {
   const startEdit = useCallback((registratie: Urenregistratie) => {
     if (!canEdit(registratie)) return;
     
-    const start = toSafeDate(registratie.start);
-    const end = toSafeDate(registratie.eind);
+    const start = toDate(registratie.start);
+    const end = toDate(registratie.eind);
     
     if (start && end) {
       const formatDateTime = (date: Date) => {
@@ -511,8 +499,8 @@ const UrenregistratiePage: React.FC = () => {
   const userUren = (urenregistraties || [])
     .filter(u => u.gebruikerId === currentUser?.id)
     .sort((a, b) => {
-      const sa = toSafeDate(a.start)?.getTime() ?? 0;
-      const sb = toSafeDate(b.start)?.getTime() ?? 0;
+      const sa = toDate(a.start)?.getTime() ?? 0;
+      const sb = toDate(b.start)?.getTime() ?? 0;
       return sb - sa;
     });
 
@@ -553,7 +541,7 @@ const UrenregistratiePage: React.FC = () => {
       }
       
       filtered = filtered.filter(uur => {
-        const start = toSafeDate(uur.start);
+        const start = toDate(uur.start);
         if (!start) return false;
         
         if (filterDateRange === 'last-month') {
@@ -574,8 +562,8 @@ const UrenregistratiePage: React.FC = () => {
     
     const headers = ['Datum', 'Starttijd', 'Eindtijd', 'Duur', 'Activiteit', 'Details'];
     const rows = data.map(uur => {
-      const start = toSafeDate(uur.start);
-      const end = toSafeDate(uur.eind);
+      const start = toDate(uur.start);
+      const end = toDate(uur.eind);
       return [
         start ? format(start, 'dd-MM-yyyy') : '',
         start ? format(start, 'HH:mm') : '',
@@ -617,8 +605,8 @@ const UrenregistratiePage: React.FC = () => {
       
       // Table data
       const tableData = data.map(uur => {
-        const start = toSafeDate(uur.start);
-        const end = toSafeDate(uur.eind);
+        const start = toDate(uur.start);
+        const end = toDate(uur.eind);
         return [
           start ? format(start, 'dd-MM-yyyy') : '',
           start ? format(start, 'HH:mm') : '',
@@ -784,8 +772,8 @@ const UrenregistratiePage: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recente Activiteit</h3>
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {userUren.slice(0, 5).map((uur) => {
-                    const start = toSafeDate(uur.start);
-                    const end = toSafeDate(uur.eind);
+                    const start = toDate(uur.start);
+                    const end = toDate(uur.eind);
                     return (
                       <div
                         key={uur.id}
@@ -1259,8 +1247,8 @@ const UrenregistratiePage: React.FC = () => {
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredUren.length > 0 ? (
                     filteredUren.map((uur) => {
-                      const s = toSafeDate(uur.start);
-                      const e = toSafeDate(uur.eind);
+                      const s = toDate(uur.start);
+                      const e = toDate(uur.eind);
                       return (
                         <tr key={uur.id} className={canEdit(uur) ? 'hover:bg-blue-50 dark:hover:bg-blue-900/20' : 'opacity-75'}>
                           <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm">

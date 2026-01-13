@@ -3,6 +3,7 @@ import * as ReactRouterDOM from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { Timestamp, collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toDate } from '../utils/dateHelpers';
 
 interface MessageDoc {
   id: string;
@@ -44,7 +45,7 @@ const ChatPage: React.FC = () => {
           text: v.text ?? undefined,
           attachments: v.attachments ?? undefined,
           userId: v.userId,
-          createdAt: v.createdAt instanceof Timestamp ? v.createdAt.toDate() : new Date(),
+          createdAt: toDate(v.createdAt) || new Date(),
         } as MessageDoc;
       });
       setMessages(list);

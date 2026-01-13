@@ -8,6 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { DossierStatus, MeldingStatus, UserRole } from '../types';
 import { db } from '../firebase';
 import { collection, onSnapshot, Timestamp } from 'firebase/firestore';
+import { toDate } from '../utils/dateHelpers';
 import {
   endOfDay,
   endOfMonth,
@@ -255,7 +256,7 @@ const DashboardPage: React.FC = () => {
         let created: Date | null = null;
         if (Array.isArray(v.historie) && v.historie.length) {
           const dates = v.historie
-            .map((h: any) => h?.date instanceof Timestamp ? h.date.toDate() : (h?.date ? new Date(h.date) : null))
+            .map((h: any) => toDate(h?.date))
             .filter(Boolean) as Date[];
           if (dates.length) created = new Date(Math.min(...dates.map(x => x.getTime())));
         }
