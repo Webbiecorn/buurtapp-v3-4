@@ -12,7 +12,7 @@ import { generateInsights, getFallbackInsights, type AIInsight } from '../servic
 import { exportToExcel } from '../services/excelExport';
 import { exportMeldingenToPDF, exportProjectenToPDF, exportStatisticsToPDF } from '../services/pdfExport';
 import { db } from '../firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { useDossiers } from '../services/firestoreHooks';
 import { toDate } from '../utils/dateHelpers';
 
 const COLORS = ['#f59e0b', '#8b5cf6', '#22c55e'];
@@ -26,6 +26,7 @@ import { nl } from 'date-fns/locale';
 
 const StatisticsPage: React.FC = () => {
   const { meldingen, projecten, urenregistraties, users, theme } = useAppContext();
+  const { data: allDossiers } = useDossiers();
   const [monthsBack, setMonthsBack] = useState(5);
   const [projectStatusFilter, setProjectStatusFilter] = useState<'alle' | 'Lopend' | 'Afgerond'>('alle');
   const [dossierStatusFilter, setDossierStatusFilter] = useState<'alle' | 'actief' | 'afgesloten' | 'in onderzoek'>('alle');
@@ -33,7 +34,7 @@ const StatisticsPage: React.FC = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedDossierId, setSelectedDossierId] = useState<string | null>(null);
   const [mapFilter, setMapFilter] = useState<'meldingen' | 'projecten' | 'dossiers' | 'beide'>('meldingen');
-  const [dossiers, setDossiers] = useState<Array<{ id: string; adres: string; lat: number; lon: number }>>([]);
+  // dossiers derived from allDossiers in useMemo above
 
   // Multi-select filters
   const allWijken = useMemo(() => Array.from(new Set(meldingen.map(m => m.wijk))), [meldingen]);
@@ -162,21 +163,12 @@ const StatisticsPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredMeldingen.length, projecten.length, urenregistraties.length]);
 
-  // Laad dossiers met coördinaten voor de kaart
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'dossiers'), (snap) => {
-      const list: Array<{ id: string; adres: string; lat: number; lon: number }> = [];
-      snap.forEach(doc => {
-        const data = doc.data() as any;
-        const loc = data?.location;
-        if (loc && typeof loc.lat === 'number' && typeof loc.lon === 'number') {
-          list.push({ id: doc.id, adres: data?.adres || doc.id, lat: loc.lat, lon: loc.lon });
-        }
-      });
-      setDossiers(list);
-    });
-    return () => unsub();
-  }, []);
+  // Dossiers met coördinaten voor de kaart (derived from useDossiers hook)
+  const dossiers = useMemo(() => {
+    return allDossiers
+      .filter((d: any) => d.location && typeof d.location.lat === 'number' && typeof d.location.lon === 'number')
+      .map((d: any) => ({ id: d.id, adres: d.adres || d.id, lat: d.location.lat, lon: d.location.lon }));
+  }, [allDossiers]);
 
   const meldingenPerWijk = filteredMeldingen.reduce((acc, m) => {
     acc[m.wijk] = (acc[m.wijk] || 0) + 1;
@@ -219,25 +211,20 @@ const StatisticsPage: React.FC = () => {
     return { maand, nieuw, afgerond };
   }), [months, projecten, projectStatusFilter]);
 
-  const [dossiersForTrend, setDossiersForTrend] = useState<Array<{ createdAt?: Date | null; status?: string }>>([]);
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'dossiers'), (ss) => {
-      const arr = ss.docs.map(d => {
-        const v: any = d.data();
-        // createdAt: earliest historie.date
-        let created: Date | null = null;
-        if (Array.isArray(v.historie) && v.historie.length) {
-          const dates = v.historie
-            .map((h: any) => toDate(h?.date))
-            .filter(Boolean) as Date[];
-          if (dates.length) created = new Date(Math.min(...dates.map(d => d.getTime())));
-        }
-        return { createdAt: created, status: v?.status };
-      });
-      setDossiersForTrend(arr);
+  // dossiersForTrend derived from allDossiers hook
+  const dossiersForTrend = useMemo(() => {
+    return allDossiers.map((d: any) => {
+      // createdAt: earliest historie.date
+      let created: Date | null = null;
+      if (Array.isArray(d.historie) && d.historie.length) {
+        const dates = d.historie
+          .map((h: any) => toDate(h?.date))
+          .filter(Boolean) as Date[];
+        if (dates.length) created = new Date(Math.min(...dates.map(dt => dt.getTime())));
+      }
+      return { createdAt: created, status: d?.status };
     });
-    return () => unsub();
-  }, []);
+  }, [allDossiers]);
 
   const dossierTrend = useMemo(() => months.map(ms => {
     const me = new Date(ms.getFullYear(), ms.getMonth() + 1, 0);

@@ -1,17 +1,41 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { XIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '../components/Icons';
 import { useAppContext } from '../context/AppContext';
 import { DossierBewoner, DossierStatus, WoningDossier } from "../types";
 import { fetchDossierMeta, type DossierMeta } from '../services/dossierMeta';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { db } from '../firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { useDossiers } from '../services/firestoreHooks';
 import { toDate, getTimeSafe } from '../utils/dateHelpers';
 
 const DossierPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isEditIntentRef = useRef(false);
+  
+  // Load dossiers via hook
+  const { data: rawDossiers } = useDossiers();
+  
+  // Transform dossiers data for local use
+  const allDossiers = useMemo(() => {
+    return rawDossiers.map((data: any) => {
+      const status = (data?.status || 'actief') as DossierStatus;
+      const wt = (data?.woningType ?? null) as string | null;
+      const dates: number[] = [];
+      const hist = Array.isArray(data?.historie) ? data.historie : [];
+      for (const h of hist) {
+        const d = toDate(h?.date);
+        if (d && !isNaN(d.getTime())) dates.push(d.getTime());
+      }
+      const notes = Array.isArray(data?.notities) ? data.notities : [];
+      for (const n of notes) {
+        const d = toDate(n?.timestamp);
+        if (d && !isNaN(d.getTime())) dates.push(d.getTime());
+      }
+      const updatedAt = dates.length ? Math.max(...dates) : 0;
+      return { id: data.id, status, woningType: wt, updatedAt };
+    });
+  }, [rawDossiers]);
 
   useEffect(() => {
     const qs = new URLSearchParams(location.search);
@@ -55,7 +79,7 @@ const DossierPage: React.FC = () => {
   const [bewonerToevoegenBusy, setBewonerToevoegenBusy] = useState(false);
   const [bewonerTelefoonError, setBewonerTelefoonError] = useState<string | null>(null);
   const [bewonerEmailError, setBewonerEmailError] = useState<string | null>(null);
-  const [allDossiers, setAllDossiers] = useState<Array<{ id: string; status: DossierStatus; woningType?: string | null; updatedAt: number }>>([]);
+  // allDossiers derived from useDossiers hook via useMemo below
 
   // <-- WIJZIGING: Nieuwe functie uit context gehaald
   const { 
@@ -342,31 +366,7 @@ const DossierPage: React.FC = () => {
     }
   }, [showSuggest]);
 
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'dossiers'), (snap) => {
-      const list: Array<{ id: string; status: DossierStatus; woningType?: string | null; updatedAt: number }> = [];
-      snap.forEach(doc => {
-        const data = doc.data() as any;
-        const status = (data?.status || 'actief') as DossierStatus;
-        const wt = (data?.woningType ?? null) as string | null;
-        const dates: number[] = [];
-        const hist = Array.isArray(data?.historie) ? data.historie : [];
-        for (const h of hist) {
-          const d = toDate(h?.date);
-          if (d && !isNaN(d.getTime())) dates.push(d.getTime());
-        }
-        const notes = Array.isArray(data?.notities) ? data.notities : [];
-        for (const n of notes) {
-          const d = toDate(n?.timestamp);
-          if (d && !isNaN(d.getTime())) dates.push(d.getTime());
-        }
-        const updatedAt = dates.length ? Math.max(...dates) : 0;
-        list.push({ id: doc.id, status, woningType: wt, updatedAt });
-      });
-      setAllDossiers(list);
-    });
-    return () => unsub();
-  }, []);
+  // Dossiers data loading handled by useDossiers hook
 
   return (
     <div className="p-4 max-w-6xl mx-auto">

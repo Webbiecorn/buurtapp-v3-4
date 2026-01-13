@@ -1,12 +1,13 @@
 /**
  * BuurtApp Firestore Hooks
- * 
+ *
  * Pre-configured hooks for BuurtApp collections using @webbiecorn/firebase
  * Provides type-safe access to all Firestore collections
  */
 
 import { useCollection, useDocument, useCRUD } from '@webbiecorn/firebase';
-import type { UseCollectionOptions } from '@webbiecorn/firebase';
+import { db } from '../firebase';
+import type { QueryConstraint } from 'firebase/firestore';
 
 // ============================================================================
 // Collection Types (extend as needed)
@@ -94,94 +95,149 @@ export interface ExternalContact {
 }
 
 // ============================================================================
+// Helper type for hook options
+// ============================================================================
+
+interface CollectionHookOptions {
+  constraints?: QueryConstraint[];
+  realtime?: boolean;
+}
+
+// ============================================================================
 // Collection Hooks
 // ============================================================================
 
-/**
- * Hook for users collection
- */
-export function useUsers(options?: Partial<UseCollectionOptions<User>>) {
-  return useCollection<User>('users', options);
+export function useUsers(options?: CollectionHookOptions) {
+  return useCollection<User>({
+    db,
+    collectionPath: 'users',
+    constraints: options?.constraints,
+    realtime: options?.realtime,
+  });
 }
 
-/**
- * Hook for meldingen collection
- */
-export function useMeldingen(options?: Partial<UseCollectionOptions<Melding>>) {
-  return useCollection<Melding>('meldingen', options);
+export function useMeldingen(options?: CollectionHookOptions) {
+  return useCollection<Melding>({
+    db,
+    collectionPath: 'meldingen',
+    constraints: options?.constraints,
+    realtime: options?.realtime,
+  });
 }
 
-/**
- * Hook for projecten collection
- */
-export function useProjecten(options?: Partial<UseCollectionOptions<Project>>) {
-  return useCollection<Project>('projecten', options);
+export function useProjecten(options?: CollectionHookOptions) {
+  return useCollection<Project>({
+    db,
+    collectionPath: 'projecten',
+    constraints: options?.constraints,
+    realtime: options?.realtime,
+  });
 }
 
-/**
- * Hook for dossiers collection
- */
-export function useDossiers(options?: Partial<UseCollectionOptions<Dossier>>) {
-  return useCollection<Dossier>('dossiers', options);
+export function useDossiers(options?: CollectionHookOptions) {
+  return useCollection<Dossier>({
+    db,
+    collectionPath: 'dossiers',
+    constraints: options?.constraints,
+    realtime: options?.realtime,
+  });
 }
 
-/**
- * Hook for achterpaden collection
- */
-export function useAchterpaden(options?: Partial<UseCollectionOptions<Achterpad>>) {
-  return useCollection<Achterpad>('achterpaden', options);
+export function useAchterpaden(options?: CollectionHookOptions) {
+  return useCollection<Achterpad>({
+    db,
+    collectionPath: 'achterpaden',
+    constraints: options?.constraints,
+    realtime: options?.realtime,
+  });
 }
 
-/**
- * Hook for notificaties collection
- */
-export function useNotificaties(options?: Partial<UseCollectionOptions<Notificatie>>) {
-  return useCollection<Notificatie>('notificaties', options);
+export function useNotificaties(options?: CollectionHookOptions) {
+  return useCollection<Notificatie>({
+    db,
+    collectionPath: 'notificaties',
+    constraints: options?.constraints,
+    realtime: options?.realtime,
+  });
 }
 
-/**
- * Hook for urenregistraties collection
- */
-export function useUrenRegistraties(options?: Partial<UseCollectionOptions<UrenRegistratie>>) {
-  return useCollection<UrenRegistratie>('urenregistraties', options);
+export function useUrenRegistraties(options?: CollectionHookOptions) {
+  return useCollection<UrenRegistratie>({
+    db,
+    collectionPath: 'urenregistraties',
+    constraints: options?.constraints,
+    realtime: options?.realtime,
+  });
 }
 
-/**
- * Hook for conversations collection
- */
-export function useConversations(options?: Partial<UseCollectionOptions<Conversation>>) {
-  return useCollection<Conversation>('conversations', options);
+export function useConversations(options?: CollectionHookOptions) {
+  return useCollection<Conversation>({
+    db,
+    collectionPath: 'conversations',
+    constraints: options?.constraints,
+    realtime: options?.realtime,
+  });
 }
 
-/**
- * Hook for external_contacts collection
- */
-export function useExternalContacts(options?: Partial<UseCollectionOptions<ExternalContact>>) {
-  return useCollection<ExternalContact>('external_contacts', options);
+export function useExternalContacts(options?: CollectionHookOptions) {
+  return useCollection<ExternalContact>({
+    db,
+    collectionPath: 'external_contacts',
+    constraints: options?.constraints,
+    realtime: options?.realtime,
+  });
 }
 
 // ============================================================================
 // Document Hooks
 // ============================================================================
 
-export function useUser(userId: string) {
-  return useDocument<User>('users', userId);
+export function useUser(userId: string | null | undefined) {
+  return useDocument<User>({
+    db,
+    collectionPath: 'users',
+    documentId: userId,
+  });
 }
 
-export function useMelding(meldingId: string) {
-  return useDocument<Melding>('meldingen', meldingId);
+export function useMelding(meldingId: string | null | undefined) {
+  return useDocument<Melding>({
+    db,
+    collectionPath: 'meldingen',
+    documentId: meldingId,
+  });
 }
 
-export function useProject(projectId: string) {
-  return useDocument<Project>('projecten', projectId);
+export function useProject(projectId: string | null | undefined) {
+  return useDocument<Project>({
+    db,
+    collectionPath: 'projecten',
+    documentId: projectId,
+  });
 }
 
-export function useDossier(dossierId: string) {
-  return useDocument<Dossier>('dossiers', dossierId);
+export function useDossier(dossierId: string | null | undefined) {
+  return useDocument<Dossier>({
+    db,
+    collectionPath: 'dossiers',
+    documentId: dossierId,
+  });
 }
 
-export function useAchterpad(achterpadId: string) {
-  return useDocument<Achterpad>('achterpaden', achterpadId);
+export function useAchterpad(achterpadId: string | null | undefined) {
+  return useDocument<Achterpad>({
+    db,
+    collectionPath: 'achterpaden',
+    documentId: achterpadId,
+  });
+}
+
+export function useConversation(conversationId: string | null | undefined) {
+  return useDocument<Conversation>({
+    db,
+    collectionPath: 'conversations',
+    documentId: conversationId,
+  });
 }
 
 // ============================================================================
@@ -189,25 +245,25 @@ export function useAchterpad(achterpadId: string) {
 // ============================================================================
 
 export function useMeldingenCRUD() {
-  return useCRUD<Melding>('meldingen');
+  return useCRUD<Melding>({ db, collectionPath: 'meldingen' });
 }
 
 export function useProjectenCRUD() {
-  return useCRUD<Project>('projecten');
+  return useCRUD<Project>({ db, collectionPath: 'projecten' });
 }
 
 export function useDossiersCRUD() {
-  return useCRUD<Dossier>('dossiers');
+  return useCRUD<Dossier>({ db, collectionPath: 'dossiers' });
 }
 
 export function useAchterpadenCRUD() {
-  return useCRUD<Achterpad>('achterpaden');
+  return useCRUD<Achterpad>({ db, collectionPath: 'achterpaden' });
 }
 
 export function useNotificatiesCRUD() {
-  return useCRUD<Notificatie>('notificaties');
+  return useCRUD<Notificatie>({ db, collectionPath: 'notificaties' });
 }
 
 export function useUrenRegistratiesCRUD() {
-  return useCRUD<UrenRegistratie>('urenregistraties');
+  return useCRUD<UrenRegistratie>({ db, collectionPath: 'urenregistraties' });
 }

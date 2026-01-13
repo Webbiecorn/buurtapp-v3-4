@@ -17,7 +17,7 @@ import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tool
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { MOCK_WIJKEN } from '../data/mockData';
 import { ExternalContact } from '../types';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { useDossiers, useAchterpaden } from '../services/firestoreHooks';
 import { toDate } from '../utils/dateHelpers';
 import { db } from '../firebase';
 import * as XLSX from 'xlsx';
@@ -292,34 +292,10 @@ export const ReportsPage: React.FC = () => {
     const { meldingen, projecten, urenregistraties, users } = useAppContext();
     const [selectedWijk, setSelectedWijk] = useState('alle');
     const [reportPeriod, setReportPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
-    const [dossiers, setDossiers] = useState<any[]>([]);
-    const [achterpaden, setAchterpaden] = useState<any[]>([]);
-
-    // Load dossiers and achterpaden
-    useEffect(() => {
-        const unsubDossiers = onSnapshot(collection(db, 'dossiers'), (snapshot) => {
-            const data = snapshot.docs.map(doc => {
-                const docData = doc.data();
-                return { id: doc.id, ...docData };
-            });
-            console.log('📁 Loaded dossiers:', data.length, data);
-            setDossiers(data);
-        });
-        
-        const unsubAchterpaden = onSnapshot(collection(db, 'achterpaden'), (snapshot) => {
-            const data = snapshot.docs.map(doc => {
-                const docData = doc.data();
-                return { id: doc.id, ...docData };
-            });
-            console.log('🚶 Loaded achterpaden:', data.length, data);
-            setAchterpaden(data);
-        });
-
-        return () => {
-            unsubDossiers();
-            unsubAchterpaden();
-        };
-    }, []);
+    
+    // Load dossiers and achterpaden via hooks
+    const { data: dossiers } = useDossiers();
+    const { data: achterpaden } = useAchterpaden();
 
     const wijken = useMemo(() => {
         const wijkSet = new Set(meldingen.map(m => m.wijk));
