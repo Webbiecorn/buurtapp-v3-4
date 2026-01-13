@@ -110,13 +110,13 @@ const DailyUpdateCard: React.FC = () => {
   ];
 
   return (
-    <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 rounded-xl shadow-xl p-6 border-2 border-blue-100 dark:border-blue-900/30">
+    <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
           <div className="text-4xl animate-pulse">{greeting.emoji}</div>
           <div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+            <h2 className="text-2xl font-bold text-blue-700 dark:text-blue-300">
               {greeting.text}, {userName}!
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">

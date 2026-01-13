@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Enable class-based dark mode for Tailwind 4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Custom colors for BuurtApp */
 @theme {
   --color-brand-primary: #1e40af;

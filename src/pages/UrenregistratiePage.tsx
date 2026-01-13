@@ -205,7 +205,7 @@ const UrenregistratiePage: React.FC = () => {
     });
     
     return overlapping.length > 0 ? overlapping : null;
-  }, [currentUser, urenregistraties, toSafeDate]);
+  }, [currentUser, urenregistraties, toDate]);
 
   // Real-time validation
   const validationMessage = useMemo(() => {
@@ -288,7 +288,7 @@ const UrenregistratiePage: React.FC = () => {
       totalRegistraties: userRegistraties.length,
       averageHoursPerWeek: userRegistraties.length > 0 ? calculateTotalHours(userRegistraties) / Math.max(1, Math.ceil(userRegistraties.length / 7)) : 0
     };
-  }, [currentUser, urenregistraties, toSafeDate]);
+  }, [currentUser, urenregistraties, toDate]);
   
   const formatOmschrijving = useCallback((uur: Urenregistratie) => {
     switch (uur.activiteit) {
@@ -331,7 +331,7 @@ const UrenregistratiePage: React.FC = () => {
     const now = new Date();
     const daysDiff = (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
     return daysDiff <= 14;
-  }, [toSafeDate]);
+  }, [toDate]);
 
   // Start editing a registration
   const startEdit = useCallback((registratie: Urenregistratie) => {
@@ -367,7 +367,7 @@ const UrenregistratiePage: React.FC = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }, 100);
     }
-  }, [canEdit, toSafeDate]);
+  }, [canEdit, toDate]);
 
   // Cancel editing
   const cancelEdit = useCallback(() => {
@@ -554,7 +554,7 @@ const UrenregistratiePage: React.FC = () => {
     }
     
     return filtered;
-  }, [userUren, searchTerm, filterActivity, filterDateRange, formatOmschrijving, toSafeDate]);
+  }, [userUren, searchTerm, filterActivity, filterDateRange, formatOmschrijving, toDate]);
 
   // Export functionality
   const exportToCSV = useCallback((data: any[]) => {
@@ -583,7 +583,7 @@ const UrenregistratiePage: React.FC = () => {
     link.href = URL.createObjectURL(blob);
     link.download = `urenregistratie-${format(new Date(), 'yyyy-MM-dd')}.csv`;
     link.click();
-  }, [toSafeDate, formatOmschrijving, calculateDuration]);
+  }, [toDate, formatOmschrijving, calculateDuration]);
 
   // PDF Export functionality
   const exportToPDF = useCallback((data: any[]) => {
@@ -661,7 +661,7 @@ const UrenregistratiePage: React.FC = () => {
       console.error('Fout bij het genereren van PDF:', error);
       alert('Er is een fout opgetreden bij het genereren van de PDF. Probeer het opnieuw.');
     }
-  }, [toSafeDate, formatOmschrijving, calculateDuration]);
+  }, [toDate, formatOmschrijving, calculateDuration]);
 
   const lopendeProjecten = projecten.filter(p => p.status === ProjectStatus.Lopend);
 
