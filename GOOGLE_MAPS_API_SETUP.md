@@ -7,7 +7,7 @@
 
 ### Stap 1: Ga naar Google Cloud Console
 1. Open [Google Cloud Console - API Credentials](https://console.cloud.google.com/apis/credentials?project=buurtapp-v3-4)
-2. Zoek naar de API key: `AIzaSyD5CTJmcJ2OVK5OSoUJz78oBSBwt9tM0SU`
+2. Zoek naar de API key: `YOUR_API_KEY_HERE`
 
 ### Stap 2: Configureer HTTP Referrers
 1. Klik op de key om te bewerken
@@ -77,6 +77,6 @@ Als de bestaande key problemen blijft geven:
 ## Huidige configuratie
 
 **Project ID**: buurtapp-v3-4
-**API Key**: AIzaSyD5CTJmcJ2OVK5OSoUJz78oBSBwt9tM0SU
+**API Key**: YOUR_API_KEY_HERE
 **Hosting URL**: https://buurtapp-v3-4.web.app
 **Gemini Key**: AIzaSyDd9JanhJColMXXc2hAi--X2NBoMPL_KgA (apart key voor AI)
