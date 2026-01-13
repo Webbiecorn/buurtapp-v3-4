@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { getAchterpadStatusColor } from '../utils/statusColors';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
@@ -34,19 +35,7 @@ const RoutePolyline: React.FC<{
   return null;
 };
 
-// Status kleur helper
-const getStatusColor = (staat: string): string => {
-  switch (staat?.toLowerCase()) {
-    case 'goed':
-      return '#10B981'; // groen
-    case 'matig':
-      return '#F59E0B'; // oranje
-    case 'slecht':
-      return '#EF4444'; // rood
-    default:
-      return '#6B7280'; // grijs
-  }
-};
+// Using shared statusColors utility
 
 // Detail Modal
 const DetailModal: React.FC<{
@@ -104,7 +93,7 @@ const DetailModal: React.FC<{
                     <RoutePolyline 
                       start={achterpad.gpsBeginpunt} 
                       end={achterpad.gpsEindpunt} 
-                      color={getStatusColor(achterpad.staat)} 
+                      color={getAchterpadStatusColor(achterpad.staat)} 
                     />
                   </Map>
                 </APIProvider>
@@ -121,7 +110,7 @@ const DetailModal: React.FC<{
               <div><span className="font-semibold">Toegankelijk:</span> {achterpad.toegankelijk}</div>
               <div>
                 <span className="font-semibold">Staat:</span>{' '}
-                <span style={{ color: getStatusColor(achterpad.staat) }} className="font-bold">
+                <span style={{ color: getAchterpadStatusColor(achterpad.staat) }} className="font-bold">
                   {achterpad.staat}
                 </span>
               </div>
@@ -420,7 +409,7 @@ const AchterpadenKaartOverzicht: React.FC = () => {
                       <RoutePolyline
                         start={achterpad.gpsBeginpunt}
                         end={achterpad.gpsEindpunt}
-                        color={getStatusColor(achterpad.staat)}
+                        color={getAchterpadStatusColor(achterpad.staat)}
                       />
                     </React.Fragment>
                   ))}
@@ -449,7 +438,7 @@ const AchterpadenKaartOverzicht: React.FC = () => {
                       </div>
                       <div
                         className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: getStatusColor(achterpad.staat) }}
+                        style={{ backgroundColor: getAchterpadStatusColor(achterpad.staat) }}
                         title={achterpad.staat}
                       />
                     </div>
@@ -496,7 +485,7 @@ const AchterpadenKaartOverzicht: React.FC = () => {
                     </div>
                     <div
                       className="px-2 py-1 rounded text-xs font-medium text-white"
-                      style={{ backgroundColor: getStatusColor(achterpad.staat) }}
+                      style={{ backgroundColor: getAchterpadStatusColor(achterpad.staat) }}
                     >
                       {achterpad.staat}
                     </div>

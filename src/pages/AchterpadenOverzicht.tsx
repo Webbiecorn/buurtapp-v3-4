@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { getAchterpadStatusColor } from '../utils/statusColors';
 import { useAppContext } from '../context/AppContext';
 import { db } from "../firebase";
 import { collection, onSnapshot, doc, updateDoc, arrayUnion, getDoc } from "firebase/firestore";
@@ -37,19 +38,7 @@ const RoutePolyline: React.FC<{
   return null;
 };
 
-// Status kleur helper
-const getStatusColor = (staat: string): string => {
-  switch (staat?.toLowerCase()) {
-    case 'goed':
-      return '#10B981'; // groen
-    case 'matig':
-      return '#F59E0B'; // oranje
-    case 'slecht':
-      return '#EF4444'; // rood
-    default:
-      return '#6B7280'; // grijs
-  }
-};
+// Using shared statusColors utility
 
 // Modal component voor bewerken van achterpad
 type EditAchterpadModalProps = {

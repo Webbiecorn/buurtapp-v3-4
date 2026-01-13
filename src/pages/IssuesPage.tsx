@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { getTimeSafe, formatSafe } from '../utils/dateHelpers';
 import { useAppContext } from '../context/AppContext';
 import { Link } from 'react-router-dom';
 import { Melding, MeldingStatus, UserRole } from '../types';
@@ -13,25 +14,7 @@ type Tab = 'Lopende' | 'Fixi Meldingen' | 'Afgeronde';
 
 type Toast = { type: 'success' | 'error'; message: string };
 
-// Null-safe datumhelpers om crashes te voorkomen wanneer serverTimestamp nog niet is ingevuld
-const getTimeSafe = (d: any): number => {
-    if (!d) return 0;
-    if (d instanceof Date) return d.getTime();
-    const dt = new Date(d as any);
-    const t = dt.getTime();
-    return isNaN(t) ? 0 : t;
-};
-
-const formatSafe = (d: any, fmt: string): string => {
-    try {
-        if (!d) return '—';
-        const date = d instanceof Date ? d : new Date(d as any);
-        if (isNaN(date.getTime())) return '—';
-        return format(date, fmt, { locale: nl });
-    } catch {
-        return '—';
-    }
-};
+// Using shared dateHelpers utility
 const NewMeldingForm: React.FC<{ onClose: () => void; onToast: (t: Toast) => void }> = ({ onClose, onToast }) => {
     const { addMelding, uploadFile } = useAppContext();
     const [titel, setTitel] = useState('');
