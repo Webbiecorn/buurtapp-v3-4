@@ -56,3 +56,11 @@ if (import.meta.env.PROD) {
 // Exporteer de instanties
 export { app, auth, db, storage, functions };
 
+
+// Getter function to ensure db is always initialized
+export function getDb(): Firestore {
+  if (!db) {
+    initializeFirebase();
+  }
+  return db;
+}

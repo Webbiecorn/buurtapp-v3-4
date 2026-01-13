@@ -6,7 +6,7 @@
  */
 
 import { useCollection, useDocument, useCRUD } from '@webbiecorn/firebase';
-import { db } from '../firebase';
+import { getDb } from '../firebase';
 import type { QueryConstraint } from 'firebase/firestore';
 
 // ============================================================================
@@ -109,7 +109,7 @@ interface CollectionHookOptions {
 
 export function useUsers(options?: CollectionHookOptions) {
   return useCollection<User>({
-    db,
+    db: getDb(),
     collectionPath: 'users',
     constraints: options?.constraints,
     realtime: options?.realtime,
@@ -118,7 +118,7 @@ export function useUsers(options?: CollectionHookOptions) {
 
 export function useMeldingen(options?: CollectionHookOptions) {
   return useCollection<Melding>({
-    db,
+    db: getDb(),
     collectionPath: 'meldingen',
     constraints: options?.constraints,
     realtime: options?.realtime,
@@ -127,7 +127,7 @@ export function useMeldingen(options?: CollectionHookOptions) {
 
 export function useProjecten(options?: CollectionHookOptions) {
   return useCollection<Project>({
-    db,
+    db: getDb(),
     collectionPath: 'projecten',
     constraints: options?.constraints,
     realtime: options?.realtime,
@@ -136,7 +136,7 @@ export function useProjecten(options?: CollectionHookOptions) {
 
 export function useDossiers(options?: CollectionHookOptions) {
   return useCollection<Dossier>({
-    db,
+    db: getDb(),
     collectionPath: 'dossiers',
     constraints: options?.constraints,
     realtime: options?.realtime,
@@ -145,7 +145,7 @@ export function useDossiers(options?: CollectionHookOptions) {
 
 export function useAchterpaden(options?: CollectionHookOptions) {
   return useCollection<Achterpad>({
-    db,
+    db: getDb(),
     collectionPath: 'achterpaden',
     constraints: options?.constraints,
     realtime: options?.realtime,
@@ -154,7 +154,7 @@ export function useAchterpaden(options?: CollectionHookOptions) {
 
 export function useNotificaties(options?: CollectionHookOptions) {
   return useCollection<Notificatie>({
-    db,
+    db: getDb(),
     collectionPath: 'notificaties',
     constraints: options?.constraints,
     realtime: options?.realtime,
@@ -163,7 +163,7 @@ export function useNotificaties(options?: CollectionHookOptions) {
 
 export function useUrenRegistraties(options?: CollectionHookOptions) {
   return useCollection<UrenRegistratie>({
-    db,
+    db: getDb(),
     collectionPath: 'urenregistraties',
     constraints: options?.constraints,
     realtime: options?.realtime,
@@ -172,7 +172,7 @@ export function useUrenRegistraties(options?: CollectionHookOptions) {
 
 export function useConversations(options?: CollectionHookOptions) {
   return useCollection<Conversation>({
-    db,
+    db: getDb(),
     collectionPath: 'conversations',
     constraints: options?.constraints,
     realtime: options?.realtime,
@@ -181,7 +181,7 @@ export function useConversations(options?: CollectionHookOptions) {
 
 export function useExternalContacts(options?: CollectionHookOptions) {
   return useCollection<ExternalContact>({
-    db,
+    db: getDb(),
     collectionPath: 'external_contacts',
     constraints: options?.constraints,
     realtime: options?.realtime,
@@ -194,7 +194,7 @@ export function useExternalContacts(options?: CollectionHookOptions) {
 
 export function useUser(userId: string | null | undefined) {
   return useDocument<User>({
-    db,
+    db: getDb(),
     collectionPath: 'users',
     documentId: userId,
   });
@@ -202,7 +202,7 @@ export function useUser(userId: string | null | undefined) {
 
 export function useMelding(meldingId: string | null | undefined) {
   return useDocument<Melding>({
-    db,
+    db: getDb(),
     collectionPath: 'meldingen',
     documentId: meldingId,
   });
@@ -210,7 +210,7 @@ export function useMelding(meldingId: string | null | undefined) {
 
 export function useProject(projectId: string | null | undefined) {
   return useDocument<Project>({
-    db,
+    db: getDb(),
     collectionPath: 'projecten',
     documentId: projectId,
   });
@@ -218,7 +218,7 @@ export function useProject(projectId: string | null | undefined) {
 
 export function useDossier(dossierId: string | null | undefined) {
   return useDocument<Dossier>({
-    db,
+    db: getDb(),
     collectionPath: 'dossiers',
     documentId: dossierId,
   });
@@ -226,7 +226,7 @@ export function useDossier(dossierId: string | null | undefined) {
 
 export function useAchterpad(achterpadId: string | null | undefined) {
   return useDocument<Achterpad>({
-    db,
+    db: getDb(),
     collectionPath: 'achterpaden',
     documentId: achterpadId,
   });
@@ -234,7 +234,7 @@ export function useAchterpad(achterpadId: string | null | undefined) {
 
 export function useConversation(conversationId: string | null | undefined) {
   return useDocument<Conversation>({
-    db,
+    db: getDb(),
     collectionPath: 'conversations',
     documentId: conversationId,
   });
