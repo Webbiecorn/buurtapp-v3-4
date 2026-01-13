@@ -2,8 +2,7 @@ import React, { useEffect, useState } from "react";
 import { getAchterpadStatusColor } from '../utils/statusColors';
 import { useAppContext } from '../context/AppContext';
 import { db } from "../firebase";
-import { doc, updateDoc, arrayUnion, getDoc } from "firebase/firestore";
-import { useAchterpaden } from '../services/firestoreHooks';
+import { collection, onSnapshot, doc, updateDoc, arrayUnion, getDoc } from "firebase/firestore";
 import AchterpadCard from '../components/AchterpadCard';
 import AchterpadenStats from '../components/AchterpadenStats';
 import { UserRole } from "../types";
@@ -296,7 +295,8 @@ const EditAchterpadModal: React.FC<EditAchterpadModalProps> = ({ selected, onClo
 
 const AchterpadenOverzicht: React.FC<{ showStats?: boolean }> = ({ showStats }) => {
   // Verwijderd: oude edit modal state
-  const { data: registraties, loading } = useAchterpaden();
+  const [registraties, setRegistraties] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -377,7 +377,18 @@ const AchterpadenOverzicht: React.FC<{ showStats?: boolean }> = ({ showStats }) 
     }, 220);
   };
 
-  // Data loading handled by useAchterpaden hook
+  useEffect(() => {
+    setLoading(true);
+    const colRef = collection(db, 'achterpaden');
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      setRegistraties(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
+    }, () => {
+      // achterpaden onSnapshot error
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // formatUpdateInfo removed; badge info is now in AchterpadCard component
 

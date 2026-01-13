@@ -3,16 +3,26 @@ import AchterpadenRegistratie from './AchterpadenRegistratie';
 import AchterpadenOverzicht from './AchterpadenOverzicht';
 import AchterpadenKaartOverzicht from './AchterpadenKaartOverzicht';
 import AchterpadenStatistieken from './AchterpadenStatistieken';
-
-const tabs = [
-  { key: 'registratie', label: 'Registratie' },
-  { key: 'kaart', label: 'Kaart Overzicht' },
-  { key: 'overzicht', label: 'Detail Overzicht' },
-  { key: 'stats', label: 'Statestieken' },
-];
+import AchterpadenBeheer from './AchterpadenBeheer';
+import { useAppContext } from '../context/AppContext';
+import { UserRole } from '../types';
 
 const AchterpadenPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'registratie' | 'kaart' | 'overzicht' | 'stats'>('registratie');
+  const { currentUser } = useAppContext();
+  const [activeTab, setActiveTab] = useState<'registratie' | 'kaart' | 'overzicht' | 'stats' | 'beheer'>('registratie');
+  const [selectedAchterpadForEdit, setSelectedAchterpadForEdit] = useState<any | null>(null);
+
+  // Dynamic tabs based on user role
+  const baseTabs = [
+    { key: 'registratie', label: 'Registratie' },
+    { key: 'kaart', label: 'Kaart Overzicht' },
+    { key: 'overzicht', label: 'Detail Overzicht' },
+    { key: 'stats', label: 'Statistieken' },
+  ];
+
+  const tabs = currentUser?.role === UserRole.Beheerder 
+    ? [...baseTabs, { key: 'beheer', label: '⚙️ Beheer' }]
+    : baseTabs;
 
   return (
     <div>
@@ -33,9 +43,13 @@ const AchterpadenPage: React.FC = () => {
       </div>
       <div className="dark:text-dark-text-primary">
   {activeTab === 'registratie' && <AchterpadenRegistratie onSuccess={() => setActiveTab('kaart')} />}
-  {activeTab === 'kaart' && <AchterpadenKaartOverzicht />}
-  {activeTab === 'overzicht' && <AchterpadenOverzicht />}
+  {activeTab === 'kaart' && <AchterpadenKaartOverzicht onEditAchterpad={(achterpad) => {
+    setSelectedAchterpadForEdit(achterpad);
+    setActiveTab('overzicht');
+  }} />}
+  {activeTab === 'overzicht' && <AchterpadenOverzicht selectedAchterpadFromKaart={selectedAchterpadForEdit} />}
   {activeTab === 'stats' && <AchterpadenStatistieken />}
+  {activeTab === 'beheer' && currentUser?.role === UserRole.Beheerder && <AchterpadenBeheer />}
       </div>
     </div>
   );

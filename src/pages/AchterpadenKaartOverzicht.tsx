@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { getAchterpadStatusColor } from '../utils/statusColors';
 import { useAppContext } from '../context/AppContext';
-import { useAchterpaden } from '../services/firestoreHooks';
+import { db } from '../firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { APIProvider, Map, Marker, useMap } from '@vis.gl/react-google-maps';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -179,8 +180,9 @@ const DetailModal: React.FC<{
 
 // Main Component
 const AchterpadenKaartOverzicht: React.FC = () => {
-  const { data: registraties, loading } = useAchterpaden();
+  const [registraties, setRegistraties] = useState<any[]>([]);
   const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [selectedAchterpad, setSelectedAchterpad] = useState<any | null>(null);
   
@@ -190,6 +192,20 @@ const AchterpadenKaartOverzicht: React.FC = () => {
   const [sortBy, setSortBy] = useState<string>('date');
 
   const { currentUser } = useAppContext();
+
+  // Load data
+  useEffect(() => {
+    setLoading(true);
+    const colRef = collection(db, 'achterpaden');
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setRegistraties(data);
+      setLoading(false);
+    }, () => {
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Apply filters and sorting
   useEffect(() => {
@@ -211,11 +227,7 @@ const AchterpadenKaartOverzicht: React.FC = () => {
 
     // Sort
     if (sortBy === 'date') {
-      filtered.sort((a, b) => {
-        const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt?.seconds || 0) * 1000;
-        const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt?.seconds || 0) * 1000;
-        return bTime - aTime;
-      });
+      filtered.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
     } else if (sortBy === 'length') {
       filtered.sort((a, b) => (b.lengte || 0) - (a.lengte || 0));
     } else if (sortBy === 'street') {
@@ -259,11 +271,7 @@ const AchterpadenKaartOverzicht: React.FC = () => {
       'Type': a.typePad,
       'Eigendom': a.eigendom,
       'Toegankelijk': a.toegankelijk,
-      'Datum': a.createdAt instanceof Date 
-        ? a.createdAt.toLocaleDateString() 
-        : a.createdAt?.seconds 
-          ? new Date(a.createdAt.seconds * 1000).toLocaleDateString() 
-          : '-'
+      'Datum': a.createdAt?.seconds ? new Date(a.createdAt.seconds * 1000).toLocaleDateString() : '-'
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);

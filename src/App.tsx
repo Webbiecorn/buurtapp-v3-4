@@ -22,6 +22,7 @@ const ReportsPage = React.lazy(() => import('./pages/ExtraPages').then(module =>
 const ContactenPage = React.lazy(() => import('./pages/ExtraPages').then(module => ({ default: module.ContactenPage })));
 const NotificationsPage = React.lazy(() => import('./pages/ExtraPages').then(module => ({ default: module.NotificationsPage })));
 const ProjectInvitationDetailPage = React.lazy(() => import('./pages/ExtraPages').then(module => ({ default: module.ProjectInvitationDetailPage })));
+const UpdatesPage = React.lazy(() => import('./pages/UpdatesPage'));
 
 // Loading component voor Suspense fallback
 const PageLoader = () => (
@@ -71,6 +72,7 @@ const AppRoutes: React.FC = () => {
       <ReactRouterDOM.Route path="/admin" element={<ProtectedRoute roles={[UserRole.Beheerder]}><Suspense fallback={<PageLoader />}><AdminPage /></Suspense></ProtectedRoute>} />
       <ReactRouterDOM.Route path="/reports" element={<ProtectedRoute roles={[UserRole.Beheerder]}><Suspense fallback={<PageLoader />}><ReportsPage /></Suspense></ProtectedRoute>} />
       <ReactRouterDOM.Route path="/contacten" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ContactenPage /></Suspense></ProtectedRoute>} />
+      <ReactRouterDOM.Route path="/updates" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><UpdatesPage /></Suspense></ProtectedRoute>} />
       <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to={currentUser ? "/" : "/login"} replace />} />
     </ReactRouterDOM.Routes>
   );

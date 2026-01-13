@@ -35,7 +35,7 @@ interface PriorityItem {
 }
 
 export async function generateDailyUpdate(data: DailyUpdateData, userName?: string, greeting?: string): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   
   const today = startOfToday();
   const todayStr = format(today, 'EEEE d MMMM yyyy', { locale: nl });
@@ -144,9 +144,6 @@ ${newUserWelcome}
 - Gemiddeld deze week: ${avgMeldingenPerDay.toFixed(1)} meldingen per dag
 - Vandaag: ${data.newMeldingen.length} meldingen ${comparison}
 
-**👔 Speciaal detail:**
-Vergeet niet om aan het einde een speciaal compliment toe te voegen over Peters leiderschap en onmisbare rol in het team. Gebruik zinnen zoals "En natuurlijk niet te vergeten..." of "Speciaal voor Peter...". Maak het grappig maar respectvol - een intern grapje dat iedereen waardeert.
-
 Geef een **korte, persoonlijke en motiverende** dagelijkse update in het Nederlands speciaal voor ${nameText}.
 
 **Instructies:**
@@ -155,14 +152,15 @@ Geef een **korte, persoonlijke en motiverende** dagelijkse update in het Nederla
 3. Noem belangrijkste cijfers en vergelijking met gemiddelde
 4. Als er prioriteiten zijn, noem kort de 1-2 belangrijkste
 5. Zo relevant: welkom nieuwe teamleden hartelijk
-6. ${nameText?.toLowerCase() === 'peter' ? 'BELANGRIJK: Eindig met een grappig maar respectvol compliment over Peters leiderschap (bijv. "En natuurlijk niet te vergeten: zonder jouw visie zou dit team nergens zijn!")' : 'Eindig met een motiverende opmerking of praktische tip voor vandaag'}
+6. Eindig met een motiverende opmerking, praktische tip, of positieve noot voor vandaag
 
 **Stijl:**
 - Persoonlijk en direct (spreek ${nameText} aan)
 - Gebruik emojis om het levendiger te maken
-- Bondig (max ${nameText?.toLowerCase() === 'peter' ? '140' : '120'} woorden)
+- Bondig (max 120 woorden)
 - Positief en motiverend
 - Praktisch en actionable
+- Focus op het werk en de resultaten, geen persoonlijke complimenten
 
 Focus op: hoogtepunten, context, en wat aandacht verdient vandaag.`;
 
@@ -203,26 +201,15 @@ Focus op: hoogtepunten, context, en wat aandacht verdient vandaag.`;
       fallback += `\n👋 Welkom ${newUsers.map(u => u.name).join(' en ')}!\n`;
     }
     
-    // Speciaal compliment voor Peter - zichtbaar voor iedereen! 👔
-    const peterMessages = [
-      '👔 **En natuurlijk niet te vergeten:** Zonder Peters leiderschap zou dit team nergens zijn!',
-      '🎩 **Speciaal voor Peter:** Het team draait dankzij jouw visie en toewijding!',
-      '👑 **En natuurlijk niet te vergeten:** Peter houdt de boel hier draaiende!',
-      '💼 **Speciaal voor Peter:** Zonder jou was het hier chaos - gelukkig hebben we jou!',
-      '⭐ **En natuurlijk niet te vergeten:** De wijken bloeien op onder Peters leiding!',
-    ];
-    const randomMessage = peterMessages[Math.floor(Math.random() * peterMessages.length)];
-    fallback += `\n\n${randomMessage}`;
-    
-    fallback += `\n💪 Succes vandaag!`;
+    fallback += `\n\n💪 Succes vandaag, ${nameText}!`;
     
     return fallback;
   }
 }
 
 // Generate weekly update with trends
-export async function generateWeeklyUpdate(data: WeeklyUpdateData): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+export async function generateWeeklyUpdate(data: DailyUpdateData): Promise<string> {
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   
   const today = startOfToday();
   const weekStart = startOfWeek(today, { locale: nl });
@@ -303,6 +290,7 @@ export function identifyPriorities(meldingen: Melding[], projecten: Project[]): 
   projecten
     .filter(p => p.status === 'Lopend')
     .filter(p => !p.title.includes('Jolande Wold 17-10')) // Exclusief specifiek oud project
+    .filter(p => !p.title.toLowerCase().includes('coloriet')) // Exclusief Coloriet projecten
     .forEach(p => {
       const daysSince = differenceInDays(today, p.startDate);
       if (daysSince >= 30) {

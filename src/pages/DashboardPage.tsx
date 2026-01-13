@@ -7,8 +7,7 @@ import { AlertTriangleIcon, ClockIcon, BriefcaseIcon, UsersIcon } from '../compo
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { DossierStatus, MeldingStatus, UserRole } from '../types';
 import { db } from '../firebase';
-import { Timestamp } from 'firebase/firestore';
-import { useDossiers } from '../services/firestoreHooks';
+import { collection, onSnapshot, Timestamp } from 'firebase/firestore';
 import { toDate } from '../utils/dateHelpers';
 import {
   endOfDay,
@@ -227,18 +226,10 @@ const DailyUpdateCard: React.FC = () => {
 const DashboardPage: React.FC = () => {
   // Filter meldingen/uren/dossiers op geselecteerde gebruiker
   const { meldingen, urenregistraties, projecten, theme, users, currentUser } = useAppContext();
-  const { data: rawDossiers } = useDossiers();
-  const dossiers: SlimDossier[] = useMemo(() => 
-    (rawDossiers || []).map(d => ({
-      id: d.id,
-      status: d.status,
-      woningType: d.woningType,
-      createdAt: d.createdAt ? toDate(d.createdAt) : null,
-      gebruikerId: d.gebruikerId
-    })), [rawDossiers]);
   const isConcierge = currentUser?.role === 'Concierge';
   const isAdmin = currentUser?.role === UserRole.Beheerder;
   const [selectedUser, setSelectedUser] = useState<string>(isConcierge ? currentUser?.id ?? '' : 'totaal');
+  const [dossiers, setDossiers] = useState<SlimDossier[]>([]);
   const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month' | 'year' | 'total'>('total');
   // Filter meldingen/uren/dossiers op geselecteerde gebruiker
   const filteredMeldingenByUser = useMemo(() => {
@@ -257,7 +248,24 @@ const DashboardPage: React.FC = () => {
     return dossiers.filter(d => d.gebruikerId === selectedUser);
   }, [dossiers, selectedUser, isConcierge, currentUser]);
 
-  // Dossiers data loading handled by useDossiers hook at component start
+  // Subscribe to dossiers for dashboard analytics
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'dossiers'), (ss) => {
+      const list: SlimDossier[] = ss.docs.map(d => {
+        const v: any = d.data();
+        let created: Date | null = null;
+        if (Array.isArray(v.historie) && v.historie.length) {
+          const dates = v.historie
+            .map((h: any) => toDate(h?.date))
+            .filter(Boolean) as Date[];
+          if (dates.length) created = new Date(Math.min(...dates.map(x => x.getTime())));
+        }
+        return { id: d.id, status: (v.status as DossierStatus) || 'actief', woningType: v.woningType ?? null, createdAt: created, gebruikerId: v.gebruikerId };
+      });
+      setDossiers(list);
+    });
+    return () => unsub();
+  }, []);
 
   const { filteredMeldingen } = useMemo(() => {
     if (timeFilter === 'total') {

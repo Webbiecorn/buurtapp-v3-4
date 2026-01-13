@@ -51,6 +51,53 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
 
   const byWijk = useMemo(() => aggregateBy(registraties, (r: any) => r.wijk), [registraties]);
   const byType = useMemo(() => aggregateBy(filtered, (r: any) => r.typePad || r.type), [filtered]);
+  
+  // Nieuwe data: veiligheid + urgentie statistieken
+  const byVeiligheid = useMemo(() => {
+    const map = new Map<string, number>();
+    map.set('⭐ Zeer onveilig', 0);
+    map.set('⭐⭐ Onveilig', 0);
+    map.set('⭐⭐⭐ Matig', 0);
+    map.set('⭐⭐⭐⭐ Veilig', 0);
+    map.set('⭐⭐⭐⭐⭐ Zeer veilig', 0);
+    
+    for (const r of filtered) {
+      if (!r.veiligheid) continue;
+      const score = r.veiligheid.score || 3;
+      if (score === 1) map.set('⭐ Zeer onveilig', (map.get('⭐ Zeer onveilig') || 0) + 1);
+      else if (score === 2) map.set('⭐⭐ Onveilig', (map.get('⭐⭐ Onveilig') || 0) + 1);
+      else if (score === 3) map.set('⭐⭐⭐ Matig', (map.get('⭐⭐⭐ Matig') || 0) + 1);
+      else if (score === 4) map.set('⭐⭐⭐⭐ Veilig', (map.get('⭐⭐⭐⭐ Veilig') || 0) + 1);
+      else if (score === 5) map.set('⭐⭐⭐⭐⭐ Zeer veilig', (map.get('⭐⭐⭐⭐⭐ Zeer veilig') || 0) + 1);
+    }
+    
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+  }, [filtered]);
+  
+  const byUrgentie = useMemo(() => {
+    const map = new Map<string, number>();
+    map.set('🔴 Spoed', 0);
+    map.set('🟠 Hoog', 0);
+    map.set('🟡 Normaal', 0);
+    map.set('🟢 Laag', 0);
+    map.set('⚪ Geen', 0);
+    
+    for (const r of filtered) {
+      if (!r.onderhoud) continue;
+      const urg = r.onderhoud.urgentie;
+      if (urg === 'spoed') map.set('🔴 Spoed', (map.get('🔴 Spoed') || 0) + 1);
+      else if (urg === 'hoog') map.set('🟠 Hoog', (map.get('🟠 Hoog') || 0) + 1);
+      else if (urg === 'normaal') map.set('🟡 Normaal', (map.get('🟡 Normaal') || 0) + 1);
+      else if (urg === 'laag') map.set('🟢 Laag', (map.get('🟢 Laag') || 0) + 1);
+      else map.set('⚪ Geen', (map.get('⚪ Geen') || 0) + 1);
+    }
+    
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+  }, [filtered]);
+  
+  const byMedewerker = useMemo(() => {
+    return aggregateBy(filtered, (r: any) => r.registeredBy?.userName || r.registeredBy?.userRole || 'Onbekend');
+  }, [filtered]);
 
   const months = useMemo(() => lastNmonths(12), []);
   const monthly = useMemo(() => {
@@ -73,9 +120,16 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
     const topType = byType.slice().sort((a, b) => b.value - a.value)[0];
     const trend = monthly.slice(-3).map(m => m.count);
     const trendText = trend.every((v, i, a) => i === 0 || v >= a[i - 1]) ? 'stijgende' : (trend.every((v, i, a) => i === 0 || v <= a[i - 1]) ? 'dalende' : 'wisselende');
+    
+    // Nieuwe data insights
+    const topMedewerker = byMedewerker.slice().sort((a, b) => b.value - a.value)[0];
+    const onveiligCount = byVeiligheid.slice(0, 2).reduce((sum, item) => sum + item.value, 0); // ⭐ + ⭐⭐
+    const spoedCount = byUrgentie[0].value; // 🔴 Spoed
+    const hoogCount = byUrgentie[1].value; // 🟠 Hoog
+    const criticalCount = spoedCount + hoogCount;
 
     const scopeText = selectedWijk === 'alle' ? 'Alle wijken' : `Wijk: ${selectedWijk}`;
-    const summary = `Achterpaden rapport\nScope: ${scopeText}\nTotaal registraties: ${total}\nMeest geregistreerde wijk: ${topWijk ? `${topWijk.name} (${topWijk.value})` : 'geen data'}\nMeest voorkomende type pad: ${topType ? `${topType.name} (${topType.value})` : 'geen data'}\nRecente trend (laatste 3 periodes): ${trend.join(' / ')} — algemeen ${trendText} patroon.\n\nAanbeveling: aandacht voor de wijken met veel meldingen; bekijk de bijbehorende updates per registratie voor details.\n`;
+    const summary = `Achterpaden rapport\nScope: ${scopeText}\nTotaal registraties: ${total}\n\nVEILIGHEID & URGENTIE:\n- Onveilige achterpaden (⭐⭐ of minder): ${onveiligCount} (${Math.round(onveiligCount/total*100)}%)\n- Kritische urgentie (spoed/hoog): ${criticalCount} (${Math.round(criticalCount/total*100)}%)\n\nTOP STATISTIEKEN:\n- Meest geregistreerde wijk: ${topWijk ? `${topWijk.name} (${topWijk.value})` : 'geen data'}\n- Meest actieve medewerker: ${topMedewerker ? `${topMedewerker.name} (${topMedewerker.value} registraties)` : 'geen data'}\n- Type pad: ${topType ? `${topType.name} (${topType.value})` : 'geen data'}\n\nTREND:\nRecente trend (laatste 3 periodes): ${trend.join(' / ')} — algemeen ${trendText} patroon.\n\nAANBEVELINGEN:\n${onveiligCount > 0 ? `- PRIORITEIT: ${onveiligCount} onveilige achterpaden vereisen directe aandacht voor verlichting en zichtbaarheid.\n` : ''}${criticalCount > 0 ? `- ${criticalCount} achterpaden met spoed/hoog urgentie onderhoud nodig.\n` : ''}- Focus op wijken met meeste meldingen voor preventief onderhoud.\n- Bekijk de bijbehorende updates per registratie voor details.\n`;
 
     const lightStyles = `
       :root { --accent: #2563EB; --text: #0f172a; --muted: #475569; }
@@ -185,22 +239,41 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
                 <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Datum</th>
                 <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Wijk</th>
                 <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Straat</th>
-                <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Type pad</th>
+                <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Veiligheid</th>
+                <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Urgentie</th>
                 <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Lengte</th>
-                <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Breedte</th>
+                <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Medewerker</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((r: any) => {
                 const ts = r.createdAt?.seconds ? new Date(r.createdAt.seconds * 1000) : (r.createdAt ? new Date(r.createdAt) : null);
+                const veiligheidScore = r.veiligheid?.score || null;
+                const urgentie = r.onderhoud?.urgentie || null;
+                const medewerker = r.registeredBy?.userName || r.registeredBy?.userRole || '-';
+                
                 return (
                   <tr key={r.id || `${r.straat}-${r.wijk}-${r.createdAt}`} className="border-b border-gray-100 dark:border-dark-border last:border-0">
                     <td className="p-3 text-gray-800 dark:text-dark-text-primary">{ts ? ts.toLocaleDateString() : ''}</td>
                     <td className="p-3 text-gray-800 dark:text-dark-text-primary">{r.wijk || '-'}</td>
                     <td className="p-3 text-gray-800 dark:text-dark-text-primary">{r.straat || '-'}</td>
-                    <td className="p-3 text-gray-800 dark:text-dark-text-primary">{r.typePad || r.type || '-'}</td>
-                    <td className="p-3 text-gray-800 dark:text-dark-text-primary">{r.lengte || '-'}</td>
-                    <td className="p-3 text-gray-800 dark:text-dark-text-primary">{r.breedte || '-'}</td>
+                    <td className="p-3 text-gray-800 dark:text-dark-text-primary">
+                      {veiligheidScore ? '⭐'.repeat(veiligheidScore) : (r.staat || '-')}
+                    </td>
+                    <td className="p-3 text-gray-800 dark:text-dark-text-primary">
+                      {urgentie ? (
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${
+                          urgentie === 'spoed' ? 'bg-red-100 text-red-800' :
+                          urgentie === 'hoog' ? 'bg-orange-100 text-orange-800' :
+                          urgentie === 'normaal' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {urgentie === 'spoed' ? '🔴' : urgentie === 'hoog' ? '🟠' : urgentie === 'normaal' ? '🟡' : '🟢'} {urgentie}
+                        </span>
+                      ) : '-'}
+                    </td>
+                    <td className="p-3 text-gray-800 dark:text-dark-text-primary">{r.lengte ? `${Math.round(r.lengte)}m` : '-'}</td>
+                    <td className="p-3 text-gray-800 dark:text-dark-text-primary text-sm">{medewerker}</td>
                   </tr>
                 );
               })}
@@ -209,24 +282,110 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Nieuwe KPI cards met veiligheid + urgentie metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="p-4 bg-white dark:bg-dark-surface rounded shadow">
-              <h3 className="text-sm text-gray-500">Totaal</h3>
+              <h3 className="text-sm text-gray-500 dark:text-gray-400">Totaal registraties</h3>
               <div className="text-2xl font-bold">{total}</div>
             </div>
-            <div className="p-4 bg-white dark:bg-dark-surface rounded shadow">
-              <h3 className="text-sm text-gray-500">Unieke wijken</h3>
-              <div className="text-2xl font-bold">{byWijk.length}</div>
+            <div className="p-4 bg-white dark:bg-dark-surface rounded shadow border-l-4 border-red-500">
+              <h3 className="text-sm text-gray-500 dark:text-gray-400">🔴 Kritisch (spoed/hoog)</h3>
+              <div className="text-2xl font-bold text-red-600">
+                {byUrgentie[0].value + byUrgentie[1].value}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {Math.round((byUrgentie[0].value + byUrgentie[1].value) / total * 100)}% van totaal
+              </div>
+            </div>
+            <div className="p-4 bg-white dark:bg-dark-surface rounded shadow border-l-4 border-orange-500">
+              <h3 className="text-sm text-gray-500 dark:text-gray-400">⭐⭐ Onveilig</h3>
+              <div className="text-2xl font-bold text-orange-600">
+                {byVeiligheid[0].value + byVeiligheid[1].value}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {Math.round((byVeiligheid[0].value + byVeiligheid[1].value) / total * 100)}% van totaal
+              </div>
             </div>
             <div className="p-4 bg-white dark:bg-dark-surface rounded shadow">
-              <h3 className="text-sm text-gray-500">Type paden</h3>
-              <div className="text-2xl font-bold">{byType.length}</div>
+              <h3 className="text-sm text-gray-500 dark:text-gray-400">👤 Actieve medewerkers</h3>
+              <div className="text-2xl font-bold">{byMedewerker.length}</div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-white dark:bg-dark-surface rounded shadow md:col-span-1">
-              <h4 className="font-medium mb-2">Verdeling per wijk</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Veiligheid distributie */}
+            <div className="p-4 bg-white dark:bg-dark-surface rounded shadow">
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <span>🛡️</span>
+                <span>Veiligheid score</span>
+              </h4>
+              <div style={{ width: '100%', height: 220 }}>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={byVeiligheid} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8">
+                      {byVeiligheid.map((_entry, idx) => (
+                        <Cell 
+                          key={`cell-veiligheid-${idx}`} 
+                          fill={idx === 0 ? '#EF4444' : idx === 1 ? '#F97316' : idx === 2 ? '#EAB308' : idx === 3 ? '#10B981' : '#059669'} 
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            
+            {/* Urgentie distributie */}
+            <div className="p-4 bg-white dark:bg-dark-surface rounded shadow">
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <span>⚠️</span>
+                <span>Onderhoud urgentie</span>
+              </h4>
+              <div style={{ width: '100%', height: 220 }}>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={byUrgentie}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#06B6D4">
+                      {byUrgentie.map((_entry, idx) => (
+                        <Cell 
+                          key={`cell-urgentie-${idx}`} 
+                          fill={idx === 0 ? '#EF4444' : idx === 1 ? '#F97316' : idx === 2 ? '#EAB308' : idx === 3 ? '#10B981' : '#6B7280'} 
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            
+            {/* Medewerker activiteit */}
+            <div className="p-4 bg-white dark:bg-dark-surface rounded shadow">
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <span>👤</span>
+                <span>Per medewerker</span>
+              </h4>
+              <div style={{ width: '100%', height: 220 }}>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={byMedewerker.slice(0, 8).sort((a, b) => b.value - a.value)}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#4F46E5" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+          
+          {/* Tweede rij met wijk + trend */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 bg-white dark:bg-dark-surface rounded shadow">
+              <h4 className="font-medium mb-2">📍 Verdeling per wijk</h4>
               <div style={{ width: '100%', height: 220 }}>
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
@@ -238,27 +397,13 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
                 </ResponsiveContainer>
               </div>
             </div>
-            <div className="p-4 bg-white dark:bg-dark-surface rounded shadow md:col-span-1">
-              <h4 className="font-medium mb-2">Type paden</h4>
-              <div style={{ width: '100%', height: 220 }}>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={byType}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#06B6D4" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-            <div className="p-4 bg-white dark:bg-dark-surface rounded shadow md:col-span-1">
-              <h4 className="font-medium mb-2">Trend (laatste 12 maanden)</h4>
+            <div className="p-4 bg-white dark:bg-dark-surface rounded shadow">
+              <h4 className="font-medium mb-2">📈 Trend (laatste 12 maanden)</h4>
               <div style={{ width: '100%', height: 220 }}>
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={monthly}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
+                    <XAxis dataKey="month" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
                     <YAxis />
                     <Tooltip />
                     <Line type="monotone" dataKey="count" stroke="#4F46E5" strokeWidth={2} dot={{ r: 2 }} />

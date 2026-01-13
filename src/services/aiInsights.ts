@@ -29,7 +29,7 @@ export async function generateInsights(data: StatisticsData): Promise<AIInsight[
 
   try {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     // Prepare statistics summary
     const currentMeldingen = data.meldingen.filter(

@@ -26,6 +26,7 @@ const navItems: NavItem[] = [
   { path: '/contacten', name: 'Contacten', icon: <UsersIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
   { path: '/admin', name: 'Beheer', icon: <SettingsIcon className="h-5 w-5" />, roles: [UserRole.Beheerder] },
   { path: '/achterpaden', name: 'Achterpaden', icon: <FolderIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
+  { path: '/updates', name: 'Updates', icon: <span className="text-lg">📋</span>, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
 ];
 
 const NavLinkItem: React.FC<{ item: NavItem, hasUnread?: boolean }> = ({ item, hasUnread }) => (

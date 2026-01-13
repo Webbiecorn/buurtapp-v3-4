@@ -66,6 +66,25 @@ service cloud.firestore {
       allow write: if isBeheerderOrConcierge(request.auth.uid);
     }
 
+    // Fixi logs: lezen en schrijven voor Beheerder/Concierge/Viewer
+    match /fixiLogs/{logId} {
+      allow read: if canRead(request.auth.uid);
+      allow create: if canRead(request.auth.uid);
+    }
+
+    // Feedback: iedereen kan lezen en schrijven (voor app verbetersuggesties)
+    match /feedback/{feedbackId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if isBeheerder(request.auth.uid);
+    }
+
+    // Config collectie: lezen voor Beheerder/Concierge/Viewer, schrijven door Beheerder
+    match /config/{docId} {
+      allow read: if canRead(request.auth.uid);
+      allow write: if isBeheerder(request.auth.uid);
+    }
+
     // Project uitnodigingen: lezen voor Beheerder/Concierge/Viewer, beheer door Beheerder of Concierge
     match /projectInvitations/{invitationId} {
       allow read: if canRead(request.auth.uid);

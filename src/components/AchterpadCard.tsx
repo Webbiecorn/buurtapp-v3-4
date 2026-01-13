@@ -15,6 +15,46 @@ const truncate = (s: string | undefined, n = 100) => {
   return s.length > n ? s.slice(0, n - 1) + '…' : s;
 };
 
+// Helper: bepaal kleur obv veiligheid + urgentie
+const getCardBorderColor = (reg: any): string => {
+  // Nieuwe data structure
+  if (reg.veiligheid && reg.onderhoud) {
+    const veiligheidScore = reg.veiligheid.score || 3;
+    const urgentie = reg.onderhoud.urgentie;
+    
+    // Spoed of onveilig => rood
+    if (urgentie === 'spoed' || veiligheidScore <= 2) {
+      return '#EF4444'; // rood
+    }
+    // Hoog of matig => oranje
+    if (urgentie === 'hoog' || veiligheidScore === 3) {
+      return '#F59E0B'; // oranje
+    }
+    // Normaal => geel
+    if (urgentie === 'normaal') {
+      return '#EAB308'; // geel
+    }
+    // Laag/geen of veilig => groen
+    return '#10B981'; // groen
+  }
+  
+  // Oude data structure
+  if (reg.staat) {
+    switch (reg.staat.toLowerCase()) {
+      case 'goed':
+        return '#10B981';
+      case 'matig':
+        return '#F59E0B';
+      case 'slecht':
+        return '#EF4444';
+      default:
+        return '#6B7280';
+    }
+  }
+  
+  return '#6B7280'; // grijs als default
+};
+
 const AchterpadCard: React.FC<Props> = ({ registratie, onSelect }) => {
   const [menuOpen, setMenuOpen] = React.useState(false);
 
@@ -91,10 +131,13 @@ const AchterpadCard: React.FC<Props> = ({ registratie, onSelect }) => {
   const updatesCount = Array.isArray(registratie.updates) ? registratie.updates.length : 0;
   const padCount = Array.isArray(registratie.paden) ? registratie.paden.length : 0;
   const lastUpdate = updatesCount > 0 ? registratie.updates[registratie.updates.length - 1] : null;
+  
+  const borderColor = getCardBorderColor(registratie);
+  const borderStyle = { borderLeft: `4px solid ${borderColor}` };
 
   return (
     <>
-    <button onClick={() => onSelect(registratie)} className="group text-left p-3 bg-white dark:bg-dark-bg rounded-xl shadow-sm border border-gray-200 dark:border-dark-border hover:shadow-md transition flex gap-3 w-full relative">
+    <button onClick={() => onSelect(registratie)} className="group text-left p-3 bg-white dark:bg-dark-bg rounded-xl shadow-sm border border-gray-200 dark:border-dark-border hover:shadow-md transition flex gap-3 w-full relative" style={borderStyle}>
       <div className="w-20 h-20 bg-gray-100 dark:bg-dark-surface rounded overflow-hidden flex-shrink-0">
         {firstImage ? (
           <img src={firstImage} alt={registratie.straat || 'afbeelding'} className="w-full h-full object-cover" />
@@ -104,9 +147,41 @@ const AchterpadCard: React.FC<Props> = ({ registratie, onSelect }) => {
       </div>
       <div className="flex-1">
         <div className="flex justify-between items-start">
-          <div>
+          <div className="flex-1">
             <div className="font-semibold text-brand-primary">{registratie.straat} - {registratie.wijk}</div>
             <div className="text-sm text-gray-600 dark:text-dark-text-secondary">{truncate(registratie.beschrijving, 120)}</div>
+            
+            {/* Nieuwe badges voor veiligheid + urgentie */}
+            <div className="flex items-center gap-2 mt-2">
+              {registratie.veiligheid && (
+                <div className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded">
+                  <span>🛡️</span>
+                  <span>{'⭐'.repeat(registratie.veiligheid.score || 0)}</span>
+                </div>
+              )}
+              {registratie.onderhoud?.urgentie && (
+                <div className={`text-xs px-2 py-1 rounded font-medium ${
+                  registratie.onderhoud.urgentie === 'spoed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                  registratie.onderhoud.urgentie === 'hoog' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                  registratie.onderhoud.urgentie === 'normaal' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                  'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                }`}>
+                  {registratie.onderhoud.urgentie === 'spoed' ? '🔴' :
+                   registratie.onderhoud.urgentie === 'hoog' ? '🟠' :
+                   registratie.onderhoud.urgentie === 'normaal' ? '🟡' : '🟢'} {registratie.onderhoud.urgentie}
+                </div>
+              )}
+              {/* Oude data backwards compatibility */}
+              {!registratie.veiligheid && registratie.staat && (
+                <div className={`text-xs px-2 py-1 rounded font-medium ${
+                  registratie.staat.toLowerCase() === 'goed' ? 'bg-green-100 text-green-800' :
+                  registratie.staat.toLowerCase() === 'matig' ? 'bg-orange-100 text-orange-800' :
+                  'bg-red-100 text-red-800'
+                }`}>
+                  {registratie.staat}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-start gap-2">
             {updatesCount > 0 && (
@@ -165,9 +240,20 @@ const AchterpadCard: React.FC<Props> = ({ registratie, onSelect }) => {
           </div>
         </div>
         <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-dark-text-secondary">
-          <div>Aantal paden: {padCount}</div>
+          <div>
+            {registratie.lengte && <span>📏 {Math.round(registratie.lengte)}m</span>}
+            {padCount > 0 && <span className="ml-2">Aantal paden: {padCount}</span>}
+          </div>
           <div>{registratie.createdAt?.seconds ? new Date(registratie.createdAt.seconds * 1000).toLocaleDateString() : ''}</div>
         </div>
+        
+        {/* Geregistreerd door info */}
+        {registratie.registeredBy && (
+          <div className="mt-2 text-xs text-gray-500 dark:text-dark-text-secondary">
+            👤 {registratie.registeredBy.userName || registratie.registeredBy.userRole}
+          </div>
+        )}
+        
         {lastUpdate && (
           <div className="mt-2 text-xs text-gray-500">Laatste update: {lastUpdate.timestamp ? (lastUpdate.timestamp.seconds ? new Date(lastUpdate.timestamp.seconds * 1000).toLocaleString() : new Date(lastUpdate.timestamp).toLocaleString()) : ''}</div>
         )}
