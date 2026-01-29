@@ -5,7 +5,7 @@ import { getAuth, connectAuthEmulator, Auth } from "firebase/auth";
 import { getFunctions, connectFunctionsEmulator, Functions } from "firebase/functions";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDdNt987MgEFsi2AUsYTV-kyvXK_y9gmIs",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: "buurtapp-v3-4.firebaseapp.com",
   projectId: "buurtapp-v3-4",
   storageBucket: "buurtapp-v3-4.firebasestorage.app",

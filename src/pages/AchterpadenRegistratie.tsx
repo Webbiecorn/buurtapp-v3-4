@@ -592,7 +592,7 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
             )}
 
             <div className="h-96 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-dark-border">
-              <APIProvider apiKey="AIzaSyBsX_16g4PTqinqJvlIblDTFA8ai7RD_I0">
+              <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
                 <Map
                   defaultCenter={centerMap}
                   defaultZoom={15}
