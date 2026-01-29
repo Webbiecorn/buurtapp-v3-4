@@ -8,7 +8,7 @@ import { PlusCircleIcon, CameraIcon, MapPinIcon, SendIcon, TrashIcon, XIcon, Che
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale/nl';
 import { MOCK_WIJKEN } from '../data/mockData';
-import FixiMeldingModal from '../components/FixiMeldingModal';
+import FixiIntegration from '../components/FixiIntegration';
 
 type Tab = 'Lopende' | 'Fixi Meldingen' | 'Afgeronde';
 
@@ -514,7 +514,6 @@ const IssuesPage: React.FC = () => {
     const { meldingen, currentUser, notificaties, markNotificationsAsRead } = useAppContext();
     const [activeTab, setActiveTab] = useState<Tab>('Lopende');
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
-    const [isFixiModalOpen, setIsFixiModalOpen] = useState(false);
     const [selectedMelding, setSelectedMelding] = useState<Melding | null>(null);
     const [pageToast, setPageToast] = useState<Toast | null>(null);
 
@@ -552,18 +551,10 @@ const IssuesPage: React.FC = () => {
             <div className="flex justify-between items-center flex-wrap gap-3">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">Meldingen</h1>
                 {currentUser?.role !== UserRole.Viewer && (
-                    <div className="flex gap-3">
-                        <button
-                            onClick={() => setIsFixiModalOpen(true)}
-                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 transition-colors"
-                        >
-                            🔧 Fixi Melding
-                        </button>
-                        <Link to="/issues/nieuw" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary">
-                            <PlusCircleIcon className="h-5 w-5 mr-2"/>
-                            Nieuwe Melding
-                        </Link>
-                    </div>
+                    <Link to="/issues/nieuw" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-primary hover:bg-brand-secondary">
+                        <PlusCircleIcon className="h-5 w-5 mr-2"/>
+                        Nieuwe Melding
+                    </Link>
                 )}
             </div>
             
@@ -587,36 +578,37 @@ const IssuesPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredMeldingen.map(melding => (
-                    <button
-                        key={melding.id}
-                        type="button"
-                        onClick={() => {
-                            setSelectedMelding(melding);
-                            markNotificationsAsRead('melding', melding.id);
-                        }}
-                        className="cursor-pointer p-0 border-0 bg-transparent text-left w-full"
-                    >
-                        <MeldingCard melding={melding} isUnseen={isUnseen(melding.id)} />
-                    </button>
-                ))}
-            </div>
+            {activeTab === 'Fixi Meldingen' ? (
+                <FixiIntegration />
+            ) : (
+                <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {filteredMeldingen.map(melding => (
+                            <button
+                                key={melding.id}
+                                type="button"
+                                onClick={() => {
+                                    setSelectedMelding(melding);
+                                    markNotificationsAsRead('melding', melding.id);
+                                }}
+                                className="cursor-pointer p-0 border-0 bg-transparent text-left w-full"
+                            >
+                                <MeldingCard melding={melding} isUnseen={isUnseen(melding.id)} />
+                            </button>
+                        ))}
+                    </div>
 
-            {filteredMeldingen.length === 0 && (
-                <div className="text-center py-16 bg-white dark:bg-dark-surface rounded-lg">
-                    <p className="text-gray-500 dark:text-dark-text-secondary">Geen meldingen gevonden voor deze status.</p>
-                </div>
+                    {filteredMeldingen.length === 0 && (
+                        <div className="text-center py-16 bg-white dark:bg-dark-surface rounded-lg">
+                            <p className="text-gray-500 dark:text-dark-text-secondary">Geen meldingen gevonden voor deze status.</p>
+                        </div>
+                    )}
+                </>
             )}
 
             <Modal isOpen={isNewModalOpen} onClose={() => setIsNewModalOpen(false)} title="Nieuwe Melding Maken">
                 <NewMeldingForm onClose={() => setIsNewModalOpen(false)} onToast={(t)=>{ setPageToast(t); setTimeout(()=>setPageToast(null), 2500); }} />
             </Modal>
-            
-            <FixiMeldingModal 
-                isOpen={isFixiModalOpen} 
-                onClose={() => setIsFixiModalOpen(false)} 
-            />
             
             {meldingForModal && (
               <MeldingDetailModal melding={meldingForModal} onClose={() => setSelectedMelding(null)} />

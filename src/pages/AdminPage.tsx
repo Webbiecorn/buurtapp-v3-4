@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { UserRole, Urenregistratie, Project } from '../types';
 import { Modal, NewProjectForm } from '../components/ui';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { functions, db, auth } from '../firebase'; // Importeer Firebase functions, Firestore en Auth
 import { httpsCallable } from 'firebase/functions'; // Importeer de httpsCallable functie
 import { doc, updateDoc } from 'firebase/firestore'; // Importeer Firestore functies
@@ -42,7 +42,7 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         try {
             const inviteUser = httpsCallable(functions, 'inviteUser');
             const result = await inviteUser({ name, email, role });
-            
+
             const data = result.data as InviteUserResult;
             if (data.success) {
                 // Na succesvolle gebruiker creatie, verstuur password reset email
@@ -50,13 +50,13 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     try {
                         // Wacht 2 seconden om zeker te zijn dat Firebase Auth de gebruiker heeft verwerkt
                         await new Promise(resolve => setTimeout(resolve, 2000));
-                        
+
                         // Verstuur de password reset email via Firebase client SDK
                         await sendPasswordResetEmail(auth, data.email, {
                             url: `${window.location.origin}/login`,
                             handleCodeInApp: false,
                         });
-                        
+
                         setSuccess(`✅ Gebruiker ${name} aangemaakt en uitnodigingsmail verzonden naar ${email}. De gebruiker ontvangt een link om een wachtwoord in te stellen.`);
                     } catch (emailError: any) {
                         console.error("Fout bij versturen email:", emailError);
@@ -66,7 +66,7 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 } else {
                     setSuccess(data.message || `✅ Gebruiker ${name} aangemaakt.`);
                 }
-                
+
                 // Reset form
                 setName('');
                 setEmail('');
@@ -161,7 +161,7 @@ const ProjectParticipantsModal: React.FC<{
     const currentParticipants = project.participantIds || [];
     const availableUsers = users.filter(user => !currentParticipants.includes(user.id));
     const participantUsers = users.filter(user => currentParticipants.includes(user.id));
-    
+
     const filteredAvailableUsers = availableUsers.filter(user =>
         user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase())
@@ -169,7 +169,7 @@ const ProjectParticipantsModal: React.FC<{
 
     const handleAddParticipant = async (userId: string) => {
         if (currentParticipants.includes(userId)) return;
-        
+
         setLoading(true);
         try {
             const updatedParticipants = [...currentParticipants, userId];
@@ -184,7 +184,7 @@ const ProjectParticipantsModal: React.FC<{
 
     const handleRemoveParticipant = async (userId: string) => {
         if (!currentParticipants.includes(userId)) return;
-        
+
         if (confirm('Weet u zeker dat u deze deelnemer wilt verwijderen?')) {
             setLoading(true);
             try {
@@ -234,7 +234,7 @@ const ProjectParticipantsModal: React.FC<{
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                        getCreatorRole(user.id) === 'eigenaar' 
+                                        getCreatorRole(user.id) === 'eigenaar'
                                             ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
                                             : 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
                                     }`}>
@@ -266,7 +266,7 @@ const ProjectParticipantsModal: React.FC<{
                     <h4 className="text-md font-medium text-gray-900 dark:text-gray-300 mb-3">
                         Nieuwe Deelnemers Toevoegen
                     </h4>
-                    
+
                     {/* Zoekbalk */}
                     <div className="mb-4">
                         <input
@@ -353,13 +353,13 @@ const ProjectEditModal: React.FC<{
                 description: project.description || '',
                 location: project.location || '',
                 budget: project.budget?.toString() || '',
-                startDate: project.startDate ? 
-                    (project.startDate instanceof Date ? 
-                        project.startDate.toISOString().split('T')[0] : 
+                startDate: project.startDate ?
+                    (project.startDate instanceof Date ?
+                        project.startDate.toISOString().split('T')[0] :
                         new Date(project.startDate).toISOString().split('T')[0]) : '',
-                endDate: project.endDate ? 
-                    (project.endDate instanceof Date ? 
-                        project.endDate.toISOString().split('T')[0] : 
+                endDate: project.endDate ?
+                    (project.endDate instanceof Date ?
+                        project.endDate.toISOString().split('T')[0] :
                         new Date(project.endDate).toISOString().split('T')[0]) : '',
                 status: project.status || 'Planning'
             });
@@ -383,18 +383,18 @@ const ProjectEditModal: React.FC<{
             if (formData.location) {
                 updatedData.location = formData.location;
             }
-            
+
             if (formData.budget) {
                 const budgetValue = parseFloat(formData.budget);
                 if (!isNaN(budgetValue)) {
                     updatedData.budget = budgetValue;
                 }
             }
-            
+
             if (formData.startDate) {
                 updatedData.startDate = new Date(formData.startDate);
             }
-            
+
             if (formData.endDate) {
                 updatedData.endDate = new Date(formData.endDate);
             }
@@ -543,9 +543,9 @@ const ProjectEditModal: React.FC<{
 };
 
 // Project Detail Modal Component
-const ProjectDetailModal: React.FC<{ 
-    project: Project | null; 
-    isOpen: boolean; 
+const ProjectDetailModal: React.FC<{
+    project: Project | null;
+    isOpen: boolean;
     onClose: () => void;
     users: any[];
     formatDateRelative: (date: Date) => string;
@@ -573,7 +573,7 @@ const ProjectDetailModal: React.FC<{
                             <h2 className="text-xl font-bold text-gray-900 dark:text-dark-text-primary">{project.title}</h2>
                             <div className="flex items-center space-x-3 mt-2">
                                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                    project.status === 'Lopend' 
+                                    project.status === 'Lopend'
                                         ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
                                         : 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
                                 }`}>
@@ -667,8 +667,8 @@ const ProjectDetailModal: React.FC<{
                                         const contributorUser = users.find(u => u.id === contribution.userId);
                                         return (
                                             <div key={contribution.id || index} className="flex space-x-3">
-                                                <img 
-                                                    src={contributorUser?.avatarUrl || 'https://avatar.vercel.sh/default.png'} 
+                                                <img
+                                                    src={contributorUser?.avatarUrl || 'https://avatar.vercel.sh/default.png'}
                                                     alt={contributorUser?.name || 'Onbekend'}
                                                     className="h-8 w-8 rounded-full"
                                                 />
@@ -687,9 +687,9 @@ const ProjectDetailModal: React.FC<{
                                                     {contribution.attachments && contribution.attachments.length > 0 && (
                                                         <div className="flex space-x-2 mt-2">
                                                             {contribution.attachments.slice(0, 3).map((attachment, i) => (
-                                                                <img 
+                                                                <img
                                                                     key={i}
-                                                                    src={attachment} 
+                                                                    src={attachment}
                                                                     alt={`Bijlage ${i + 1}`}
                                                                     className="h-12 w-12 rounded object-cover"
                                                                 />
@@ -716,7 +716,7 @@ const ProjectDetailModal: React.FC<{
                 <div>
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-dark-text-primary mb-3">Beheer Acties</h3>
                     <div className="flex flex-wrap gap-3">
-                        <button 
+                        <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onEditProject(project);
@@ -725,7 +725,7 @@ const ProjectDetailModal: React.FC<{
                         >
                             📝 Project Bewerken
                         </button>
-                        <button 
+                        <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onManageParticipants(project);
@@ -734,7 +734,7 @@ const ProjectDetailModal: React.FC<{
                         >
                             👥 Deelnemers Beheren
                         </button>
-                        <button 
+                        <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onChangeStatus(project);
@@ -760,17 +760,17 @@ const DailyUpdateCard: React.FC = () => {
 
     const todayData = useMemo(() => {
         const today = startOfToday();
-        
+
         const newMeldingen = meldingen.filter(m => m.timestamp >= today);
         const newProjects = projecten.filter(p => p.startDate >= today);
         const todayUren = urenregistraties.filter(u => u.start >= today);
-        const completedProjects = projecten.filter(p => 
+        const completedProjects = projecten.filter(p =>
             p.status === 'Afgerond' && p.endDate && new Date(p.endDate) >= today
         );
-        const resolvedMeldingen = meldingen.filter(m => 
+        const resolvedMeldingen = meldingen.filter(m =>
             m.status === 'Afgerond' && m.timestamp >= today
         );
-        
+
         // Unieke actieve gebruikers vandaag (die uren hebben geregistreerd)
         const activeUserIds = new Set(todayUren.map(u => u.gebruikerId));
         const activeUsers = users.filter(u => activeUserIds.has(u.id));
@@ -889,7 +889,7 @@ const DailyUpdateCard: React.FC = () => {
                                 Powered by Gemini AI
                             </span>
                         </div>
-                        
+
                         {isLoading ? (
                             <div className="flex items-center justify-center py-8">
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
@@ -916,15 +916,15 @@ const AdminPage: React.FC = () => {
     const [isProjectEditModalOpen, setIsProjectEditModalOpen] = useState(false);
     const [selectedProjectForEdit, setSelectedProjectForEdit] = useState<Project | null>(null);
     const [activeTab, setActiveTab] = useState<AdminTab>('users');
-    
+
     // Project detail modal state
     const [selectedProjectDetail, setSelectedProjectDetail] = useState<Project | null>(null);
     const [isProjectDetailModalOpen, setIsProjectDetailModalOpen] = useState(false);
-    
+
     // Participants modal state
     const [showParticipantsModal, setShowParticipantsModal] = useState(false);
     const [participantsModalProject, setParticipantsModalProject] = useState<Project | null>(null);
-    
+
     // Team Urenregistratie state
     const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
     const [selectedUser, setSelectedUser] = useState<string>('alle');
@@ -933,17 +933,17 @@ const AdminPage: React.FC = () => {
     const [showAISummary, setShowAISummary] = useState(false);
     const [aiSummary, setAiSummary] = useState<string>('');
     const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
-    
+
     // Project AI Summary state
     const [showProjectAISummary, setShowProjectAISummary] = useState(false);
     const [projectAiSummary, setProjectAiSummary] = useState<string>('');
     const [isGeneratingProjectSummary, setIsGeneratingProjectSummary] = useState(false);
-    
+
     // Filters voor de gebruikerslijst, beheerd via URL-parameters
     const [searchParams, setSearchParams] = useSearchParams();
     const userRoleFilter = (searchParams.get('role') || 'alle') as 'alle' | UserRole;
     const userQuery = searchParams.get('q') || '';
-    
+
     // Project filters
     const [projectStatusFilter, setProjectStatusFilter] = useState('alle');
     const [projectCreatorFilter, setProjectCreatorFilter] = useState('alle');
@@ -958,26 +958,26 @@ const AdminPage: React.FC = () => {
         }
         setSearchParams(next, { replace: true });
     };
-    
+
     // Helper functies voor project weergave
     const formatDateRelative = (date: Date) => {
         return formatDistanceToNow(date, { addSuffix: true, locale: nl });
     };
-    
+
     const getLastActivityDate = (project: Project): Date | null => {
         if (!project.contributions || project.contributions.length === 0) {
             return null;
         }
-        const lastContribution = project.contributions.sort((a, b) => 
+        const lastContribution = project.contributions.sort((a, b) =>
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         )[0];
         return new Date(lastContribution.timestamp);
     };
-    
+
     const handleRoleChange = (userId: string, newRole: UserRole) => {
         updateUserRole(userId, newRole);
     };
-    
+
     const handleAddUser = () => {
         setIsAddUserModalOpen(true);
     };
@@ -987,13 +987,13 @@ const AdminPage: React.FC = () => {
             removeUser(userId);
         }
     };
-    
+
     // Project management handlers
     const handleEditProject = (project: Project) => {
         // Sluit eerst de detail modal voordat we de edit modal openen
         setIsProjectDetailModalOpen(false);
         setSelectedProjectDetail(null);
-        
+
         // Open edit modal
         setSelectedProjectForEdit(project);
         setIsProjectEditModalOpen(true);
@@ -1004,10 +1004,10 @@ const AdminPage: React.FC = () => {
 
         try {
             const projectRef = doc(db, 'projecten', selectedProjectForEdit.id);
-            
+
             // Clean the data for Firestore
             const cleanData = { ...updatedData };
-            
+
             // Remove undefined fields to avoid Firestore issues
             Object.keys(cleanData).forEach(key => {
                 if (cleanData[key] === undefined) {
@@ -1016,10 +1016,10 @@ const AdminPage: React.FC = () => {
             });
 
             await updateDoc(projectRef, cleanData);
-            
+
             // Success feedback
             alert('Project succesvol bijgewerkt!');
-            
+
             // Close modal
             setIsProjectEditModalOpen(false);
             setSelectedProjectForEdit(null);
@@ -1030,7 +1030,7 @@ const AdminPage: React.FC = () => {
             throw error; // Re-throw to be handled by the modal
         }
     };
-    
+
     const handleManageParticipants = (project: Project) => {
         setParticipantsModalProject(project);
         setShowParticipantsModal(true);
@@ -1043,31 +1043,31 @@ const AdminPage: React.FC = () => {
                 participantIds: participantIds,
                 updatedAt: new Date()
             });
-            
+
             // Update local project data
             const updatedProject = projecten.find(p => p.id === projectId);
             if (updatedProject) {
                 updatedProject.participantIds = participantIds;
                 updatedProject.updatedAt = new Date();
             }
-            
+
             console.log('Participants updated successfully');
         } catch (error) {
             console.error('Error updating participants:', error);
             throw error;
         }
     };
-    
+
     const handleChangeProjectStatus = async (project: Project) => {
         const newStatus = project.status === 'Lopend' ? 'Afgerond' : 'Lopend';
-        
+
         try {
             const projectRef = doc(db, 'projecten', project.id);
             await updateDoc(projectRef, {
                 status: newStatus,
                 updatedAt: new Date()
             });
-            
+
             alert(`Status van "${project.title}" gewijzigd naar "${newStatus}"`);
         } catch (error) {
             console.error('Error updating project status:', error);
@@ -1097,22 +1097,22 @@ const AdminPage: React.FC = () => {
     // Filter urenregistraties gebaseerd op geselecteerde filters
     const filteredUrenregistraties = useMemo(() => {
         const { start, end } = getPeriodRange();
-        
+
         return urenregistraties.filter(entry => {
             // Datum filter - gebruik start datum van de entry
             const entryDate = entry.start instanceof Date ? entry.start : new Date(entry.start);
-            
+
             const isInPeriod = isWithinInterval(entryDate, { start, end });
-            
+
             // User filter
             const matchesUser = selectedUser === 'alle' || entry.gebruikerId === selectedUser;
-            
+
             // Project filter
             const matchesProject = selectedProject === 'alle' || entry.projectId === selectedProject;
-            
+
             // Activity filter
             const matchesActivity = selectedActivity === 'alle' || entry.activiteit === selectedActivity;
-            
+
             return isInPeriod && matchesUser && matchesProject && matchesActivity;
         });
     }, [urenregistraties, selectedPeriod, selectedUser, selectedProject, selectedActivity]);
@@ -1120,7 +1120,7 @@ const AdminPage: React.FC = () => {
     // Bereken statistieken per gebruiker
     const userStats = useMemo(() => {
         const stats: Record<string, { totalHours: number; entries: typeof filteredUrenregistraties }> = {};
-        
+
         filteredUrenregistraties.forEach(entry => {
             if (!stats[entry.gebruikerId]) {
                 stats[entry.gebruikerId] = { totalHours: 0, entries: [] };
@@ -1129,11 +1129,11 @@ const AdminPage: React.FC = () => {
             const startTime = entry.start instanceof Date ? entry.start : new Date(entry.start);
             const endTime = entry.eind instanceof Date ? entry.eind : new Date(entry.eind);
             const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-            
+
             stats[entry.gebruikerId].totalHours += hours;
             stats[entry.gebruikerId].entries.push(entry);
         });
-        
+
         return stats;
     }, [filteredUrenregistraties]);
 
@@ -1147,7 +1147,7 @@ const AdminPage: React.FC = () => {
                 const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
                 return sum + hours;
             }, 0);
-            
+
             const uniqueUsers = new Set(filteredUrenregistraties.map(entry => entry.gebruikerId)).size;
             const activitiesSummary = filteredUrenregistraties.reduce((acc, entry) => {
                 const startTime = entry.start instanceof Date ? entry.start : new Date(entry.start);
@@ -1180,7 +1180,7 @@ const AdminPage: React.FC = () => {
                 const avgPerWeek = totalHours / 4;
                 summary += `\n📊 **Insights:**\n`;
                 summary += `• Gemiddeld ${avgPerWeek.toFixed(1)} uur per week\n`;
-                
+
                 if (totalHours > 160) {
                     summary += `• 🟢 Team is zeer actief deze maand\n`;
                 } else if (totalHours > 80) {
@@ -1208,10 +1208,10 @@ const AdminPage: React.FC = () => {
             const totalProjects = filteredProjects.length;
             const activeProjects = filteredProjects.filter(p => p.status === 'Lopend').length;
             const completedProjects = filteredProjects.filter(p => p.status === 'Afgerond').length;
-            
+
             // Calculate completion percentage based on status
-            const completionPercentage = totalProjects > 0 
-                ? (completedProjects / totalProjects) * 100 
+            const completionPercentage = totalProjects > 0
+                ? (completedProjects / totalProjects) * 100
                 : 0;
 
             const creatorsCount = new Set(filteredProjects.map(p => p.creatorId)).size;
@@ -1267,7 +1267,7 @@ const AdminPage: React.FC = () => {
             }
 
             summary += `🔍 **Portfolio Insights:**\n`;
-            
+
             if (activeProjects > completedProjects) {
                 summary += `• 🚀 Portfolio focus ligt op actieve ontwikkeling\n`;
             } else if (completedProjects > activeProjects) {
@@ -1317,7 +1317,7 @@ const AdminPage: React.FC = () => {
             const startTime = new Date(entry.start);
             const endTime = new Date(entry.eind);
             const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-            
+
             return {
                 Datum: format(startTime, 'dd-MM-yyyy', { locale: nl }),
                 Teamlid: user?.name || 'Onbekend',
@@ -1343,14 +1343,14 @@ const AdminPage: React.FC = () => {
 
     const exportToPDF = () => {
         const doc = new jsPDF();
-        
+
         // Header
         doc.setFontSize(20);
         doc.text('Team Urenregistratie Rapport', 14, 22);
-        
+
         doc.setFontSize(12);
-        doc.text(`Periode: ${selectedPeriod === 'week' ? 'Deze week' : 
-                                selectedPeriod === 'month' ? 'Deze maand' : 
+        doc.text(`Periode: ${selectedPeriod === 'week' ? 'Deze week' :
+                                selectedPeriod === 'month' ? 'Deze maand' :
                                 selectedPeriod === 'quarter' ? 'Dit kwartaal' : 'Dit jaar'}`, 14, 32);
         doc.text(`Gegenereerd op: ${format(new Date(), 'dd-MM-yyyy HH:mm', { locale: nl })}`, 14, 38);
 
@@ -1361,7 +1361,7 @@ const AdminPage: React.FC = () => {
             const startTime = new Date(entry.start);
             const endTime = new Date(entry.eind);
             const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-            
+
             return [
                 format(startTime, 'dd-MM-yyyy', { locale: nl }),
                 user?.name || 'Onbekend',
@@ -1388,16 +1388,16 @@ const AdminPage: React.FC = () => {
 
     const exportProjectsToPDF = () => {
         const doc = new jsPDF();
-        
+
         // Header
         doc.setFontSize(20);
         doc.text('Project Portfolio Rapport', 14, 22);
-        
+
         doc.setFontSize(12);
         const filterText = projectStatusFilter !== 'alle' ? ` (Status: ${projectStatusFilter})` : '';
         const creatorText = projectCreatorFilter !== 'alle' ? ` (Eigenaar: ${users.find(u => u.id === projectCreatorFilter)?.name || 'Onbekend'})` : '';
         const searchText = projectSearchQuery ? ` (Zoekterm: "${projectSearchQuery}")` : '';
-        
+
         doc.text(`Filters: ${filterText}${creatorText}${searchText}` || 'Alle projecten', 14, 32);
         doc.text(`Gegenereerd op: ${format(new Date(), 'dd-MM-yyyy HH:mm', { locale: nl })}`, 14, 38);
 
@@ -1405,7 +1405,7 @@ const AdminPage: React.FC = () => {
         const totalProjects = filteredProjects.length;
         const activeProjects = filteredProjects.filter(p => p.status === 'Lopend').length;
         const completedProjects = filteredProjects.filter(p => p.status === 'Afgerond').length;
-        
+
         doc.setFontSize(10);
         doc.text(`Totaal: ${totalProjects} | Lopend: ${activeProjects} | Afgerond: ${completedProjects}`, 14, 48);
 
@@ -1415,7 +1415,7 @@ const AdminPage: React.FC = () => {
             const participantCount = project.participantIds?.length || 0;
             const lastActivity = getLastActivityDate(project);
             const lastActivityText = lastActivity ? formatDistanceToNow(lastActivity, { locale: nl, addSuffix: true }) : 'Onbekend';
-            
+
             return [
                 project.title,
                 project.status,
@@ -1476,7 +1476,7 @@ const AdminPage: React.FC = () => {
                 // Sorteer op laatste activiteit (meest recent eerst), dan op aanmaakdatum
                 const aLastActivity = getLastActivityDate(a);
                 const bLastActivity = getLastActivityDate(b);
-                
+
                 if (aLastActivity && bLastActivity) {
                     return bLastActivity.getTime() - aLastActivity.getTime();
                 } else if (aLastActivity && !bLastActivity) {
@@ -1583,7 +1583,7 @@ const AdminPage: React.FC = () => {
                                     />
                                 </div>
                             </div>
-                            
+
                             {/* Desktop Table View */}
                             <div className="hidden md:block overflow-x-auto">
                                 <table className="w-full text-left">
@@ -1604,8 +1604,8 @@ const AdminPage: React.FC = () => {
                                                 </td>
                                                 <td className="p-3 text-gray-800 dark:text-dark-text-primary">{user.email}</td>
                                                 <td className="p-3">
-                                                    <select 
-                                                        value={user.role} 
+                                                    <select
+                                                        value={user.role}
                                                         onChange={(e) => handleRoleChange(user.id, e.target.value as UserRole)}
                                                         className="bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-1 px-2 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
                                                     >
@@ -1639,8 +1639,8 @@ const AdminPage: React.FC = () => {
                                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
                                             <div className="flex-1">
                                                 <label className="block text-xs font-medium text-gray-500 dark:text-dark-text-secondary mb-1">Rol</label>
-                                                <select 
-                                                    value={user.role} 
+                                                <select
+                                                    value={user.role}
                                                     onChange={(e) => handleRoleChange(user.id, e.target.value as UserRole)}
                                                     className="w-full sm:w-auto bg-white dark:bg-dark-surface border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
                                                 >
@@ -1649,8 +1649,8 @@ const AdminPage: React.FC = () => {
                                                     ))}
                                                 </select>
                                             </div>
-                                            <button 
-                                                onClick={() => handleRemoveUser(user.id)} 
+                                            <button
+                                                onClick={() => handleRemoveUser(user.id)}
                                                 className="w-full sm:w-auto sm:ml-3 px-3 py-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md font-medium transition-colors"
                                             >
                                                 Verwijderen
@@ -1671,7 +1671,7 @@ const AdminPage: React.FC = () => {
                                     Team Urenregistratie
                                 </h2>
                                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-                                    <button 
+                                    <button
                                         onClick={generateAISummary}
                                         disabled={isGeneratingSummary}
                                         className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors disabled:bg-gray-400 flex items-center justify-center space-x-2 text-sm"
@@ -1679,14 +1679,14 @@ const AdminPage: React.FC = () => {
                                         <TrendingUpIcon className="h-4 w-4" />
                                         <span>{isGeneratingSummary ? 'Genereren...' : 'AI Samenvatting'}</span>
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={exportToExcel}
                                         className="w-full sm:w-auto px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center space-x-1"
                                     >
                                         <DownloadIcon className="h-4 w-4" />
                                         <span>Excel</span>
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={exportToPDF}
                                         className="w-full sm:w-auto px-3 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center space-x-1"
                                     >
@@ -1698,7 +1698,7 @@ const AdminPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-1">Periode</label>
-                        <select 
+                        <select
                             value={selectedPeriod}
                             onChange={(e) => setSelectedPeriod(e.target.value as any)}
                             className="w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
@@ -1711,7 +1711,7 @@ const AdminPage: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-1">Teamlid</label>
-                        <select 
+                        <select
                             value={selectedUser}
                             onChange={(e) => setSelectedUser(e.target.value)}
                             className="w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
@@ -1724,7 +1724,7 @@ const AdminPage: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-1">Project</label>
-                        <select 
+                        <select
                             value={selectedProject}
                             onChange={(e) => setSelectedProject(e.target.value)}
                             className="w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
@@ -1737,7 +1737,7 @@ const AdminPage: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-1">Activiteit</label>
-                        <select 
+                        <select
                             value={selectedActivity}
                             onChange={(e) => setSelectedActivity(e.target.value)}
                             className="w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
@@ -1760,7 +1760,7 @@ const AdminPage: React.FC = () => {
                                 <TrendingUpIcon className="h-5 w-5 mr-2" />
                                 AI Samenvatting
                             </h3>
-                            <button 
+                            <button
                                 onClick={() => setShowAISummary(false)}
                                 className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
                             >
@@ -1782,14 +1782,14 @@ const AdminPage: React.FC = () => {
                             Overzicht ({filteredUrenregistraties.length} entries)
                         </h3>
                         <div className="flex space-x-2">
-                            <button 
+                            <button
                                 onClick={exportToExcel}
                                 className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 flex items-center space-x-1"
                             >
                                 <DownloadIcon className="h-4 w-4" />
                                 <span>Excel</span>
                             </button>
-                            <button 
+                            <button
                                 onClick={exportToPDF}
                                 className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 flex items-center space-x-1"
                             >
@@ -1804,12 +1804,12 @@ const AdminPage: React.FC = () => {
                         {Object.entries(userStats).map(([userId, stats]) => {
                             const user = users.find(u => u.id === userId);
                             if (!user) return null;
-                            
+
                             return (
                                 <div key={userId} className="bg-white dark:bg-dark-surface rounded-lg p-3 shadow-sm">
                                     <div className="flex items-center space-x-3">
-                                        <img 
-                                            src={user.avatarUrl || 'https://avatar.vercel.sh/default.png'} 
+                                        <img
+                                            src={user.avatarUrl || 'https://avatar.vercel.sh/default.png'}
                                             alt={user.name}
                                             className="h-8 w-8 md:h-10 md:w-10 rounded-full"
                                         />
@@ -1852,7 +1852,7 @@ const AdminPage: React.FC = () => {
                                                 const startTime = new Date(entry.start);
                                                 const endTime = new Date(entry.eind);
                                                 const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-                                                
+
                                                 return (
                                                     <tr key={entry.id} className="border-b border-gray-200 dark:border-dark-border hover:bg-gray-100 dark:hover:bg-dark-border">
                                                         <td className="p-3 text-gray-900 dark:text-dark-text-primary">
@@ -1860,8 +1860,8 @@ const AdminPage: React.FC = () => {
                                                         </td>
                                                         <td className="p-3">
                                                             <div className="flex items-center space-x-2">
-                                                                <img 
-                                                                    src={user?.avatarUrl || 'https://avatar.vercel.sh/default.png'} 
+                                                                <img
+                                                                    src={user?.avatarUrl || 'https://avatar.vercel.sh/default.png'}
                                                                     alt={user?.name || 'Unknown'}
                                                                     className="h-6 w-6 rounded-full"
                                                                 />
@@ -1907,13 +1907,13 @@ const AdminPage: React.FC = () => {
                                         const startTime = new Date(entry.start);
                                         const endTime = new Date(entry.eind);
                                         const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-                                        
+
                                         return (
                                             <div key={entry.id} className="bg-white dark:bg-dark-surface rounded-lg p-4 shadow-sm space-y-3">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center space-x-3">
-                                                        <img 
-                                                            src={user?.avatarUrl || 'https://avatar.vercel.sh/default.png'} 
+                                                        <img
+                                                            src={user?.avatarUrl || 'https://avatar.vercel.sh/default.png'}
                                                             alt={user?.name || 'Unknown'}
                                                             className="h-8 w-8 rounded-full"
                                                         />
@@ -1930,7 +1930,7 @@ const AdminPage: React.FC = () => {
                                                         <p className="text-lg font-bold text-brand-primary">{hours.toFixed(1)}h</p>
                                                     </div>
                                                 </div>
-                                                
+
                                                 <div className="grid grid-cols-2 gap-2 text-sm">
                                                     <div>
                                                         <p className="text-gray-500 dark:text-dark-text-secondary text-xs">Activiteit</p>
@@ -1951,7 +1951,7 @@ const AdminPage: React.FC = () => {
                                                         </p>
                                                     </div>
                                                 </div>
-                                                
+
                                                 {entry.omschrijving && (
                                                     <div>
                                                         <p className="text-gray-500 dark:text-dark-text-secondary text-xs">Omschrijving</p>
@@ -1985,7 +1985,7 @@ const AdminPage: React.FC = () => {
                                     <BriefcaseIcon className="h-5 w-5 mr-2" />
                                     Project Portfolio AI Samenvatting
                                 </h3>
-                                <button 
+                                <button
                                     onClick={() => setShowProjectAISummary(false)}
                                     className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200"
                                 >
@@ -2003,14 +2003,22 @@ const AdminPage: React.FC = () => {
                     {activeTab === 'projects' && (
                         <div>
                             {/* Projectbeheer Content */}
-                            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 space-y-3 md:space-y-0">
+                            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 space-y-3 md:space-y-0 text-sm">
                                 <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-dark-text-primary">Projectbeheer</h2>
-                                <button 
-                                    onClick={() => setIsNewProjectModalOpen(true)} 
-                                    className="w-full md:w-auto px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors text-sm md:text-base"
-                                >
-                                    + Nieuw Project
-                                </button>
+                                <div className="flex gap-2 w-full md:w-auto">
+                                    <Link
+                                        to="/achterpaden?tab=beheer"
+                                        className="flex-1 md:flex-none px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors text-center"
+                                    >
+                                        Achterpaden Beheer
+                                    </Link>
+                                    <button
+                                        onClick={() => setIsNewProjectModalOpen(true)}
+                                        className="flex-1 md:flex-none px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors"
+                                    >
+                                        + Nieuw Project
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Project Statistieken */}
@@ -2045,7 +2053,7 @@ const AdminPage: React.FC = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-1">Status</label>
-                                    <select 
+                                    <select
                                         value={projectStatusFilter}
                                         onChange={(e) => setProjectStatusFilter(e.target.value)}
                                         className="w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
@@ -2057,7 +2065,7 @@ const AdminPage: React.FC = () => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-1">Creator</label>
-                                    <select 
+                                    <select
                                         value={projectCreatorFilter}
                                         onChange={(e) => setProjectCreatorFilter(e.target.value)}
                                         className="w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
@@ -2157,7 +2165,7 @@ const AdminPage: React.FC = () => {
                                                             </td>
                                                             <td className="p-3">
                                                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                                    project.status === 'Lopend' 
+                                                                    project.status === 'Lopend'
                                                                         ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
                                                                         : 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
                                                                 }`}>
@@ -2173,9 +2181,9 @@ const AdminPage: React.FC = () => {
                                                                         {project.participantIds.slice(0, 3).map((participantId: string) => {
                                                                             const participant = users.find(u => u.id === participantId);
                                                                             return participant ? (
-                                                                                <img 
+                                                                                <img
                                                                                     key={participantId}
-                                                                                    src={participant.avatarUrl} 
+                                                                                    src={participant.avatarUrl}
                                                                                     alt={participant.name}
                                                                                     className="h-6 w-6 rounded-full border-2 border-white dark:border-dark-surface"
                                                                                     title={participant.name}
@@ -2228,7 +2236,7 @@ const AdminPage: React.FC = () => {
                                                                     {project.title}
                                                                 </h3>
                                                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ml-2 ${
-                                                                    project.status === 'Lopend' 
+                                                                    project.status === 'Lopend'
                                                                         ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
                                                                         : 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
                                                                 }`}>
@@ -2264,9 +2272,9 @@ const AdminPage: React.FC = () => {
                                                                 {project.participantIds.slice(0, 3).map((participantId: string) => {
                                                                     const participant = users.find(u => u.id === participantId);
                                                                     return participant ? (
-                                                                        <img 
+                                                                        <img
                                                                             key={participantId}
-                                                                            src={participant.avatarUrl} 
+                                                                            src={participant.avatarUrl}
                                                                             alt={participant.name}
                                                                             className="h-5 w-5 rounded-full border border-white dark:border-dark-surface"
                                                                             title={participant.name}
@@ -2298,12 +2306,12 @@ const AdminPage: React.FC = () => {
                                             <BriefcaseIcon className="h-12 w-12 text-gray-400" />
                                         </div>
                                         <p className="text-gray-500 dark:text-dark-text-secondary text-sm mb-4">
-                                            {projectSearchQuery || projectStatusFilter !== 'alle' || projectCreatorFilter !== 'alle' 
+                                            {projectSearchQuery || projectStatusFilter !== 'alle' || projectCreatorFilter !== 'alle'
                                                 ? 'Geen projecten gevonden voor de geselecteerde filters.'
                                                 : 'Nog geen projecten aangemaakt.'}
                                         </p>
                                         {(!projectSearchQuery && projectStatusFilter === 'alle' && projectCreatorFilter === 'alle') && (
-                                            <button 
+                                            <button
                                                 onClick={() => setIsNewProjectModalOpen(true)}
                                                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
                                             >
@@ -2332,7 +2340,7 @@ const AdminPage: React.FC = () => {
                 }}
                 onSave={handleSaveProject}
             />
-            <ProjectDetailModal 
+            <ProjectDetailModal
                 project={selectedProjectDetail}
                 isOpen={isProjectDetailModalOpen}
                 onClose={() => {

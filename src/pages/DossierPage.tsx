@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { XIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '../components/Icons';
+import { XIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, PlusCircleIcon } from '../components/Icons';
 import { useAppContext } from '../context/AppContext';
 import { DossierBewoner, DossierStatus, WoningDossier } from "../types";
 import { fetchDossierMeta, type DossierMeta } from '../services/dossierMeta';
@@ -58,20 +58,20 @@ const DossierPage: React.FC = () => {
   const [allDossiers, setAllDossiers] = useState<Array<{ id: string; status: DossierStatus; woningType?: string | null; updatedAt: number }>>([]);
 
   // <-- WIJZIGING: Nieuwe functie uit context gehaald
-  const { 
-    getDossier, 
-    createNewDossier, 
-    addDossierNotitie, 
-    uploadDossierDocument, 
-    addDossierBewoner, 
-    updateDossierStatus, 
-    // updateDossierWoningType removed (not present on context)
-    updateDossierBewoner, 
-    removeDossierBewoner, 
-    addDossierAfspraak, 
-    removeDossierAfspraak, 
-    meldingen, 
-    currentUser 
+  const {
+    getDossier,
+    createNewDossier,
+    addDossierNotitie,
+    uploadDossierDocument,
+    addDossierBewoner,
+    updateDossierStatus,
+    updateDossierWoningType,
+    updateDossierBewoner,
+    removeDossierBewoner,
+    addDossierAfspraak,
+    removeDossierAfspraak,
+    meldingen,
+    currentUser
   } = useAppContext();
 
   // also keep a raw context reference for optional APIs
@@ -163,14 +163,20 @@ const DossierPage: React.FC = () => {
   const doSearch = async (searchAdres: string) => {
     if (!searchAdres.trim()) return;
     setSearchedAdres(searchAdres);
-    setDossier(null); 
-    let dossierResult = await getDossier(searchAdres);
-    if (!dossierResult) {
-      // Dossier voor ${searchAdres} niet gevonden, nieuwe wordt aangemaakt.
-      dossierResult = await createNewDossier(searchAdres);
-    }
-    setDossier(dossierResult);
+    setDossier(null);
+
     try {
+      let dossierResult = await getDossier(searchAdres);
+      if (!dossierResult) {
+        // Dossier voor ${searchAdres} niet gevonden, nieuwe wordt aangemaakt.
+        dossierResult = await createNewDossier(searchAdres);
+      }
+      setDossier(dossierResult);
+
+      // Update URL parameters without full refresh
+      const newUrl = `${window.location.pathname}#/dossiers?adres=${encodeURIComponent(searchAdres)}`;
+      window.history.replaceState(null, '', newUrl);
+
       const hasContent = !!dossierResult && (
         (dossierResult.notities && dossierResult.notities.length > 0) ||
         (dossierResult.documenten && dossierResult.documenten.length > 0) ||
@@ -181,9 +187,12 @@ const DossierPage: React.FC = () => {
         navigate(`/dossier/${encodeURIComponent(dossierResult.id)}`);
         return;
       }
-    } catch (e) {
-      // Error checking content/navigation redirect
+    } catch (e: any) {
+      console.error("Dossier error:", e);
+      alert(`Er is een fout opgetreden: ${e.message || 'Kon dossier niet laden of aanmaken.'}`);
+      setDossier(null);
     }
+
     try {
       const m = await fetchDossierMeta(searchAdres);
       setMeta(m);
@@ -203,8 +212,8 @@ const DossierPage: React.FC = () => {
     if (!note.trim() || !currentUser || !dossier) return;
     setAdding(true);
     try {
-      await addDossierNotitie(dossier.id, { 
-        text: note, 
+      await addDossierNotitie(dossier.id, {
+        text: note,
         isBelangrijk: important,
         reacties: [],
        });
@@ -224,7 +233,7 @@ const DossierPage: React.FC = () => {
     <div className="p-4 bg-white dark:bg-dark-surface rounded-lg shadow mb-6">
       <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{dossier.id}</h1>
       <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-600 dark:text-gray-300">
-        
+
         {/* Status Dropdown */}
         <div className="flex items-center gap-2">
           <span>Status:</span>
@@ -260,12 +269,7 @@ const DossierPage: React.FC = () => {
           const newType = e.target.value;
           setWoningTypeUpdating(true);
           try {
-            if (typeof (appCtx as any)?.updateDossierWoningType === 'function') {
-              await (appCtx as any).updateDossierWoningType(dossier.id, newType);
-            } else {
-              // fallback: no specialized API available
-              // updateDossierWoningType not available in context, skipping specialized update.
-            }
+            await updateDossierWoningType(dossier.id, newType);
             const updated = await getDossier(dossier.id);
             setDossier(updated);
           } finally {
@@ -289,7 +293,7 @@ const DossierPage: React.FC = () => {
             ))}
           </span>
         )}
-        
+
         <Link to={`/dossier/${encodeURIComponent(dossier.id)}`} className="ml-auto px-3 py-1 rounded bg-gray-600 text-white">Overzicht</Link>
       </div>
     </div>
@@ -370,7 +374,43 @@ const DossierPage: React.FC = () => {
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-gray-900 dark:text-white">Woningdossiers</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Woningdossiers</h1>
+        {!dossier && (
+          <button
+            onClick={() => {
+              setDossier(null);
+              setSearch('');
+              setSearchedAdres('');
+              setShowSuggest(true);
+              const searchInput = document.getElementById('search-adres');
+              if (searchInput) {
+                searchInput.focus();
+                searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }}
+            className="flex items-center px-4 py-2 bg-brand-primary text-white rounded-lg shadow hover:bg-brand-secondary transition-all"
+          >
+            <PlusCircleIcon className="h-5 w-5 mr-2" />
+            Nieuw Dossier
+          </button>
+        )}
+        {dossier && (
+          <button
+            onClick={() => {
+              setDossier(null);
+              setSearch('');
+              setSearchedAdres('');
+              navigate('/dossiers');
+            }}
+            className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg shadow hover:bg-gray-700 transition-all"
+          >
+            <ChevronLeftIcon className="h-5 w-5 mr-2" />
+            Terug naar lijst
+          </button>
+        )}
+      </div>
+
       {!dossier && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           {(() => {
@@ -555,7 +595,7 @@ const DossierPage: React.FC = () => {
                                 if (!dossier) return;
                                 const startDt = editAfspraakStart ? new Date(editAfspraakStart) : null;
                                 const eindDt = editAfspraakEinde ? new Date(editAfspraakEinde) : null;
-                                await updateDossierBewoner(dossier.id, b.id, { 
+                                await updateDossierBewoner(dossier.id, b.id, {
                                   name: editNaam.trim() || b.name,
                                   contact: composeContact(editTel, editEmail) || undefined,
                                   extraInfo: editExtra.trim() || undefined,
@@ -595,13 +635,13 @@ const DossierPage: React.FC = () => {
                               <p className="text-xs text-gray-500 dark:text-gray-400">Verbleef van {b.from ? new Date(b.from).toLocaleDateString() : '-'} tot {b.to ? new Date(b.to).toLocaleDateString() : 'heden'}</p>
                             )}
                             <div className="mt-2 flex gap-2 justify-end">
-                              <button type="button" className="px-3 py-1 rounded bg-gray-600 text-white" onClick={() => { 
-                                setEditBewonerId(b.id); 
-                                setEditNaam(b.name); 
+                              <button type="button" className="px-3 py-1 rounded bg-gray-600 text-white" onClick={() => {
+                                setEditBewonerId(b.id);
+                                setEditNaam(b.name);
                                 const parsed = parseContact(b.contact);
                                 setEditTel(parsed.tel);
                                 setEditEmail(parsed.email);
-                                setEditExtra(b.extraInfo || ''); 
+                                setEditExtra(b.extraInfo || '');
                                 setEditAfspraak(!!b.afspraakGemaakt);
                                 const toLocal = (d?: Date | null) => d ? new Date(d).toISOString().slice(0,16) : '';
                                 setEditAfspraakStart(toLocal(b.afspraakStart ?? null));
@@ -683,7 +723,7 @@ const DossierPage: React.FC = () => {
                       <input id="bewoner-extra" value={bewonerExtraInfo} onChange={e=>setBewonerExtraInfo(e.target.value)} className="mt-1 w-full px-3 py-2 border rounded bg-white dark:bg-dark-surface text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary" />
                     </div>
                   </div>
-                  
+
                   <div className="mt-3 flex justify-end">
                     <button type="submit" disabled={bewonerToevoegenBusy} className="px-4 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary disabled:opacity-60 disabled:cursor-not-allowed">{bewonerToevoegenBusy ? 'Toevoegen…' : 'Toevoegen'}</button>
                   </div>
@@ -942,8 +982,8 @@ const DossierPage: React.FC = () => {
                         <p className="font-semibold">{m.titel}</p>
                         <p className="text-sm text-gray-600 dark:text-gray-300">{m.omschrijving}</p>
                         <span className={`mt-2 inline-block px-2 py-1 text-xs rounded-full ${
-                          m.status === 'Afgerond' ? 'bg-green-100 text-green-800' : 
-                          m.status === 'In behandeling' ? 'bg-blue-100 text-blue-800' : 
+                          m.status === 'Afgerond' ? 'bg-green-100 text-green-800' :
+                          m.status === 'In behandeling' ? 'bg-blue-100 text-blue-800' :
                           'bg-orange-100 text-orange-800'
                         }`}>{m.status}</span>
                       </div>

@@ -14,7 +14,7 @@ const convertTimestamps = (data: any) => {
     if (convertedData[key] instanceof Timestamp) {
       convertedData[key] = convertedData[key].toDate();
     } else if (Array.isArray(convertedData[key])) {
-        convertedData[key] = convertedData[key].map(item => 
+        convertedData[key] = convertedData[key].map(item =>
             typeof item === 'object' && item !== null ? convertTimestamps(item) : item
         );
     }
@@ -89,7 +89,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               const list = snapshot.docs.map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as User));
               setUsers(list);
             }));
-            
+
             dataListeners.push(onSnapshot(collection(db, 'meldingen'), (snapshot) => {
               const data = snapshot.docs.map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as Melding));
               setMeldingen(data);
@@ -133,7 +133,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 dataListeners.push(onSnapshot(uq, onNext, onError));
               }
             }
-            
+
             dataListeners.push(onSnapshot(collection(db, 'external_contacts'), (snapshot) => {
               const data = snapshot.docs.map(doc => ({ id: doc.id, ...convertTimestamps(doc.data()) } as ExternalContact));
               setExternalContacts(data);
@@ -238,7 +238,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const markNotificationsAsRead = useCallback(async (targetType: 'melding' | 'project', targetId: string) => {
     if (!currentUser) return;
-    const unreadNotifs = notificaties.filter(n => 
+    const unreadNotifs = notificaties.filter(n =>
         !n.isRead && n.targetType === targetType && n.targetId === targetId
     );
     try {
@@ -265,7 +265,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!currentUser) return;
     try {
       const projectData: any = {
-        ...newProject, 
+        ...newProject,
         creatorId: currentUser.id,
         participantIds: [currentUser.id],
         contributions: [],
@@ -301,12 +301,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       console.log('AppContext: Updating project', projectId, 'with data:', data);
       const projectRef = doc(db, 'projecten', projectId);
-      
+
       // Clean undefined values from data
       const cleanData = Object.fromEntries(
         Object.entries(data).filter(([_, value]) => value !== undefined)
       );
-      
+
       await updateDoc(projectRef, cleanData);
       console.log('AppContext: Project updated successfully');
     } catch (error) {
@@ -347,16 +347,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const inviteUserToProject = useCallback(async (projectId: string, userId: string) => {
     if (!currentUser) return;
-    
+
     try {
       // Haal project info op
       const projectDoc = await getDoc(doc(db, 'projecten', projectId));
       if (!projectDoc.exists()) {
         throw new Error('Project niet gevonden');
       }
-      
+
       const projectData = projectDoc.data() as Project;
-      
+
       // Controleer of de gebruiker al een uitnodiging heeft
       const existingInviteQuery = query(
         collection(db, 'projectInvitations'),
@@ -364,17 +364,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         where('invitedUserId', '==', userId),
         where('status', '==', 'pending')
       );
-      
+
       const existingInvites = await getDocs(existingInviteQuery);
       if (!existingInvites.empty) {
         throw new Error('Gebruiker heeft al een openstaande uitnodiging voor dit project');
       }
-      
+
       // Controleer of de gebruiker al deelneemt aan het project
       if (projectData.participantIds?.includes(userId)) {
         throw new Error('Gebruiker neemt al deel aan dit project');
       }
-      
+
       // Maak uitnodiging aan
       const invitation: Omit<ProjectInvitation, 'id'> = {
         projectId,
@@ -385,9 +385,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         status: 'pending',
         createdAt: new Date()
       };
-      
+
       await addDoc(collection(db, 'projectInvitations'), invitation);
-      
+
       // Maak notificatie aan voor de uitgenodigde gebruiker
       const notification: Omit<Notificatie, 'id'> = {
         userId: userId,
@@ -398,9 +398,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         targetId: projectId,
         targetType: 'project'
       };
-      
+
       await addDoc(collection(db, 'notificaties'), notification);
-      
+
     } catch (error) {
       throw error;
     }
@@ -408,28 +408,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const respondToProjectInvitation = useCallback(async (invitationId: string, response: 'accepted' | 'declined') => {
     if (!currentUser) return;
-    
+
     try {
       const invitationRef = doc(db, 'projectInvitations', invitationId);
       const invitationDoc = await getDoc(invitationRef);
-      
+
       if (!invitationDoc.exists()) {
         throw new Error('Uitnodiging niet gevonden');
       }
-      
+
       const invitationData = invitationDoc.data() as ProjectInvitation;
-      
+
       // Controleer of de uitnodiging voor de huidige gebruiker is
       if (invitationData.invitedUserId !== currentUser.id) {
         throw new Error('Je bent niet geautoriseerd om op deze uitnodiging te reageren');
       }
-      
+
       // Update uitnodiging status
       await updateDoc(invitationRef, {
         status: response,
         respondedAt: new Date()
       });
-      
+
       // Als geaccepteerd, voeg gebruiker toe aan project
       if (response === 'accepted') {
         const projectRef = doc(db, 'projecten', invitationData.projectId);
@@ -437,7 +437,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           participantIds: arrayUnion(currentUser.id)
         });
       }
-      
+
     } catch (error) {
       throw error;
     }
@@ -466,7 +466,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (data.gebruikerId !== currentUser.id && currentUser.role !== UserRole.Beheerder) {
         throw new Error('Geen toestemming om deze urenregistratie te wijzigen.');
       }
-      
+
       const sanitized: any = { ...patch };
       Object.keys(sanitized).forEach(k => sanitized[k] === undefined && delete sanitized[k]);
       await updateDoc(entryRef, sanitized);
@@ -823,7 +823,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Error updating dossier status
     }
   }, []);
-  
+
+  const updateDossierWoningType = useCallback(async (adres: string, woningType: string): Promise<void> => {
+    try {
+      const dossierRef = doc(db, 'dossiers', adres);
+      await updateDoc(dossierRef, { woningType });
+    } catch (error) {
+      // Error updating dossier woningType
+    }
+  }, []);
+
   const addDossierBewoner = useCallback(async (adres: string, bewoner: Omit<DossierBewoner, 'id'>): Promise<void> => {
     try {
       const dossierRef = doc(db, 'dossiers', adres);
@@ -957,7 +966,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addDossierAfspraak,
     updateDossierAfspraak,
     removeDossierAfspraak,
-  updateDossierStatus,
+    updateDossierStatus,
+    updateDossierWoningType,
     addDossierBewoner,
     updateDossierBewoner,
     removeDossierBewoner,

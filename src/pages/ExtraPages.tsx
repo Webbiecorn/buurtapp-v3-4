@@ -18,11 +18,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { MOCK_WIJKEN } from '../data/mockData';
 import { ExternalContact } from '../types';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { toDate } from '../utils/dateHelpers';
 import { db } from '../firebase';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 
 // --- START: Reports Page ---
 
@@ -60,7 +60,7 @@ const WijkRapport: React.FC<{ wijk: string }> = ({ wijk }) => {
         return months.map(monthStart => {
             const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
             const maand = format(monthStart, 'MMM', { locale: nl });
-            
+
             const nieuw = wijkMeldingen.filter(m => m.timestamp >= monthStart && m.timestamp <= monthEnd).length;
             const opgelost = wijkMeldingen.filter(m => m.afgerondTimestamp && m.afgerondTimestamp >= monthStart && m.afgerondTimestamp <= monthEnd).length;
 
@@ -73,10 +73,10 @@ const WijkRapport: React.FC<{ wijk: string }> = ({ wijk }) => {
             acc[m.categorie] = (acc[m.categorie] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
-        
+
         return Object.entries(counts).map(([name, value]) => ({ name, value }));
     }, [wijkMeldingen]);
-    
+
     const tickColor = theme === 'dark' ? '#9ca3af' : '#6b7280';
     const gridColor = theme === 'dark' ? '#374151' : '#e5e7eb';
     const tooltipStyle = theme === 'dark'
@@ -99,8 +99,8 @@ const WijkRapport: React.FC<{ wijk: string }> = ({ wijk }) => {
 
         try {
             const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
-            
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
             const prompt = `
 Je bent een data-analist voor een gemeente. Analyseer de volgende data over meldingen in wijk '${wijk}' en genereer een korte, duidelijke managementsamenvatting in het Nederlands.
 
@@ -121,11 +121,11 @@ ${trendData.map(t => `- ${t.maand}: ${t.nieuw} nieuw, ${t.opgelost} opgelost`).j
 2.  **Trends & Inzichten:** De belangrijkste trends of opvallende zaken.
 3.  **Aanbevelingen:** Concrete, uitvoerbare aanbevelingen voor de wijkmanager.
 `;
-            
+
             const result = await model.generateContent(prompt);
             const response = result.response;
             const text = response.text();
-            
+
             setAiSummary(text);
 
         } catch (err: any) {
@@ -215,12 +215,12 @@ const PrintableReport: React.FC<{ data: any }> = ({ data }) => {
                     <span>Gegenereerd op: {format(generatedAt, 'dd-MM-yyyy HH:mm')}</span>
                 </div>
             </header>
-            
+
             <section className="mb-8">
                 <h2 className="text-2xl font-semibold border-b border-gray-200 pb-2 mb-4">Managementsamenvatting</h2>
                 <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: summary.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}></div>
             </section>
-            
+
             <section>
                 <h2 className="text-2xl font-semibold border-b border-gray-200 pb-2 mb-4">Kerncijfers</h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-8">
@@ -291,9 +291,12 @@ const PrintableReport: React.FC<{ data: any }> = ({ data }) => {
 export const ReportsPage: React.FC = () => {
     const { meldingen, projecten, urenregistraties, users } = useAppContext();
     const [selectedWijk, setSelectedWijk] = useState('alle');
-    const [reportPeriod, setReportPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
+    const [reportPeriod, setReportPeriod] = useState<'month' | 'quarter' | 'year' | 'all' | 'custom'>('month');
+    const [customStartDate, setCustomStartDate] = useState<string>(format(subMonths(new Date(), 1), 'yyyy-MM-dd'));
+    const [customEndDate, setCustomEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [dossiers, setDossiers] = useState<any[]>([]);
     const [achterpaden, setAchterpaden] = useState<any[]>([]);
+    const [isAiGenerating, setIsAiGenerating] = useState(false);
 
     // Load dossiers and achterpaden
     useEffect(() => {
@@ -305,7 +308,7 @@ export const ReportsPage: React.FC = () => {
             console.log('📁 Loaded dossiers:', data.length, data);
             setDossiers(data);
         });
-        
+
         const unsubAchterpaden = onSnapshot(collection(db, 'achterpaden'), (snapshot) => {
             const data = snapshot.docs.map(doc => {
                 const docData = doc.data();
@@ -330,23 +333,28 @@ export const ReportsPage: React.FC = () => {
     const dateRange = useMemo(() => {
         const today = startOfDay(new Date());
         let startDate: Date;
+        let endDate: Date = today;
         switch (reportPeriod) {
             case 'month': startDate = subMonths(today, 1); break;
             case 'quarter': startDate = subMonths(today, 3); break;
             case 'year': startDate = subMonths(today, 12); break;
             case 'all': startDate = new Date(2020, 0, 1); break;
+            case 'custom':
+                startDate = customStartDate ? startOfDay(new Date(customStartDate)) : subMonths(today, 1);
+                endDate = customEndDate ? startOfDay(new Date(customEndDate)) : today;
+                break;
         }
-        return { start: startDate, end: today };
-    }, [reportPeriod]);
+        return { start: startDate, end: endDate };
+    }, [reportPeriod, customStartDate, customEndDate]);
 
     // Filter data by period and wijk
     const filteredData = useMemo(() => {
         const { start, end } = dateRange;
-        
+
         let filteredMeldingen = meldingen.filter(m => isWithinInterval(m.timestamp, { start, end }));
         const filteredProjecten = projecten.filter(p => isWithinInterval(p.startDate, { start, end }));
         const filteredUren = urenregistraties.filter(u => u.eind && isWithinInterval(u.start, { start, end }));
-        
+
         if (selectedWijk !== 'alle') {
             filteredMeldingen = filteredMeldingen.filter(m => m.wijk === selectedWijk);
             // Note: Projects don't have wijk property in the current type definition
@@ -356,32 +364,60 @@ export const ReportsPage: React.FC = () => {
         const filteredDossiers = dossiers.filter(d => {
             // For 'all' period, show all dossiers
             if (reportPeriod === 'all') return true;
-            
+
             // Check if dossier has a createdAt field
             if (!d.createdAt) {
                 console.log('⚠️ Dossier without createdAt:', d.id);
                 return true; // Include dossiers without date in report
             }
-            
-            const createdDate = toDate(d.createdAt);
-            if (!createdDate) return true; // Include on parse error
-            return isWithinInterval(createdDate, { start, end });
+
+            try {
+                // Handle Firestore Timestamp
+                let createdDate: Date;
+                if (d.createdAt.toDate) {
+                    createdDate = d.createdAt.toDate();
+                } else if (d.createdAt instanceof Date) {
+                    createdDate = d.createdAt;
+                } else if (d.createdAt.seconds) {
+                    createdDate = new Date(d.createdAt.seconds * 1000);
+                } else {
+                    createdDate = new Date(d.createdAt);
+                }
+                return isWithinInterval(createdDate, { start, end });
+            } catch (error) {
+                console.error('Error parsing dossier date:', d.id, error);
+                return true; // Include in report on error
+            }
         });
 
         // Filter achterpaden
         const filteredAchterpaden = achterpaden.filter(a => {
             // For 'all' period, show all achterpaden
             if (reportPeriod === 'all') return true;
-            
+
             // Check if achterpad has a timestamp field
             if (!a.timestamp) {
                 console.log('⚠️ Achterpad without timestamp:', a.id);
                 return true; // Include achterpaden without date in report
             }
-            
-            const timestamp = toDate(a.timestamp);
-            if (!timestamp) return true; // Include on parse error
-            return isWithinInterval(timestamp, { start, end });
+
+            try {
+                // Handle Firestore Timestamp
+                let timestamp: Date;
+                if (a.timestamp.toDate) {
+                    timestamp = a.timestamp.toDate();
+                } else if (a.timestamp instanceof Date) {
+                    timestamp = a.timestamp;
+                } else if (a.timestamp.seconds) {
+                    timestamp = new Date(a.timestamp.seconds * 1000);
+                } else {
+                    timestamp = new Date(a.timestamp);
+                }
+                return isWithinInterval(timestamp, { start, end });
+            } catch (error) {
+                console.error('Error parsing achterpad date:', a.id, error);
+                return true; // Include in report on error
+            }
         });
 
         console.log('📊 Filtered data:', {
@@ -404,7 +440,7 @@ export const ReportsPage: React.FC = () => {
     // Calculate comprehensive statistics
     const statistics = useMemo(() => {
         const { meldingen: filtMeld, projecten: filtProj, uren: filtUren, dossiers: filtDoss, achterpaden: filtAchter } = filteredData;
-        
+
         // Meldingen stats
         const meldingenAfgerond = filtMeld.filter(m => m.status === MeldingStatus.Afgerond).length;
         const meldingenByCategorie = filtMeld.reduce((acc, m) => {
@@ -490,11 +526,194 @@ export const ReportsPage: React.FC = () => {
         };
     }, [filteredData, users]);
 
-    const periodLabels = {
+    const periodLabels: Record<string, string> = {
         month: 'Afgelopen Maand',
         quarter: 'Afgelopen Kwartaal',
         year: 'Afgelopen Jaar',
-        all: 'Alle Data'
+        all: 'Alle Data',
+        custom: `${format(new Date(customStartDate), 'dd MMM yyyy', { locale: nl })} - ${format(new Date(customEndDate), 'dd MMM yyyy', { locale: nl })}`
+    };
+
+    const handleGenerateAIPositiveReport = async () => {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!apiKey) {
+            alert('Gemini API Key niet gevonden (VITE_GEMINI_API_KEY).');
+            return;
+        }
+
+        setIsAiGenerating(true);
+        try {
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+            const prompt = `
+Je bent een ervaren buurtmanager die een enorm positief en professioneel jaarverslag (of kwartaal/maandverslag) schrijft voor de gemeente en belanghebbenden.
+Je focus ligt op het vieren van successen en de positieve impact van het Buurtconcierge-team.
+
+**Periode:** ${periodLabels[reportPeriod]}
+**Wijk:** ${selectedWijk === 'alle' ? 'Alle Wijken' : selectedWijk}
+
+**Data voor het verslag:**
+1. Achterpaden: ${statistics.achterpaden.totaal} gecontroleerd, waarvan ${statistics.achterpaden.schoonPercentage}% brandschoon is. Successen: ${statistics.achterpaden.schoon} paden zijn nu in topconditie.
+2. Woningdossiers: ${statistics.dossiers.totaal} actieve dossiers, ${statistics.dossiers.afgerond} succesvol afgeronde dossiers waarin bewoners zijn geholpen. Focus op preventie en bewonerscontact.
+3. Projecten: ${statistics.projecten.totaal} lopende initiatieven, waarvan ${statistics.projecten.afgerond} al succesvol zijn opgeleverd. Denk aan buurtverbeteringen en sociale events.
+4. Urenregistratie: Het team heeft maar liefst ${statistics.uren.totaal.toFixed(1)} uur geïnvesteerd in de wijk. De meeste tijd ging naar: ${Object.entries(statistics.uren.byActiviteit).slice(0, 3).map(([k, v]) => `${k} (${v.toFixed(1)}u)`).join(', ')}.
+5. Meldingen: Van de ${statistics.meldingen.totaal} binnengekomen meldingen hebben we er al ${statistics.meldingen.afgerondPercentage}% opgelost!
+
+**Opdracht:**
+Schrijf een prachtig, inspirerend en professioneel verhaal (Nederlands).
+Gebruik een 'storytelling' aanpak. Maak het levendig.
+Begin met een pakkende titel die de essentie van de periode samenvat (bijv. "Een Periode van Verbinding en Zichtbare Vooruitgang").
+Structureer het in 3-4 korte paragrafen:
+- De 'Vibe' in de wijk en algemene voortgang.
+- Specifieke successen bij de achterpaden en woningdossiers (Focus op leefbaarheid).
+- De kracht van het team en de afgeronde projecten.
+- Een vooruitblik vol vertrouwen.
+
+Houd het professioneel maar zeer positief. Gebruik geen markdown-titels (zoals # of ##), want dit wordt direct in een PDF geplaatst. Gebruik wel gewoon platte tekst.
+`;
+
+            const result = await model.generateContent(prompt);
+            const narrative = result.response.text();
+
+            // Create PDF
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            let yPos = 20;
+
+            // Header Background
+            doc.setFillColor(34, 197, 94); // Green-500
+            doc.rect(0, 0, pageWidth, 40, 'F');
+
+            // Title in Header
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(24);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Positief Kwartaalverslag', pageWidth / 2, 20, { align: 'center' });
+
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Buurtconciërge - Team Impact Rapportage`, pageWidth / 2, 28, { align: 'center' });
+
+            yPos = 50;
+            doc.setTextColor(0, 0, 0);
+
+            // Period & Context
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'italic');
+            doc.text(`Periode: ${periodLabels[reportPeriod]} | Locatie: ${selectedWijk === 'alle' ? 'Alle Wijken' : selectedWijk}`, 20, yPos);
+            doc.text(`Gegenereerd door AI op: ${format(new Date(), 'dd-MM-yyyy')}`, pageWidth - 20, yPos, { align: 'right' });
+            yPos += 12;
+
+            // Narrative Title (if AI generated one, else default)
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(21, 128, 61); // Dark green
+            doc.text('Onze Impact in de Wijk', 20, yPos);
+            yPos += 8;
+
+            // Narrative Body
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(55, 65, 81); // Gray-700
+            const splitText = doc.splitTextToSize(narrative, pageWidth - 40);
+            doc.text(splitText, 20, yPos);
+
+            yPos += (splitText.length * 6) + 10;
+
+            // Stats Section Header
+            if (yPos > pageHeight - 60) {
+                doc.addPage();
+                yPos = 20;
+            }
+
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(21, 128, 61);
+            doc.text('Kerncijfers van Succes', 20, yPos);
+            yPos += 8;
+
+            // KPI Table for PDF
+            const kpiData = [
+                ['🏆 Successen in Achterpaden', `${statistics.achterpaden.schoonPercentage}% Schoon`, `${statistics.achterpaden.schoon} locaties op orde`],
+                ['🏠 Woningdossiers Impact', `${statistics.dossiers.totaal} Actief`, `${statistics.dossiers.afgerond} Afgerond`],
+                ['🚀 Projectvoortgang', `${statistics.projecten.totaal} Projecten`, `${statistics.projecten.afgerondPercentage}% Voltooid`],
+                ['⏱️ Team Inzet', `${statistics.uren.totaal.toFixed(0)} Uur`, `${Object.keys(statistics.uren.byUser).length} Teamleden`],
+                ['📝 Meldingen Opgelost', statistics.meldingen.totaal.toString(), `${statistics.meldingen.afgerondPercentage}% Afgehandeld`],
+            ];
+
+            autoTable(doc, {
+                startY: yPos,
+                head: [['Domein', 'Status', 'Resultaat']],
+                body: kpiData,
+                theme: 'grid',
+                headStyles: { fillColor: [34, 197, 94], textColor: 255 },
+                styles: { fontSize: 10, cellPadding: 5 },
+            });
+
+            yPos = (doc as any).lastAutoTable.finalY + 15;
+
+            // Add charts to PDF
+            const chartContainer = document.getElementById('report-charts-container');
+            if (chartContainer) {
+                try {
+                    // Check if we need a new page for charts
+                    if (yPos > pageHeight - 100) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+
+                    doc.setFontSize(16);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(21, 128, 61);
+                    doc.text('Visuele Analyse', 20, yPos);
+                    yPos += 10;
+
+                    const canvas = await html2canvas(chartContainer, { 
+                        scale: 2, 
+                        backgroundColor: '#ffffff',
+                        logging: false 
+                    });
+                    const imgData = canvas.toDataURL('image/png');
+                    const imgWidth = pageWidth - 40;
+                    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                    
+                    // Check if image fits on current page
+                    if (yPos + imgHeight > pageHeight - 20) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    doc.addImage(imgData, 'PNG', 20, yPos, imgWidth, imgHeight);
+                    yPos += imgHeight + 10;
+                } catch (chartError) {
+                    console.warn('Could not capture charts:', chartError);
+                }
+            }
+
+            // Footer on all pages
+            const totalPages = (doc as any).internal.pages.length - 1;
+            for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(156, 163, 175);
+                doc.text(
+                    `Buurtconciërge Management Verslag - Pagina ${i} van ${totalPages} - Samen bouwen we aan een fijnere buurt`,
+                    pageWidth / 2,
+                    pageHeight - 10,
+                    { align: 'center' }
+                );
+            }
+
+            doc.save(`AI-Positief-Verslag-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+
+        } catch (error) {
+            console.error('AI Report Error:', error);
+            alert('Er is een fout opgetreden bij het genereren van het AI verslag.');
+        } finally {
+            setIsAiGenerating(false);
+        }
     };
 
     const handlePrintReport = () => {
@@ -557,8 +776,8 @@ export const ReportsPage: React.FC = () => {
             head: [['Categorie', 'Totaal', 'Status']],
             body: kpiData,
             theme: 'grid',
-            styles: { 
-                fontSize: 10, 
+            styles: {
+                fontSize: 10,
                 cellPadding: 4,
                 overflow: 'linebreak',
                 cellWidth: 'wrap'
@@ -568,8 +787,8 @@ export const ReportsPage: React.FC = () => {
                 1: { cellWidth: 30, halign: 'center' },
                 2: { cellWidth: 80 }
             },
-            headStyles: { 
-                fillColor: [30, 64, 175], 
+            headStyles: {
+                fillColor: [30, 64, 175],
                 textColor: 255,
                 fontSize: 11,
                 fontStyle: 'bold'
@@ -595,8 +814,8 @@ export const ReportsPage: React.FC = () => {
                 startY: yPos,
                 head: [['Categorie', 'Aantal', 'Percentage']],
                 body: topCategories.map(([cat, count]) => {
-                    const percentage = statistics.meldingen.totaal > 0 
-                        ? ((count as number / statistics.meldingen.totaal) * 100).toFixed(1) 
+                    const percentage = statistics.meldingen.totaal > 0
+                        ? ((count as number / statistics.meldingen.totaal) * 100).toFixed(1)
                         : '0';
                     return [cat, count.toString(), `${percentage}%`];
                 }),
@@ -656,7 +875,7 @@ export const ReportsPage: React.FC = () => {
                 startY: yPos,
                 head: [['Rank', 'Teamlid', 'Uren', 'Percentage']],
                 body: allPerformers.map(([name, hours], index) => {
-                    const percentage = statistics.uren.totaal > 0 
+                    const percentage = statistics.uren.totaal > 0
                         ? ((hours as number / statistics.uren.totaal) * 100).toFixed(1)
                         : '0';
                     const rank = index === 0 ? '#1' : index === 1 ? '#2' : index === 2 ? '#3' : `${index + 1}`;
@@ -670,8 +889,8 @@ export const ReportsPage: React.FC = () => {
                     2: { cellWidth: 35, halign: 'right' },
                     3: { cellWidth: 35, halign: 'center' }
                 },
-                headStyles: { 
-                    fillColor: [34, 197, 94], 
+                headStyles: {
+                    fillColor: [34, 197, 94],
                     textColor: 255,
                     fontStyle: 'bold'
                 },
@@ -702,7 +921,7 @@ export const ReportsPage: React.FC = () => {
                 startY: yPos,
                 head: [['Activiteit', 'Uren', 'Percentage']],
                 body: activiteitData.map(([activiteit, hours]) => {
-                    const percentage = statistics.uren.totaal > 0 
+                    const percentage = statistics.uren.totaal > 0
                         ? ((hours as number / statistics.uren.totaal) * 100).toFixed(1)
                         : '0';
                     return [activiteit, (hours as number).toFixed(1), `${percentage}%`];
@@ -714,8 +933,8 @@ export const ReportsPage: React.FC = () => {
                     1: { cellWidth: 35, halign: 'right' },
                     2: { cellWidth: 35, halign: 'center' }
                 },
-                headStyles: { 
-                    fillColor: [147, 51, 234], 
+                headStyles: {
+                    fillColor: [147, 51, 234],
                     textColor: 255,
                     fontStyle: 'bold'
                 },
@@ -858,6 +1077,18 @@ export const ReportsPage: React.FC = () => {
                 </div>
                 <div className="flex flex-wrap gap-3">
                     <button
+                        onClick={handleGenerateAIPositiveReport}
+                        disabled={isAiGenerating}
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-lg shadow hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isAiGenerating ? (
+                            <SparklesIcon className="h-5 w-5 mr-2 animate-spin" />
+                        ) : (
+                            <SparklesIcon className="h-5 w-5 mr-2" />
+                        )}
+                        Genereer Verslag
+                    </button>
+                    <button
                         onClick={handlePrintReport}
                         className="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow hover:bg-blue-700 transition-colors"
                     >
@@ -880,12 +1111,13 @@ export const ReportsPage: React.FC = () => {
 
             {/* Filters */}
             <div className="bg-white dark:bg-dark-surface rounded-lg shadow p-4 print:hidden">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label htmlFor="period-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             📅 Periode
                         </label>
                         <select
+                            id="period-select"
                             value={reportPeriod}
                             onChange={(e) => setReportPeriod(e.target.value as any)}
                             className="w-full bg-white dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-lg py-2 px-3"
@@ -894,13 +1126,41 @@ export const ReportsPage: React.FC = () => {
                             <option value="quarter">Afgelopen Kwartaal</option>
                             <option value="year">Afgelopen Jaar</option>
                             <option value="all">Alle Data</option>
+                            <option value="custom">Handmatige Periode</option>
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {reportPeriod === 'custom' && (
+                        <div className="md:col-span-2 lg:col-span-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                📆 Startdatum
+                            </label>
+                            <input
+                                type="date"
+                                value={customStartDate}
+                                onChange={(e) => setCustomStartDate(e.target.value)}
+                                className="w-full bg-white dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-lg py-2 px-3"
+                            />
+                        </div>
+                    )}
+                    {reportPeriod === 'custom' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                📆 Einddatum
+                            </label>
+                            <input
+                                type="date"
+                                value={customEndDate}
+                                onChange={(e) => setCustomEndDate(e.target.value)}
+                                className="w-full bg-white dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-lg py-2 px-3"
+                            />
+                        </div>
+                    )}
+                    <div className={reportPeriod === 'custom' ? 'lg:col-span-3' : ''}>
+                        <label htmlFor="wijk-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             📍 Wijk
                         </label>
                         <select
+                            id="wijk-select"
                             value={selectedWijk}
                             onChange={(e) => setSelectedWijk(e.target.value)}
                             className="w-full bg-white dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-lg py-2 px-3"
@@ -1202,6 +1462,94 @@ export const ReportsPage: React.FC = () => {
                 </div>
             </div>
 
+            {/* Charts Section for PDF Export */}
+            <div id="report-charts-container" className="bg-white rounded-xl shadow-xl p-6 print:shadow-none">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                    <span className="text-3xl mr-3">📊</span>
+                    Visuele Analyse
+                </h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Meldingen per Categorie Pie Chart */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">Meldingen per Categorie</h3>
+                        <ResponsiveContainer width="100%" height={250}>
+                            <PieChart>
+                                <Pie
+                                    data={Object.entries(statistics.meldingen.byCategorie).map(([name, value]) => ({ name, value }))}
+                                    cx="50%"
+                                    cy="50%"
+                                    labelLine={false}
+                                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                    outerRadius={80}
+                                    fill="#8884d8"
+                                    dataKey="value"
+                                >
+                                    {Object.entries(statistics.meldingen.byCategorie).map((_, index) => (
+                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    {/* Status Verdeling Bar Chart */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">Overzicht Status</h3>
+                        <ResponsiveContainer width="100%" height={250}>
+                            <PieChart>
+                                <Pie
+                                    data={[
+                                        { name: 'Meldingen Afgerond', value: statistics.meldingen.afgerond },
+                                        { name: 'Meldingen Open', value: statistics.meldingen.totaal - statistics.meldingen.afgerond },
+                                        { name: 'Projecten Afgerond', value: statistics.projecten.afgerond },
+                                        { name: 'Projecten Lopend', value: statistics.projecten.lopend },
+                                    ]}
+                                    cx="50%"
+                                    cy="50%"
+                                    labelLine={false}
+                                    label={({ name, value }) => value > 0 ? `${name}: ${value}` : ''}
+                                    outerRadius={80}
+                                    fill="#8884d8"
+                                    dataKey="value"
+                                >
+                                    <Cell fill="#22c55e" />
+                                    <Cell fill="#ef4444" />
+                                    <Cell fill="#3b82f6" />
+                                    <Cell fill="#f97316" />
+                                </Pie>
+                                <Tooltip />
+                                <Legend />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    {/* Uren per Activiteit */}
+                    <div className="bg-gray-50 rounded-lg p-4 lg:col-span-2">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">Uren per Activiteit</h3>
+                        <ResponsiveContainer width="100%" height={200}>
+                            <PieChart>
+                                <Pie
+                                    data={Object.entries(statistics.uren.byActiviteit).slice(0, 6).map(([name, value]) => ({ name, value: parseFloat(value.toFixed(1)) }))}
+                                    cx="50%"
+                                    cy="50%"
+                                    labelLine={true}
+                                    label={({ name, value }) => `${name}: ${value}h`}
+                                    outerRadius={70}
+                                    fill="#8884d8"
+                                    dataKey="value"
+                                >
+                                    {Object.entries(statistics.uren.byActiviteit).slice(0, 6).map((_, index) => (
+                                        <Cell key={`cell-uren-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </div>
+
             {/* Footer for print */}
             <div className="hidden print:block mt-8 pt-4 border-t border-gray-300 text-center text-sm text-gray-600">
                 <p>Dit rapport is gegenereerd door het Buurtconciërge Managementsysteem</p>
@@ -1256,7 +1604,7 @@ export const NotificationsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">Notificaties</h1>
-      
+
       {/* Project Invitations */}
       {pendingInvitations.length > 0 && (
         <div className="bg-white dark:bg-dark-surface rounded-lg shadow overflow-hidden">
@@ -1318,7 +1666,7 @@ export const NotificationsPage: React.FC = () => {
           </ul>
         </div>
       )}
-      
+
       {/* Regular Notifications */}
       {sortedNotifications.length === 0 && pendingInvitations.length === 0 ? (
         <div className="bg-white dark:bg-dark-surface rounded-lg shadow p-6 text-center">
@@ -1333,8 +1681,8 @@ export const NotificationsPage: React.FC = () => {
           </div>
           <ul className="divide-y divide-gray-200 dark:divide-dark-border">
             {sortedNotifications.map((notificatie) => (
-              <li 
-                key={notificatie.id} 
+              <li
+                key={notificatie.id}
                 onClick={() => handleNotificationClick(notificatie)}
                 className={`p-4 hover:bg-gray-50 dark:hover:bg-dark-bg cursor-pointer flex items-start space-x-4 ${!notificatie.isRead ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
               >
@@ -1374,7 +1722,7 @@ export const ContactenPage: React.FC = () => {
     return (
         <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">Contacten</h1>
-            
+
             <div>
                 <div className="border-b border-gray-200 dark:border-dark-border">
                     <nav className="-mb-px flex space-x-8" aria-label="Tabs">
@@ -1456,7 +1804,7 @@ const CollegaTab: React.FC = () => {
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-dark-text-primary">{user.name}</h3>
                     <p className="text-sm text-gray-500 dark:text-dark-text-secondary">{user.role}</p>
                     {user.phone && <p className="text-sm text-gray-600 dark:text-dark-text-secondary mt-2">{user.phone}</p>}
-                    
+
                     <div className="mt-4 flex justify-center space-x-3">
                         <button onClick={() => handleOpenMessageModal(user)} title={`Bericht sturen`} className="p-2 rounded-full bg-gray-100 dark:bg-dark-bg text-gray-600 dark:text-dark-text-secondary hover:bg-brand-primary/20 hover:text-brand-primary transition-colors">
                             <MessageSquareIcon className="h-5 w-5" />
@@ -1568,7 +1916,7 @@ const ExterneContactenTab: React.FC = () => {
                         'Overig': 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700'
                     };
                     const orgColor = orgColors[contact.organisation] || orgColors['Overig'];
-                    
+
                     return (
                         <div key={contact.id} className={`bg-white dark:bg-dark-surface rounded-lg shadow-sm border-2 ${orgColor} p-5 hover:shadow-md transition-shadow`}>
                             {/* Header met naam en acties */}
@@ -1582,15 +1930,15 @@ const ExterneContactenTab: React.FC = () => {
                                     </span>
                                 </div>
                                 <div className="flex-shrink-0 flex space-x-1 ml-2">
-                                    <button 
-                                        onClick={() => handleOpenModal(contact)} 
+                                    <button
+                                        onClick={() => handleOpenModal(contact)}
                                         className="p-1.5 text-gray-400 hover:text-brand-primary hover:bg-gray-100 dark:hover:bg-dark-hover rounded transition-colors"
                                         title="Bewerken"
                                     >
                                         <PencilIcon className="h-4 w-4" />
                                     </button>
-                                    <button 
-                                        onClick={() => handleDelete(contact.id)} 
+                                    <button
+                                        onClick={() => handleDelete(contact.id)}
                                         className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                                         title="Verwijderen"
                                     >
@@ -1663,12 +2011,12 @@ const ExternalContactModal: React.FC<{ contact: ExternalContact | null; onClose:
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const data: Omit<ExternalContact, 'id' | 'creatorId'> = { 
-            name, 
-            organisation, 
-            phone, 
-            email, 
-            type, 
+        const data: Omit<ExternalContact, 'id' | 'creatorId'> = {
+            name,
+            organisation,
+            phone,
+            email,
+            type,
             wijk: type === 'wijk' ? wijk : '',
             extraInfo: showExtraInfo ? extraInfo : ''
         };
@@ -1684,7 +2032,7 @@ const ExternalContactModal: React.FC<{ contact: ExternalContact | null; onClose:
         <Modal isOpen={true} onClose={onClose} title={contact ? 'Contact Bewerken' : 'Nieuw Contact'}>
             <form onSubmit={handleSubmit} className="space-y-4">
                 <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Naam" required className="w-full p-2 border rounded dark:bg-dark-surface dark:border-dark-border dark:text-dark-text-primary" />
-                
+
                 <select value={organisation} onChange={e => setOrganisation(e.target.value as ExternalContact['organisation'])} required className="w-full p-2 border rounded dark:bg-dark-surface dark:border-dark-border dark:text-dark-text-primary">
                     <option value="Gemeente">Gemeente</option>
                     <option value="Centrada">Centrada</option>
@@ -1697,12 +2045,12 @@ const ExternalContactModal: React.FC<{ contact: ExternalContact | null; onClose:
 
                 <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Telefoonnummer" required className="w-full p-2 border rounded dark:bg-dark-surface dark:border-dark-border dark:text-dark-text-primary" />
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email (optioneel)" className="w-full p-2 border rounded dark:bg-dark-surface dark:border-dark-border dark:text-dark-text-primary" />
-                
+
                 <select value={type} onChange={e => setType(e.target.value as any)} className="w-full p-2 border rounded dark:bg-dark-surface dark:border-dark-border dark:text-dark-text-primary">
                     <option value="algemeen">Algemeen</option>
                     <option value="wijk">Wijk-specifiek</option>
                 </select>
-                
+
                 {type === 'wijk' && (
                     <select value={wijk} onChange={e => setWijk(e.target.value)} required className="w-full p-2 border rounded dark:bg-dark-surface dark:border-dark-border dark:text-dark-text-primary">
                         <option value="">Kies een wijk</option>
@@ -1755,7 +2103,7 @@ export const ProjectInvitationDetailPage: React.FC = () => {
 
   const handleResponse = async (response: 'accepted' | 'declined') => {
     if (!invitation) return;
-    
+
     setIsResponding(true);
     try {
       await respondToProjectInvitation(invitation.id, response);

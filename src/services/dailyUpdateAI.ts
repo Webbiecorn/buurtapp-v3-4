@@ -35,7 +35,7 @@ interface PriorityItem {
 }
 
 export async function generateDailyUpdate(data: DailyUpdateData, userName?: string, greeting?: string): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
   
   const today = startOfToday();
   const todayStr = format(today, 'EEEE d MMMM yyyy', { locale: nl });
@@ -209,7 +209,7 @@ Focus op: hoogtepunten, context, en wat aandacht verdient vandaag.`;
 
 // Generate weekly update with trends
 export async function generateWeeklyUpdate(data: DailyUpdateData): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
   
   const today = startOfToday();
   const weekStart = startOfWeek(today, { locale: nl });

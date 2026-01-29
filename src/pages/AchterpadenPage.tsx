@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AchterpadenRegistratie from './AchterpadenRegistratie';
 import AchterpadenOverzicht from './AchterpadenOverzicht';
 import AchterpadenKaartOverzicht from './AchterpadenKaartOverzicht';
@@ -9,8 +10,16 @@ import { UserRole } from '../types';
 
 const AchterpadenPage: React.FC = () => {
   const { currentUser } = useAppContext();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'registratie' | 'kaart' | 'overzicht' | 'stats' | 'beheer'>('registratie');
   const [selectedAchterpadForEdit, setSelectedAchterpadForEdit] = useState<any | null>(null);
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['registratie', 'kaart', 'overzicht', 'stats', 'beheer'].includes(tabParam)) {
+      setActiveTab(tabParam as any);
+    }
+  }, [searchParams]);
 
   // Dynamic tabs based on user role
   const baseTabs = [
@@ -20,7 +29,7 @@ const AchterpadenPage: React.FC = () => {
     { key: 'stats', label: 'Statistieken' },
   ];
 
-  const tabs = currentUser?.role === UserRole.Beheerder 
+  const tabs = currentUser?.role === UserRole.Beheerder
     ? [...baseTabs, { key: 'beheer', label: '⚙️ Beheer' }]
     : baseTabs;
 
@@ -30,9 +39,9 @@ const AchterpadenPage: React.FC = () => {
         {tabs.map(tab => (
           <button
             key={tab.key}
-            className={`px-4 py-2 font-medium border-b-2 transition-colors duration-200 focus:outline-none 
-              ${activeTab === tab.key 
-                ? 'border-brand-primary text-brand-primary dark:border-brand-primary dark:text-brand-primary' 
+            className={`px-4 py-2 font-medium border-b-2 transition-colors duration-200 focus:outline-none
+              ${activeTab === tab.key
+                ? 'border-brand-primary text-brand-primary dark:border-brand-primary dark:text-brand-primary'
                 : 'border-transparent text-gray-600 hover:text-brand-primary dark:text-gray-300 dark:hover:text-brand-primary'}
             `}
             onClick={() => setActiveTab(tab.key as any)}

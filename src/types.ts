@@ -255,6 +255,7 @@ export interface AppContextType {
   updateDossierAfspraak: (adres: string, afspraakId: string, patch: Partial<Pick<DossierAfspraak, 'start' | 'end' | 'description' | 'bewonerId' | 'bewonerNaam'>>) => Promise<void>;
   removeDossierAfspraak: (adres: string, afspraakId: string) => Promise<void>;
   updateDossierStatus: (adres: string, status: DossierStatus) => Promise<void>;
+  updateDossierWoningType: (adres: string, woningType: string) => Promise<void>;
   addDossierBewoner: (adres: string, bewoner: Omit<DossierBewoner, 'id'>) => Promise<void>;
   updateDossierBewoner: (adres: string, bewonerId: string, patch: Partial<Pick<DossierBewoner, 'name' | 'contact' | 'extraInfo' | 'to' | 'afspraakGemaakt' | 'afspraakStart' | 'afspraakEinde' | 'afspraakNotitie'>>) => Promise<void>;
   removeDossierBewoner: (adres: string, bewonerId: string) => Promise<void>;

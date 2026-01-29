@@ -1,130 +1,106 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { db, storage } from "../firebase";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { APIProvider, Map, Marker, useMap } from '@vis.gl/react-google-maps';
+import { useAppContext } from '../context/AppContext';
 
 type Props = { onSuccess?: () => void };
 
 interface GPSCoord {
   lat: number;
   lng: number;
-  accuracy?: number; // GPS nauwkeurigheid in meters
+  accuracy?: number;
 }
 
 const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
-  const [form, setForm] = useState({
+  const { currentUser } = useAppContext();
+
+  // Auto-detected fields
+  const [autoDetected, setAutoDetected] = useState({
     straat: "",
     wijk: "",
-    beschrijving: "",
-    typePad: "",
-    lengte: "",
-    breedte: "",
-    eigendom: "",
-    toegankelijk: "",
-    staat: "",
-    obstakels: "",
+    huisnummers: "",
+    lengte: 0,
   });
-  const [beginpunt, setBeginpunt] = useState<GPSCoord | null>(null);
-  const [eindpunt, setEindpunt] = useState<GPSCoord | null>(null);
-  const [gpsLoading, setGpsLoading] = useState<'begin' | 'eind' | null>(null);
-  
-  // GPS Tracking state
-  const [isTracking, setIsTracking] = useState(false);
-  const [isPaused, setIsPaused] = useState(false); // Auto-pause bij stilstand
+
+  // User input fields
+  const [veiligheid, setVeiligheid] = useState({
+    verlichting: "",
+    zichtbaarheid: "",
+    score: 0,
+  });
+
+  const [onderhoud, setOnderhoud] = useState({
+    bestrating: "",
+    begroeiing: "",
+    vervuiling: "",
+    urgentie: "",
+  });
+
+  const [beschrijving, setBeschrijving] = useState("");
+  const [bewonerEnquete, setBewonerEnquete] = useState(false);
+  const [enquetes, setEnquetes] = useState<Array<{
+    gebruikt: string;
+    veiligheidScore: number;
+    verbeteringen: string[];
+    opmerkingen: string;
+  }>>([]);
+
+  // GPS Route state
   const [routePoints, setRoutePoints] = useState<GPSCoord[]>([]);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isTracking, setIsTracking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [currentAccuracy, setCurrentAccuracy] = useState<number | null>(null);
+  const [selectedMarkerIndex, setSelectedMarkerIndex] = useState<number | null>(null);
+  const [routeHistory, setRouteHistory] = useState<GPSCoord[][]>([]);
+
   const trackingIntervalRef = React.useRef<number | null>(null);
   const lastGoodPositionRef = React.useRef<GPSCoord | null>(null);
-  
-  // ✏️ Route Editor state
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [originalRoute, setOriginalRoute] = useState<GPSCoord[]>([]);
-  const [routeHistory, setRouteHistory] = useState<GPSCoord[][]>([]);
-  const [selectedMarkerIndex, setSelectedMarkerIndex] = useState<number | null>(null);
-  
-  const [paden, setPaden] = useState<Array<{ naam: string; huisnummers: string }>>([
-    { naam: "Pad 1", huisnummers: "" }
-  ]);
+
   const [media, setMedia] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-  setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleRadio = (name: string, value: string) => {
-    setForm({ ...form, [name]: value });
-  };
-
-  const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) setMedia([...media, ...Array.from(e.target.files)]);
-  };
-
-  // Refs voor de verschillende file inputs
+  // Refs voor camera/gallery inputs
   const cameraInputRef = React.useRef<HTMLInputElement>(null);
   const galleryInputRef = React.useRef<HTMLInputElement>(null);
 
-  const openCamera = () => {
-    cameraInputRef.current?.click();
-  };
+  // Wijk mapping voor Lelystad
+  const getWijkFromPostcode = (postcode: string): string | null => {
+    if (!postcode) return null;
+    const pc = postcode.replace(/\s/g, '').toUpperCase();
 
-  const openGallery = () => {
-    galleryInputRef.current?.click();
-  };
-
-  // GPS functies met accuracy filtering
-  const getGPSLocation = (type: 'begin' | 'eind') => {
-    if (!navigator.geolocation) {
-      alert('GPS is niet beschikbaar op dit apparaat');
-      return;
-    }
-
-    setGpsLoading(type);
-    
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const accuracy = position.coords.accuracy;
-        
-        // ⭐ ACCURACY FILTER: Alleen punten < 15m accepteren
-        if (accuracy > 15) {
-          alert(`GPS nauwkeurigheid te laag (${Math.round(accuracy)}m). Probeer opnieuw op een locatie met beter GPS signaal.`);
-          setGpsLoading(null);
-          return;
-        }
-        
-        const coord = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: accuracy
-        };
-        
-        if (type === 'begin') {
-          setBeginpunt(coord);
-          lastGoodPositionRef.current = coord;
-        } else {
-          setEindpunt(coord);
-        }
-        
-        setGpsLoading(null);
-      },
-      (error) => {
-        console.error('GPS error:', error);
-        alert(`GPS locatie kon niet worden bepaald: ${error.message}`);
-        setGpsLoading(null);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
+    // Specifieke mapping op volgorde (meest specifiek eerst)
+    const wijkMapping: Array<{name: string; min: string; max: string}> = [
+      // Boswijk (8212DA - 8225VL) - specifiek voor Kamp, Wold, etc.
+      { name: 'Boswijk', min: '8212DA', max: '8225VL' },
+      // Atolwijk (exclusief Boswijk gebied)
+      { name: 'Atolwijk', min: '8226AA', max: '8232ET' },
+      { name: 'Atolwijk', min: '8212AA', max: '8212CZ' }, // Voor lagere postcodes
+      // Andere wijken
+      { name: 'Zuiderzeewijk', min: '8211BA', max: '8224MJ' },
+      { name: 'Waterwijk-Landerijen', min: '8219AA', max: '8226TW' },
+      { name: 'Bolder', min: '8231CA', max: '8243DG' },
+      { name: 'Kustwijk', min: '8231AA', max: '8243NG' },
+      { name: 'Havendiep', min: '8232JA', max: '8245GN' },
+      { name: 'Lelystad-Haven', min: '8243PA', max: '8245AB' },
+      { name: 'Stadshart', min: '8224BX', max: '8232ZZ' },
+      { name: 'Warande', min: '8233HB', max: '8245MA' },
+      { name: 'Buitengebied', min: '8211AA', max: '8245AA' },
+    ];
+    for (const wijk of wijkMapping) {
+      if (pc >= wijk.min && pc <= wijk.max) {
+        return wijk.name;
       }
-    );
+    }
+    return null;
   };
 
-  // Bereken afstand tussen twee GPS punten (Haversine formule)
+  // Haversine distance calculation
   const calculateDistance = (point1: GPSCoord, point2: GPSCoord): number => {
-    const R = 6371000; // Aarde radius in meters
+    const R = 6371000;
     const φ1 = point1.lat * Math.PI / 180;
     const φ2 = point2.lat * Math.PI / 180;
     const Δφ = (point2.lat - point1.lat) * Math.PI / 180;
@@ -135,230 +111,161 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
               Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-    return Math.round(R * c); // Afstand in meters
+    return Math.round(R * c);
   };
 
-  // Automatisch lengte berekenen als beide punten bekend zijn
-  React.useEffect(() => {
-    // Als tracking actief is, bereken route lengte
+  // Auto-detect location info
+  const detectLocationInfo = async () => {
+    if (routePoints.length < 2) return;
+
+    const firstPoint = routePoints[0];
+    const lastPoint = routePoints[routePoints.length - 1];
+
+    try {
+      const [firstRes, lastRes] = await Promise.all([
+        fetch(`https://api.pdok.nl/bzk/locatieserver/search/v3_1/reverse?lat=${firstPoint.lat}&lon=${firstPoint.lng}&rows=1`),
+        fetch(`https://api.pdok.nl/bzk/locatieserver/search/v3_1/reverse?lat=${lastPoint.lat}&lon=${lastPoint.lng}&rows=1`)
+      ]);
+
+      const [firstData, lastData] = await Promise.all([firstRes.json(), lastRes.json()]);
+
+      if (firstData.response?.docs?.[0] && lastData.response?.docs?.[0]) {
+        const firstDoc = firstData.response.docs[0];
+        const lastDoc = lastData.response.docs[0];
+
+        const street = firstDoc.straatnaam || firstDoc.weergavenaam?.split(',')[0] || '';
+
+        const firstNum = firstDoc.huisnummer || '';
+        const lastNum = lastDoc.huisnummer || '';
+        const huisnummers = firstNum && lastNum ? `${firstNum}-${lastNum}` : (firstNum || lastNum || '');
+
+        const postcode = firstDoc.postcode || '';
+        const wijk = getWijkFromPostcode(postcode) || firstDoc.wijk || '';
+
+        setAutoDetected(prev => ({
+          ...prev,
+          straat: street,
+          wijk: wijk,
+          huisnummers: huisnummers,
+        }));
+      }
+    } catch (error) {
+      console.error('Auto-detect error:', error);
+    }
+  };
+
+  // Auto-calculate length and detect location
+  useEffect(() => {
     if (routePoints.length >= 2) {
       let totalDistance = 0;
       for (let i = 0; i < routePoints.length - 1; i++) {
         totalDistance += calculateDistance(routePoints[i], routePoints[i + 1]);
       }
-      setForm(prev => ({ ...prev, lengte: totalDistance.toString() }));
+      setAutoDetected(prev => ({ ...prev, lengte: Math.round(totalDistance) }));
+      detectLocationInfo();
     }
-    // Anders gebruik handmatige begin/eindpunt
-    else if (beginpunt && eindpunt && !isTracking) {
-      const afstand = calculateDistance(beginpunt, eindpunt);
-      setForm(prev => ({ ...prev, lengte: afstand.toString() }));
-    }
-  }, [beginpunt, eindpunt, routePoints, isTracking]);
+  }, [routePoints]);
 
-  // GPS Tracking functies met accuracy + movement filtering
+  // Route editor functions
+  const addRoutePoint = (lat: number, lng: number) => {
+    setRouteHistory([...routeHistory, routePoints]);
+    setRoutePoints([...routePoints, { lat, lng }]);
+  };
+
+  const updateRoutePoint = (index: number, lat: number, lng: number) => {
+    setRouteHistory([...routeHistory, routePoints]);
+    const updated = [...routePoints];
+    updated[index] = { lat, lng };
+    setRoutePoints(updated);
+  };
+
+  const deleteRoutePoint = (index: number) => {
+    setRouteHistory([...routeHistory, routePoints]);
+    setRoutePoints(routePoints.filter((_, i) => i !== index));
+    if (selectedMarkerIndex === index) setSelectedMarkerIndex(null);
+  };
+
+  const undoRoute = () => {
+    if (routeHistory.length > 0) {
+      const previous = routeHistory[routeHistory.length - 1];
+      setRoutePoints(previous);
+      setRouteHistory(routeHistory.slice(0, -1));
+    }
+  };
+
+  const resetRoute = () => {
+    if (window.confirm('Weet je zeker dat je de route wilt verwijderen?')) {
+      setRouteHistory([...routeHistory, routePoints]);
+      setRoutePoints([]);
+    }
+  };
+
+  // GPS Tracking functies
   const startTracking = () => {
     if (!navigator.geolocation) {
       alert('GPS is niet beschikbaar op dit apparaat');
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const accuracy = position.coords.accuracy;
-        
-        if (accuracy > 15) {
-          alert(`GPS nauwkeurigheid te laag (${Math.round(accuracy)}m). Ga naar buiten of wacht op beter signaal.`);
-          return;
-        }
-        
-        const coord = { 
-          lat: position.coords.latitude, 
-          lng: position.coords.longitude,
-          accuracy: accuracy
-        };
-        
-        setBeginpunt(coord);
-        setRoutePoints([coord]);
-        setIsTracking(true);
-        setIsPaused(false);
-        lastGoodPositionRef.current = coord;
-        setCurrentAccuracy(accuracy);
+    setIsTracking(true);
+    setIsPaused(false);
 
-        // Tracking elke 3 seconden (sneller voor betere detectie)
-        trackingIntervalRef.current = window.setInterval(() => {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              const accuracy = pos.coords.accuracy;
-              const newPoint = { 
-                lat: pos.coords.latitude, 
-                lng: pos.coords.longitude,
-                accuracy: accuracy
-              };
-              
-              setCurrentAccuracy(accuracy);
-              
-              // ⭐ ACCURACY FILTER: Slechte punten negeren
-              if (accuracy > 15) {
-                console.log(`Punt genegeerd: accuracy ${Math.round(accuracy)}m te hoog`);
-                return;
-              }
-              
-              // ⭐ MOVEMENT THRESHOLD: Alleen toevoegen als >5m verplaatst
-              const lastPoint = lastGoodPositionRef.current;
-              if (lastPoint) {
-                const distance = calculateDistance(lastPoint, newPoint);
-                
-                // ⚡ STOP DETECTION: Als <3m in 3 seconden → stilstand
-                if (distance < 3) {
-                  console.log('Stilstand gedetecteerd, punt niet toegevoegd');
-                  setIsPaused(true);
-                  return;
-                }
-                
-                // Alleen toevoegen als significante beweging (>5m)
-                if (distance > 5) {
-                  setRoutePoints(prev => [...prev, newPoint]);
-                  lastGoodPositionRef.current = newPoint;
-                  setIsPaused(false);
-                  console.log(`Punt toegevoegd: ${Math.round(distance)}m verplaatst, accuracy ${Math.round(accuracy)}m`);
-                }
-              } else {
-                // Eerste punt altijd toevoegen
-                setRoutePoints(prev => [...prev, newPoint]);
-                lastGoodPositionRef.current = newPoint;
-              }
-            },
-            (error) => console.error('Tracking error:', error),
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-          );
-        }, 3000); // 3 seconden interval
-      },
-      (error) => alert(`GPS kon niet worden bepaald: ${error.message}`),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+    // Start interval voor GPS tracking
+    trackingIntervalRef.current = window.setInterval(() => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const accuracy = position.coords.accuracy;
+          setCurrentAccuracy(accuracy);
+
+          // Alleen punten met goede accuracy accepteren (< 15m)
+          if (accuracy > 15) {
+            console.log('GPS nauwkeurigheid te laag:', accuracy);
+            return;
+          }
+
+          const newPoint: GPSCoord = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: accuracy
+          };
+
+          // Check of we bewogen zijn (minimaal 3 meter van vorig punt)
+          const lastPoint = lastGoodPositionRef.current;
+          if (lastPoint) {
+            const distance = calculateDistance(lastPoint, newPoint);
+            if (distance < 3) {
+              setIsPaused(true);
+              return; // Te weinig beweging, sla punt over
+            }
+          }
+
+          setIsPaused(false);
+          lastGoodPositionRef.current = newPoint;
+          setRoutePoints(prev => [...prev, newPoint]);
+        },
+        (error) => {
+          console.error('GPS error:', error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }, 3000); // Check elke 3 seconden
   };
 
   const stopTracking = () => {
+    setIsTracking(false);
+    setIsPaused(false);
     if (trackingIntervalRef.current) {
       clearInterval(trackingIntervalRef.current);
       trackingIntervalRef.current = null;
     }
-
-    if (routePoints.length > 0) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const coord = { lat: position.coords.latitude, lng: position.coords.longitude };
-          setEindpunt(coord);
-          const finalRoute = [...routePoints, coord];
-          setRoutePoints(finalRoute);
-          setOriginalRoute(finalRoute); // 💾 Backup voor reset
-          setIsTracking(false);
-        },
-        () => {
-          setEindpunt(routePoints[routePoints.length - 1]);
-          setOriginalRoute([...routePoints]); // 💾 Backup voor reset
-          setIsTracking(false);
-        },
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-      );
-    } else {
-      setIsTracking(false);
-    }
   };
 
-  const addWaypoint = () => {
-    if (!isTracking) {
-      alert('Start eerst GPS tracking');
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const coord = { lat: position.coords.latitude, lng: position.coords.longitude };
-        setRoutePoints(prev => [...prev, coord]);
-      },
-      () => alert('Kon waypoint niet toevoegen'),
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-    );
-  };
-
-  const resetTracking = () => {
-    if (trackingIntervalRef.current) {
-      clearInterval(trackingIntervalRef.current);
-    }
-    setBeginpunt(null);
-    setEindpunt(null);
-    setRoutePoints([]);
-    setIsTracking(false);
-    setIsEditMode(false);
-    setOriginalRoute([]);
-    setRouteHistory([]);
-  };
-
-  // ✏️ Route Editor functies
-  const startEditMode = () => {
-    setIsEditMode(true);
-    setRouteHistory([routePoints]); // Start history met huidige route
-  };
-
-  const saveEdits = () => {
-    setOriginalRoute([...routePoints]); // Update backup
-    setIsEditMode(false);
-    setRouteHistory([]);
-    setSelectedMarkerIndex(null);
-  };
-
-  const cancelEdits = () => {
-    setRoutePoints([...originalRoute]); // Herstel naar laatste opgeslagen versie
-    setIsEditMode(false);
-    setRouteHistory([]);
-    setSelectedMarkerIndex(null);
-  };
-
-  const undoLastEdit = () => {
-    if (routeHistory.length > 1) {
-      const newHistory = [...routeHistory];
-      newHistory.pop(); // Verwijder huidige
-      const previousRoute = newHistory[newHistory.length - 1];
-      setRoutePoints(previousRoute);
-      setRouteHistory(newHistory);
-    }
-  };
-
-  const resetToOriginal = () => {
-    setRoutePoints([...originalRoute]);
-    setRouteHistory([originalRoute]);
-  };
-
-  const addRoutePoint = (lat: number, lng: number) => {
-    if (!isEditMode) return;
-    
-    const newPoint: GPSCoord = { lat, lng };
-    const updated = [...routePoints, newPoint];
-    setRoutePoints(updated);
-    setRouteHistory(prev => [...prev, updated]); // Add to history
-  };
-
-  const removeRoutePoint = (index: number) => {
-    if (!isEditMode) return;
-    
-    const updated = routePoints.filter((_, i) => i !== index);
-    setRoutePoints(updated);
-    setRouteHistory(prev => [...prev, updated]);
-    setSelectedMarkerIndex(null);
-  };
-
-  const updateMarkerPosition = (index: number, lat: number, lng: number) => {
-    if (!isEditMode) return;
-    
-    const updated = [...routePoints];
-    updated[index] = { ...updated[index], lat, lng };
-    setRoutePoints(updated);
-    setRouteHistory(prev => [...prev, updated]);
-  };
-
-  // Cleanup bij unmount
-  React.useEffect(() => {
+  // Cleanup tracking bij unmount
+  useEffect(() => {
     return () => {
       if (trackingIntervalRef.current) {
         clearInterval(trackingIntervalRef.current);
@@ -366,769 +273,776 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
     };
   }, []);
 
-  const resetGPS = () => {
-    setBeginpunt(null);
-    setEindpunt(null);
-    setForm(prev => ({ ...prev, lengte: '' }));
+  const openCamera = () => cameraInputRef.current?.click();
+  const openGallery = () => galleryInputRef.current?.click();
+
+  const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) setMedia([...media, ...Array.from(e.target.files)]);
   };
 
-  // Component om de route op de kaart te tekenen
-  const RoutePolyline = () => {
+  const removeMedia = (index: number) => {
+    setMedia(media.filter((_, i) => i !== index));
+  };
+
+  const addBewonerEnquete = () => {
+    setEnquetes([...enquetes, {
+      gebruikt: '',
+      veiligheidScore: 0,
+      verbeteringen: [],
+      opmerkingen: ''
+    }]);
+  };
+
+  const updateEnquete = (index: number, field: string, value: any) => {
+    const updated = [...enquetes];
+    updated[index] = { ...updated[index], [field]: value };
+    setEnquetes(updated);
+  };
+
+  const removeEnquete = (index: number) => {
+    setEnquetes(enquetes.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Stop tracking als actief
+    if (isTracking) {
+      stopTracking();
+    }
+
+    // Validatie
+    if (routePoints.length < 2) {
+      alert('Teken eerst een route op de kaart (minimaal 2 punten)');
+      return;
+    }
+
+    if (media.length === 0) {
+      alert('Minimaal 1 foto is verplicht voor registratie.');
+      return;
+    }
+
+    if (!onderhoud.urgentie) {
+      alert('Selecteer een urgentie niveau.');
+      return;
+    }
+    if (media.length === 0) {
+      alert('Voeg minimaal 1 foto toe');
+      return;
+    }
+    if (!veiligheid.verlichting || !veiligheid.zichtbaarheid || veiligheid.score === 0) {
+      alert('Vul alle veiligheidsvelden in');
+      return;
+    }
+    if (!onderhoud.bestrating || !onderhoud.begroeiing || !onderhoud.vervuiling || !onderhoud.urgentie) {
+      alert('Vul alle onderhoudsvelden in');
+      return;
+    }
+
+    setUploading(true);
+    setSuccess(false);
+
+    try {
+      // Upload media
+      const mediaUrls: string[] = [];
+      for (const file of media) {
+        const fileRef = ref(storage, `achterpaden/${Date.now()}_${file.name}`);
+        await uploadBytes(fileRef, file);
+        const url = await getDownloadURL(fileRef);
+        mediaUrls.push(url);
+      }
+
+      // Save to Firestore
+      await addDoc(collection(db, "achterpaden"), {
+        // Auto-detected
+        straat: autoDetected.straat,
+        wijk: autoDetected.wijk,
+        huisnummers: autoDetected.huisnummers,
+        lengte: autoDetected.lengte,
+
+        // GPS
+        gpsRoute: routePoints,
+
+        // Veiligheid
+        veiligheid: {
+          verlichting: veiligheid.verlichting,
+          zichtbaarheid: veiligheid.zichtbaarheid,
+          score: veiligheid.score,
+        },
+
+        // Onderhoud
+        onderhoud: {
+          bestrating: onderhoud.bestrating,
+          begroeiing: onderhoud.begroeiing,
+          vervuiling: onderhoud.vervuiling,
+          urgentie: onderhoud.urgentie,
+        },
+
+        // Extra info
+        beschrijving: beschrijving,
+        media: mediaUrls,
+        bewonerEnquetes: bewonerEnquete ? enquetes : [],
+
+        // Medewerker
+        registeredBy: {
+          userId: currentUser?.id || '',
+          userName: currentUser?.name || currentUser?.email || 'Onbekend',
+          userRole: currentUser?.role || '',
+        },
+
+        createdAt: Timestamp.now(),
+      });
+
+      setUploading(false);
+      setSuccess(true);
+
+      // Reset
+      setAutoDetected({ straat: '', wijk: '', huisnummers: '', lengte: 0 });
+      setVeiligheid({ verlichting: '', zichtbaarheid: '', score: 0 });
+      setOnderhoud({ bestrating: '', begroeiing: '', vervuiling: '', urgentie: '' });
+      setBeschrijving('');
+      setBewonerEnquete(false);
+      setEnquetes([]);
+      setRoutePoints([]);
+      setRouteHistory([]);
+      setMedia([]);
+      setIsEditMode(false);
+
+      if (onSuccess) onSuccess();
+    } catch (error) {
+      console.error('Error saving:', error);
+      alert('Er ging iets mis bij het opslaan. Probeer opnieuw.');
+      setUploading(false);
+    }
+  };
+
+  // Helper components
+  const ChoiceButton: React.FC<{
+    active: boolean;
+    onClick: () => void;
+    children: React.ReactNode;
+  }> = ({ active, onClick, children }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-4 py-2.5 rounded-lg font-medium transition-all ${
+        active
+          ? 'bg-brand-primary text-white shadow-md'
+          : 'bg-gray-100 dark:bg-dark-border text-gray-700 dark:text-dark-text-secondary hover:bg-gray-200 dark:hover:bg-dark-bg'
+      }`}
+    >
+      {children}
+    </button>
+  );
+
+  const StarRating: React.FC<{ value: number; onChange: (v: number) => void }> = ({ value, onChange }) => (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map(star => (
+        <button
+          key={star}
+          type="button"
+          onClick={() => onChange(star)}
+          className="text-3xl transition-all hover:scale-110"
+        >
+          {star <= value ? '⭐' : '☆'}
+        </button>
+      ))}
+    </div>
+  );
+
+  // Polyline component voor route weergave
+  const RoutePolyline: React.FC = () => {
     const map = useMap();
-    
-    React.useEffect(() => {
-      if (!map) return;
-      
-      // Gebruik route points als die beschikbaar zijn, anders begin/eindpunt
-      const path = routePoints.length >= 2 
-        ? routePoints 
-        : (beginpunt && eindpunt ? [beginpunt, eindpunt] : []);
-      
-      if (path.length < 2) return;
-      
-      // Teken lijn door alle punten
-      const line = new google.maps.Polyline({
-        path: path,
+
+    useEffect(() => {
+      if (!map || !window.google || routePoints.length < 2) return;
+
+      const polyline = new window.google.maps.Polyline({
+        path: routePoints.map(p => ({ lat: p.lat, lng: p.lng })),
         geodesic: true,
-        strokeColor: isTracking ? '#10B981' : (isEditMode ? '#9333EA' : '#1d4ed8'), // Paars in edit mode
+        strokeColor: isTracking ? '#10B981' : '#3B82F6', // Groen tijdens tracking, blauw bij handmatig
         strokeOpacity: 1.0,
-        strokeWeight: 4,
+        strokeWeight: 3,
         map: map
       });
 
-      // Pas viewport aan zodat alle punten zichtbaar zijn
-      const bounds = new google.maps.LatLngBounds();
-      path.forEach(point => bounds.extend(point));
-      map.fitBounds(bounds, 50);
-
       return () => {
-        line.setMap(null);
+        polyline.setMap(null);
       };
-    }, [map, beginpunt, eindpunt, routePoints, isTracking]);
+    }, [map, routePoints, isTracking]);
 
     return null;
   };
-  
-  // ✏️ Interactieve kaart voor edit mode
-  const InteractiveMap = () => {
+
+  // Click listener voor route editor
+  const MapClickHandler: React.FC = () => {
     const map = useMap();
-    
-    React.useEffect(() => {
+
+    useEffect(() => {
       if (!map || !isEditMode) return;
-      
-      // ✏️ Klik op kaart → nieuw punt toevoegen
+
       const clickListener = map.addListener('click', (e: google.maps.MapMouseEvent) => {
         if (e.latLng) {
           addRoutePoint(e.latLng.lat(), e.latLng.lng());
         }
       });
-      
-      // Verander cursor in edit mode
+
       map.setOptions({ draggableCursor: 'crosshair' });
-      
+
       return () => {
         google.maps.event.removeListener(clickListener);
         map.setOptions({ draggableCursor: '' });
       };
     }, [map, isEditMode]);
-    
+
     return null;
   };
 
-  // print action intentionally removed (unused)
-
-  const handlePadChange = (idx: number, field: "naam" | "huisnummers", value: string) => {
-    setPaden(paden => paden.map((pad, i) => i === idx ? { ...pad, [field]: value } : pad));
-  };
-
-  const handleAddPad = () => {
-    setPaden([...paden, { naam: `Pad ${paden.length + 1}`, huisnummers: "" }]);
-  };
-
-  const handleRemovePad = (idx: number) => {
-    setPaden(paden => paden.filter((_, i) => i !== idx));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setUploading(true);
-    setSuccess(false);
-
-    // Upload media files to Firebase Storage
-    const mediaUrls: string[] = [];
-    for (const file of media) {
-      const fileRef = ref(storage, `achterpaden/${Date.now()}_${file.name}`);
-      await uploadBytes(fileRef, file);
-      const url = await getDownloadURL(fileRef);
-      mediaUrls.push(url);
-    }
-
-    // Save form data to Firestore
-    await addDoc(collection(db, "achterpaden"), {
-      ...form,
-      paden,
-      media: mediaUrls,
-      gpsBeginpunt: beginpunt,
-      gpsEindpunt: eindpunt,
-      gpsRoute: routePoints.length > 0 ? routePoints : null,
-      createdAt: Timestamp.now(),
-    });
-
-    setUploading(false);
-    setSuccess(true);
-    setForm({
-      straat: "",
-      wijk: "",
-      beschrijving: "",
-      typePad: "",
-      lengte: "",
-      breedte: "",
-      eigendom: "",
-      toegankelijk: "",
-      staat: "",
-      obstakels: "",
-    });
-    setBeginpunt(null);
-    setEindpunt(null);
-    setRoutePoints([]);
-    setMedia([]);
-    setPaden([{ naam: "Pad 1", huisnummers: "" }]);
-    
-    // Activeer overzicht-tab indien callback meegegeven
-    if (onSuccess) onSuccess();
-  };
+  const centerMap = routePoints.length > 0
+    ? routePoints[Math.floor(routePoints.length / 2)]
+    : { lat: 52.5083, lng: 5.4750 }; // Lelystad centrum
 
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white dark:bg-dark-surface rounded-xl shadow print:bg-white print:shadow-none print:p-0">
-      <h1 className="text-3xl font-bold mb-6 text-gray-900 dark:text-dark-text-primary">Achterpaden registratie</h1>
-  <form className="space-y-6 sm:space-y-8" onSubmit={handleSubmit}>
-        {/* Locatie */}
-        <div>
-          <h2 className="text-lg font-semibold mb-2 text-brand-primary dark:text-brand-primary">Locatie</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label htmlFor="straat" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Straatnaam</label>
-              <input id="straat" name="straat" value={form.straat} onChange={handleChange} className="mt-1 border rounded w-full p-2 bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary border-gray-300 dark:border-dark-border" />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="wijk" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Wijk</label>
-              <input id="wijk" name="wijk" value={form.wijk} onChange={handleChange} className="mt-1 border rounded w-full p-2 bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary border-gray-300 dark:border-dark-border" />
-            </div>
-          </div>
-          {/* Huisnummers worden nu per pad toegevoegd, zie dynamische paden hierboven */}
-        </div>
-        {/* Pad details */}
-        <div>
-          <h2 className="text-lg font-semibold mb-2 text-brand-primary dark:text-brand-primary">Pad details</h2>
-          <div className="space-y-4">
-            {paden.map((pad, idx) => (
-              <div key={idx} className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-                <div className="space-y-2">
-                  <label htmlFor={`pad-naam-${idx}`} className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Pad naam</label>
-                  <input id={`pad-naam-${idx}`} value={pad.naam} onChange={e => handlePadChange(idx, "naam", e.target.value)} className="mt-1 border rounded w-full p-2 bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary border-gray-300 dark:border-dark-border" />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor={`pad-huisnummers-${idx}`} className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Huisnummers grenzend aan dit pad</label>
-                  <input id={`pad-huisnummers-${idx}`} value={pad.huisnummers} onChange={e => handlePadChange(idx, "huisnummers", e.target.value)} className="mt-1 border rounded w-full p-2 bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary border-gray-300 dark:border-dark-border" />
-                </div>
-                {paden.length > 1 && (
-                  <div className="col-span-2 text-right">
-                    <button type="button" onClick={() => handleRemovePad(idx)} className="text-red-600 hover:underline text-sm">Pad verwijderen</button>
-                  </div>
-                )}
-              </div>
-            ))}
-            <div>
-              <button type="button" onClick={handleAddPad} className="px-4 py-1 bg-brand-primary text-white rounded shadow hover:bg-brand-primary/90">Pad toevoegen</button>
-            </div>
-          </div>
-          <div className="mt-4">
-            <label htmlFor="beschrijving" className="text-gray-700 dark:text-dark-text-secondary">Beschrijving van het achterpad</label>
-            <textarea id="beschrijving" name="beschrijving" value={form.beschrijving} onChange={handleChange} className="border rounded w-full p-2 bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary border-gray-300 dark:border-dark-border" />
-          </div>
-          <div className="flex gap-4 mt-2">
-            <label className="flex items-center gap-2"><input type="radio" name="typePad" checked={form.typePad === "enkel"} onChange={() => handleRadio("typePad", "enkel")} /> Enkel pad</label>
-            <label className="flex items-center gap-2"><input type="radio" name="typePad" checked={form.typePad === "doorlopend"} onChange={() => handleRadio("typePad", "doorlopend")} /> Doorlopende paden</label>
-            <label className="flex items-center gap-2"><input type="radio" name="typePad" checked={form.typePad === "aangrenzend"} onChange={() => handleRadio("typePad", "aangrenzend")} /> Aangrenzende paden</label>
-          </div>
-        </div>
-        {/* GPS Locatie & Afmetingen */}
-        <div>
-          <h2 className="text-lg font-semibold mb-2 text-brand-primary dark:text-brand-primary">📍 GPS Locatie & Afmetingen</h2>
-          
-          {/* GPS Tracking */}
-          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm text-gray-700 dark:text-dark-text-secondary">
-                🚶 Start GPS tracking en loop het achterpad af. De route wordt automatisch vastgelegd!
-              </p>
-              {routePoints.length > 0 && !isTracking && (
-                <button
-                  type="button"
-                  onClick={resetTracking}
-                  className="text-xs px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition"
-                >
-                  🔄 Reset
-                </button>
-              )}
-            </div>
+    <div className="mx-auto p-4 sm:p-6 max-w-7xl">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-4 text-gray-900 dark:text-dark-text-primary">
+        📍 Nieuw Achterpad Registreren
+      </h1>
 
-            {/* Tracking niet gestart */}
-            {!isTracking && routePoints.length === 0 && (
-              <div className="space-y-3">
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        {/* STAP 1: GPS Route Tekenen */}
+        <div className="bg-white dark:bg-dark-surface rounded-xl shadow-sm p-6">
+          <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-dark-text-primary flex items-center gap-2">
+            🗺️ Stap 1: Teken de Route
+          </h2>
+
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {/* GPS Tracking knoppen */}
+              {!isTracking ? (
                 <button
                   type="button"
                   onClick={startTracking}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors bg-green-600 hover:bg-green-700 text-white shadow-lg"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all flex items-center gap-2"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  🚶 Start GPS Tracking
+                  📍 Start GPS Tracking
                 </button>
-                
-                {/* Fallback: Handmatige GPS knoppen */}
-                <details className="mt-3">
-                  <summary className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200">
-                    Of markeer handmatig begin/eindpunt
-                  </summary>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    <button
-                      type="button"
-                      onClick={() => getGPSLocation('begin')}
-                      disabled={gpsLoading !== null}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                        beginpunt 
-                          ? 'bg-green-500 hover:bg-green-600 text-white' 
-                          : 'bg-brand-primary hover:bg-brand-primary/90 text-white'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      {gpsLoading === 'begin' ? (
-                        <>
-                          <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                          </svg>
-                          Bezig...
-                        </>
-                      ) : beginpunt ? (
-                        <>✓ Beginpunt</>
-                      ) : (
-                        <>📍 Beginpunt</>
-                      )}
-                    </button>
-                    
-                    <button
-                      type="button"
-                      onClick={() => getGPSLocation('eind')}
-                      disabled={gpsLoading !== null}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                        eindpunt 
-                          ? 'bg-green-500 hover:bg-green-600 text-white' 
-                          : 'bg-brand-primary hover:bg-brand-primary/90 text-white'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      {gpsLoading === 'eind' ? (
-                        <>
-                          <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                          </svg>
-                          Bezig...
-                        </>
-                      ) : eindpunt ? (
-                        <>✓ Eindpunt</>
-                      ) : (
-                        <>🏁 Eindpunt</>
-                      )}
-                    </button>
-                    
-                    {(beginpunt || eindpunt) && (
-                      <button
-                        type="button"
-                        onClick={resetGPS}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-dark-border dark:hover:bg-dark-bg text-gray-700 dark:text-dark-text-primary rounded-lg font-medium transition-colors"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        Reset
-                      </button>
-                    )}
-                    
-                    {/* Status weergave handmatige punten */}
-                    {(beginpunt || eindpunt) && (
-                      <div className="w-full mt-2 text-sm space-y-1">
-                        {beginpunt && (
-                          <div className="text-green-700 dark:text-green-400">
-                            <p>✓ Beginpunt: {beginpunt.lat.toFixed(6)}, {beginpunt.lng.toFixed(6)}</p>
-                            {beginpunt.accuracy && (
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                📊 Nauwkeurigheid: ±{Math.round(beginpunt.accuracy)}m
-                              </p>
-                            )}
-                          </div>
-                        )}
-                        {eindpunt && (
-                          <div className="text-green-700 dark:text-green-400">
-                            <p>✓ Eindpunt: {eindpunt.lat.toFixed(6)}, {eindpunt.lng.toFixed(6)}</p>
-                            {eindpunt.accuracy && (
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                📊 Nauwkeurigheid: ±{Math.round(eindpunt.accuracy)}m
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </details>
-              </div>
-            )}
-
-            {/* Tracking actief */}
-            {isTracking && (
-              <div className="space-y-3">
-                {/* 📊 VISUAL FEEDBACK: GPS Accuracy Status */}
-                {currentAccuracy !== null && (
-                  <div className={`p-3 rounded-lg border-2 ${
-                    currentAccuracy < 5 
-                      ? 'bg-green-50 dark:bg-green-900/20 border-green-500' 
-                      : currentAccuracy < 10
-                      ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500'
-                      : currentAccuracy < 15
-                      ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-500'
-                      : 'bg-red-50 dark:bg-red-900/20 border-red-500'
-                  }`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">
-                          {currentAccuracy < 5 ? '🎯' : currentAccuracy < 10 ? '📍' : currentAccuracy < 15 ? '⚠️' : '❌'}
-                        </span>
-                        <div>
-                          <p className="font-semibold text-sm">
-                            {currentAccuracy < 5 
-                              ? 'Uitstekend GPS signaal' 
-                              : currentAccuracy < 10
-                              ? 'Goed GPS signaal'
-                              : currentAccuracy < 15
-                              ? 'Matig GPS signaal'
-                              : 'Slecht GPS signaal'}
-                          </p>
-                          <p className="text-xs text-gray-600 dark:text-gray-400">
-                            Nauwkeurigheid: ±{Math.round(currentAccuracy)}m
-                          </p>
-                        </div>
-                      </div>
-                      {isPaused && (
-                        <span className="text-xs px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full">
-                          ⏸ Stilstand
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                <div className="bg-green-50 dark:bg-green-900/30 border-2 border-green-500 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                      </span>
-                      <span className="font-semibold text-green-700 dark:text-green-400">
-                        Tracking actief
-                      </span>
-                    </div>
-                    <span className="text-sm text-green-600 dark:text-green-400">
-                      {routePoints.length} punt{routePoints.length !== 1 ? 'en' : ''}
-                    </span>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={stopTracking}
-                      className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-semibold"
-                    >
-                      🛑 Stop Tracking
-                    </button>
-                    <button
-                      type="button"
-                      onClick={addWaypoint}
-                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      ➕ Waypoint
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tracking voltooid */}
-            {!isTracking && routePoints.length > 0 && (
-              <div className="space-y-3">
-                <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-lg p-4">
-                  <p className="text-green-700 dark:text-green-400 font-semibold mb-2">
-                    ✓ Route vastgelegd!
-                  </p>
-                  <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
-                    <p>📍 {routePoints.length} GPS punt{routePoints.length !== 1 ? 'en' : ''} opgenomen</p>
-                    {form.lengte && (
-                      <p className="font-semibold text-blue-600 dark:text-blue-400">
-                        📏 Totale lengte: {form.lengte} meter
-                      </p>
-                    )}
-                    {/* 📊 Toon gemiddelde accuracy van route */}
-                    {routePoints.some(p => p.accuracy) && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        🎯 Gemiddelde nauwkeurigheid: ±
-                        {Math.round(
-                          routePoints
-                            .filter(p => p.accuracy)
-                            .reduce((sum, p) => sum + (p.accuracy || 0), 0) / 
-                          routePoints.filter(p => p.accuracy).length
-                        )}m
-                      </p>
-                    )}
-                  </div>
-                  
-                  {/* ✏️ ROUTE EDITOR KNOP */}
-                  {!isEditMode && (
-                    <button
-                      type="button"
-                      onClick={startEditMode}
-                      className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      ✏️ Route bewerken
-                    </button>
-                  )}
-                </div>
-                
-                {/* ✏️ EDIT MODE TOOLBAR */}
-                {isEditMode && (
-                  <div className="bg-purple-50 dark:bg-purple-900/30 border-2 border-purple-500 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">✏️</span>
-                        <div>
-                          <p className="font-semibold text-sm text-purple-700 dark:text-purple-300">
-                            Bewerk modus actief
-                          </p>
-                          <p className="text-xs text-gray-600 dark:text-gray-400">
-                            Klik op kaart om punten toe te voegen
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={saveEdits}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Opslaan
-                      </button>
-                      
-                      <button
-                        type="button"
-                        onClick={cancelEdits}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                        Annuleren
-                      </button>
-                      
-                      <button
-                        type="button"
-                        onClick={undoLastEdit}
-                        disabled={routeHistory.length <= 1}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                        </svg>
-                        Undo
-                      </button>
-                      
-                      <button
-                        type="button"
-                        onClick={resetToOriginal}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        Reset
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Kaart weergave (tijdens of na tracking) */}
-            {routePoints.length >= 2 && (
-              <div className="mt-3 border border-gray-300 dark:border-dark-border rounded-lg overflow-hidden">
-                <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
-                  <Map
-                    defaultCenter={routePoints[0]}
-                    defaultZoom={16}
-                    mapId={import.meta.env.VITE_GOOGLE_MAP_LIGHT_ID}
-                    style={{ width: '100%', height: '400px' }}
-                    gestureHandling="cooperative"
-                    disableDefaultUI={isEditMode}
-                  >
-                    {/* Start/Einde markers (normale mode) */}
-                    {!isEditMode && (
-                      <>
-                        <Marker position={routePoints[0]} title="Start" />
-                        {!isTracking && routePoints.length > 1 && (
-                          <Marker position={routePoints[routePoints.length - 1]} title="Einde" />
-                        )}
-                      </>
-                    )}
-                    
-                    {/* ✏️ Bewerkbare waypoint markers (edit mode) */}
-                    {isEditMode && routePoints.map((point, index) => (
-                      <Marker
-                        key={`waypoint-${index}`}
-                        position={point}
-                        title={index === 0 ? 'Start' : index === routePoints.length - 1 ? 'Einde' : `Punt ${index + 1}`}
-                        draggable={true}
-                        onDragEnd={(e) => {
-                          if (e.latLng) {
-                            updateMarkerPosition(index, e.latLng.lat(), e.latLng.lng());
-                          }
-                        }}
-                        onClick={() => setSelectedMarkerIndex(index)}
-                        icon={{
-                          path: google.maps.SymbolPath.CIRCLE,
-                          scale: selectedMarkerIndex === index ? 10 : 7,
-                          fillColor: selectedMarkerIndex === index ? '#EF4444' : '#9333EA',
-                          fillOpacity: 1,
-                          strokeColor: '#FFFFFF',
-                          strokeWeight: 2
-                        }}
-                      />
-                    ))}
-                    
-                    <RoutePolyline />
-                    <InteractiveMap />
-                  </Map>
-                </APIProvider>
-                <div className="bg-gray-50 dark:bg-dark-bg px-3 py-2 text-xs text-gray-600 dark:text-dark-text-secondary border-t border-gray-200 dark:border-dark-border flex items-center justify-between">
-                  <span>
-                    🗺️ {isTracking ? 'Live tracking route (groene lijn)' : isEditMode ? 'Klik om punten toe te voegen • Sleep markers • Klik marker om te verwijderen' : `Vastgelegde route (${form.lengte}m)`}
-                  </span>
-                  {isEditMode && selectedMarkerIndex !== null && (
-                    <button
-                      type="button"
-                      onClick={() => removeRoutePoint(selectedMarkerIndex)}
-                      className="ml-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded font-medium transition-colors"
-                    >
-                      ❌ Verwijder punt {selectedMarkerIndex + 1}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Kaart voor handmatige begin/eindpunt */}
-            {routePoints.length === 0 && beginpunt && eindpunt && (
-              <div className="mt-3 border border-gray-300 dark:border-dark-border rounded-lg overflow-hidden">
-                <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
-                  <Map
-                    defaultCenter={beginpunt}
-                    defaultZoom={16}
-                    mapId={import.meta.env.VITE_GOOGLE_MAP_LIGHT_ID}
-                    style={{ width: '100%', height: '300px' }}
-                    gestureHandling="cooperative"
-                  >
-                    <Marker position={beginpunt} title="Beginpunt" />
-                    <Marker position={eindpunt} title="Eindpunt" />
-                    <RoutePolyline />
-                  </Map>
-                </APIProvider>
-                <div className="bg-gray-50 dark:bg-dark-bg px-3 py-2 text-xs text-gray-600 dark:text-dark-text-secondary border-t border-gray-200 dark:border-dark-border">
-                  🗺️ Route tussen begin- en eindpunt (blauwe lijn = {form.lengte}m)
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="lengte" className="text-gray-700 dark:text-dark-text-secondary">
-                Lengte (meters) {beginpunt && eindpunt ? '- automatisch berekend' : '- handmatig'}
-              </label>
-              <input 
-                id="lengte" 
-                name="lengte" 
-                value={form.lengte} 
-                onChange={handleChange}
-                readOnly={!!(beginpunt && eindpunt)}
-                className={`border rounded w-full p-2 bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary border-gray-300 dark:border-dark-border ${
-                  beginpunt && eindpunt ? 'bg-gray-100 dark:bg-gray-800' : ''
-                }`}
-                placeholder={beginpunt && eindpunt ? 'Automatisch berekend' : 'Schatting in meters'}
-              />
-            </div>
-            <div>
-              <label htmlFor="breedte" className="text-gray-700 dark:text-dark-text-secondary">Breedte (geschat in meters)</label>
-              <input id="breedte" name="breedte" value={form.breedte} onChange={handleChange} className="border rounded w-full p-2 bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary border-gray-300 dark:border-dark-border" />
-            </div>
-          </div>
-        </div>
-        {/* Eigendom & Toegankelijkheid */}
-        <div>
-          <h2 className="text-lg font-semibold mb-2 text-brand-primary dark:text-brand-primary">Eigendom & Toegankelijkheid</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 bg-gray-50 dark:bg-dark-bg rounded-lg border border-gray-200 dark:border-dark-border">
-            {/* Eigendom */}
-            <div>
-              <div className="font-medium mb-2 text-gray-700 dark:text-dark-text-secondary">Eigendom</div>
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-2">
-                  <input type="radio" name="eigendom" checked={form.eigendom === "huur"} onChange={() => handleRadio("eigendom", "huur")} />
-                  Huur
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="radio" name="eigendom" checked={form.eigendom === "particulier"} onChange={() => handleRadio("eigendom", "particulier")} />
-                  Particulier
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="radio" name="eigendom" checked={form.eigendom === "huur_en_particulier"} onChange={() => handleRadio("eigendom", "huur_en_particulier")} />
-                  Huur en Particulier
-                </label>
-              </div>
-            </div>
-            {/* Toegankelijkheid */}
-            <div>
-              <div className="font-medium mb-2 text-gray-700 dark:text-dark-text-secondary">Toegankelijkheid</div>
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-2"><input type="radio" name="toegankelijk" checked={form.toegankelijk === "ja"} onChange={() => handleRadio("toegankelijk", "ja")} /> Toegankelijk</label>
-                <label className="flex items-center gap-2"><input type="radio" name="toegankelijk" checked={form.toegankelijk === "nee"} onChange={() => handleRadio("toegankelijk", "nee")} /> Niet toegankelijk</label>
-              </div>
-            </div>
-            {/* Staat */}
-            <div>
-              <div className="font-medium mb-2 text-gray-700 dark:text-dark-text-secondary">Staat van het pad</div>
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-2">
-                  <input type="radio" name="staat" checked={form.staat === "goed"} onChange={() => handleRadio("staat", "goed")} />
-                  <span>Goed</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="radio" name="staat" checked={form.staat === "matig"} onChange={() => handleRadio("staat", "matig")} />
-                  <span>Matig</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="radio" name="staat" checked={form.staat === "slecht"} onChange={() => handleRadio("staat", "slecht")} />
-                  <span>Slecht</span>
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-        {/* Obstakels */}
-        <div>
-          <h2 className="text-lg font-semibold mb-2 text-brand-primary dark:text-brand-primary">Obstakels of bijzonderheden</h2>
-          <label htmlFor="obstakels" className="text-gray-700 dark:text-dark-text-secondary">Obstakels of bijzonderheden</label>
-          <textarea id="obstakels" name="obstakels" value={form.obstakels} onChange={handleChange} className="border rounded w-full p-2 bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary border-gray-300 dark:border-dark-border" />
-        </div>
-        {/* Media */}
-        <div>
-          <h2 className="text-lg font-semibold mb-2 text-brand-primary dark:text-brand-primary">Foto&apos;s/Filmpjes toevoegen</h2>
-          
-          {/* Hidden file inputs */}
-          <input 
-            ref={cameraInputRef}
-            type="file" 
-            accept="image/*,video/*" 
-            capture="environment"
-            multiple 
-            onChange={handleMediaChange} 
-            className="hidden" 
-          />
-          <input 
-            ref={galleryInputRef}
-            type="file" 
-            accept="image/*,video/*" 
-            multiple 
-            onChange={handleMediaChange} 
-            className="hidden" 
-          />
-          
-          {/* Visible buttons */}
-          <div className="flex flex-wrap gap-2 mb-3">
-            <button
-              type="button"
-              onClick={openCamera}
-              className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg font-medium transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Foto maken
-            </button>
-            <button
-              type="button"
-              onClick={openGallery}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-dark-border dark:hover:bg-dark-bg text-gray-700 dark:text-dark-text-primary rounded-lg font-medium transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              Bestanden kiezen
-            </button>
-          </div>
-          
-          <div className="flex flex-wrap gap-2 mt-2">
-            {media.map((file, idx) =>
-              file.type.startsWith("image/") ? (
-                <div key={idx} className="relative group">
-                  <img src={URL.createObjectURL(file)} alt={file.name} className="h-20 w-20 object-cover rounded border border-gray-200 dark:border-dark-border" />
-                  <span className="absolute top-1 right-1 bg-black bg-opacity-60 text-white text-xs px-2 py-0.5 rounded opacity-0 group-hover:opacity-100">{file.name}</span>
-                </div>
               ) : (
-                <div key={idx} className="relative group">
-                  <video controls aria-label="Bijlage video" className="h-20 w-20 rounded border border-gray-200 dark:border-dark-border">
-                    <source src={URL.createObjectURL(file)} type={file.type} />
-                    {/* captions TODO */}
-                    <track kind="captions" src="" />
-                  </video>
-                  <span className="absolute top-1 right-1 bg-black bg-opacity-60 text-white text-xs px-2 py-0.5 rounded opacity-0 group-hover:opacity-100">{file.name}</span>
-                </div>
-              )
+                <button
+                  type="button"
+                  onClick={stopTracking}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                    isPaused
+                      ? 'bg-yellow-500 text-white animate-pulse'
+                      : 'bg-green-600 text-white'
+                  }`}
+                >
+                  {isPaused ? '⏸️ Gepauzeerd (sta stil)' : '🟢 Tracking actief'}
+                </button>
+              )}
+
+              {/* Manual edit mode knop */}
+              <button
+                type="button"
+                onClick={() => setIsEditMode(!isEditMode)}
+                disabled={isTracking}
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  isEditMode
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-200 dark:bg-dark-border text-gray-700 dark:text-dark-text-secondary'
+                } ${isTracking ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {isEditMode ? '✏️ Bewerken actief' : '✏️ Handmatig bewerken'}
+              </button>
+
+              {routePoints.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={undoRoute}
+                    disabled={routeHistory.length === 0 || isTracking}
+                    className="px-4 py-2 bg-gray-200 dark:bg-dark-border rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                  >
+                    ↶ Ongedaan maken
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetRoute}
+                    disabled={isTracking}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
+                  >
+                    🗑️ Reset route
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* GPS Info */}
+            {isTracking && (
+              <div className={`text-sm p-3 rounded-lg ${
+                isPaused
+                  ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300'
+                  : 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300'
+              }`}>
+                {isPaused ? (
+                  <>⏸️ GPS tracking gepauzeerd - begin met lopen om door te gaan</>
+                ) : (
+                  <>🟢 GPS tracking actief - blijf lopen! (Nauwkeurigheid: {currentAccuracy ? Math.round(currentAccuracy) + 'm' : '...'}) {routePoints.length} punten</>
+                )}
+              </div>
             )}
+
+            <div className="h-96 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-dark-border">
+              <APIProvider apiKey="AIzaSyBsX_16g4PTqinqJvlIblDTFA8ai7RD_I0">
+                <Map
+                  defaultCenter={centerMap}
+                  defaultZoom={15}
+                  mapId="achterpaden-registratie"
+                  gestureHandling="greedy"
+                >
+                  <RoutePolyline />
+                  <MapClickHandler />
+
+                  {routePoints.map((point, idx) => (
+                    <Marker
+                      key={idx}
+                      position={{ lat: point.lat, lng: point.lng }}
+                      draggable={isEditMode}
+                      onDragEnd={(e) => {
+                        if (e.latLng) {
+                          updateRoutePoint(idx, e.latLng.lat(), e.latLng.lng());
+                        }
+                      }}
+                      onClick={() => {
+                        if (isEditMode && window.confirm('Dit punt verwijderen?')) {
+                          deleteRoutePoint(idx);
+                        }
+                      }}
+                      label={{
+                        text: (idx + 1).toString(),
+                        color: 'white',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                      }}
+                    />
+                  ))}
+                </Map>
+              </APIProvider>
+            </div>
+
+            <div className="text-sm text-gray-600 dark:text-dark-text-secondary bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+              💡 <strong>Twee manieren om route te tekenen:</strong>
+              <ul className="mt-2 ml-4 space-y-1">
+                <li><strong>GPS Tracking:</strong> Loop het pad af, GPS volgt automatisch (beste kwaliteit)</li>
+                <li><strong>Handmatig:</strong> Klik punten op de kaart, sleep markers om aan te passen</li>
+              </ul>
+              {isEditMode && (
+                <div className="mt-2 text-xs">
+                  ✏️ Bewerken actief: Klik om punten toe te voegen • Sleep markers • Klik marker om te verwijderen
+                </div>
+              )}
+            </div>
           </div>
         </div>
-        {/* Acties */}
-        <div className="flex items-center gap-4 mt-8">
-          <button
-            type="submit"
-            disabled={uploading}
-            className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded shadow print:hidden transition"
-          >
-            {uploading ? "Opslaan..." : "Opslaan"}
-          </button>
-        </div>
-        {success && (
-          <div className="mt-4 text-green-700 dark:text-green-400 font-semibold">
-            Formulier succesvol opgeslagen!
+
+        {/* Auto-detected Info Box */}
+        {routePoints.length >= 2 && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-4">
+            <h3 className="font-bold text-blue-900 dark:text-blue-300 mb-2">📍 Automatisch Gedetecteerd:</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="font-medium">Straat:</span> {autoDetected.straat || 'Detecteren...'}
+              </div>
+              <div>
+                <span className="font-medium">Wijk:</span> {autoDetected.wijk || 'Detecteren...'}
+              </div>
+              <div>
+                <span className="font-medium">Huisnummers:</span> {autoDetected.huisnummers || 'Detecteren...'}
+              </div>
+              <div>
+                <span className="font-medium">Lengte:</span> {autoDetected.lengte} meter
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-blue-700 dark:text-blue-400">
+              👤 Geregistreerd door: {currentUser?.name || currentUser?.email || 'Onbekend'}
+            </div>
           </div>
         )}
+
+        {/* STAP 2: Veiligheid Beoordeling */}
+        <div className="bg-white dark:bg-dark-surface rounded-xl shadow-sm p-6">
+          <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-dark-text-primary flex items-center gap-2">
+            🛡️ Stap 2: Veiligheid Beoordeling
+          </h2>
+
+          <div className="space-y-6">
+            {/* Verlichting */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-dark-text-secondary">
+                Verlichting
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <ChoiceButton active={veiligheid.verlichting === 'goed'} onClick={() => setVeiligheid({...veiligheid, verlichting: 'goed'})}>
+                  💡 Goed
+                </ChoiceButton>
+                <ChoiceButton active={veiligheid.verlichting === 'voldoende'} onClick={() => setVeiligheid({...veiligheid, verlichting: 'voldoende'})}>
+                  ✅ Voldoende
+                </ChoiceButton>
+                <ChoiceButton active={veiligheid.verlichting === 'matig'} onClick={() => setVeiligheid({...veiligheid, verlichting: 'matig'})}>
+                  🔆 Matig
+                </ChoiceButton>
+                <ChoiceButton active={veiligheid.verlichting === 'slecht'} onClick={() => setVeiligheid({...veiligheid, verlichting: 'slecht'})}>
+                  🌑 Slecht
+                </ChoiceButton>
+                <ChoiceButton active={veiligheid.verlichting === 'geen'} onClick={() => setVeiligheid({...veiligheid, verlichting: 'geen'})}>
+                  ⚫ Geen
+                </ChoiceButton>
+              </div>
+            </div>
+
+            {/* Zichtbaarheid */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-dark-text-secondary">
+                Zichtbaarheid
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <ChoiceButton active={veiligheid.zichtbaarheid === 'goed_overzichtelijk'} onClick={() => setVeiligheid({...veiligheid, zichtbaarheid: 'goed_overzichtelijk'})}>
+                  👁️ Goed overzichtelijk
+                </ChoiceButton>
+                <ChoiceButton active={veiligheid.zichtbaarheid === 'voldoende'} onClick={() => setVeiligheid({...veiligheid, zichtbaarheid: 'voldoende'})}>
+                  👀 Voldoende
+                </ChoiceButton>
+                <ChoiceButton active={veiligheid.zichtbaarheid === 'matig'} onClick={() => setVeiligheid({...veiligheid, zichtbaarheid: 'matig'})}>
+                  👓 Matig
+                </ChoiceButton>
+                <ChoiceButton active={veiligheid.zichtbaarheid === 'slecht'} onClick={() => setVeiligheid({...veiligheid, zichtbaarheid: 'slecht'})}>
+                  🙈 Slecht
+                </ChoiceButton>
+                <ChoiceButton active={veiligheid.zichtbaarheid === 'zeer_slecht'} onClick={() => setVeiligheid({...veiligheid, zichtbaarheid: 'zeer_slecht'})}>
+                  🚫 Zeer slecht
+                </ChoiceButton>
+              </div>
+            </div>
+
+            {/* Algehele Veiligheid */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-dark-text-secondary">
+                Algehele Veiligheid (1-5 sterren)
+              </label>
+              <StarRating value={veiligheid.score} onChange={(v) => setVeiligheid({...veiligheid, score: v})} />
+            </div>
+          </div>
+        </div>
+
+        {/* STAP 3: Onderhoud Beoordeling */}
+        <div className="bg-white dark:bg-dark-surface rounded-xl shadow-sm p-6">
+          <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-dark-text-primary flex items-center gap-2">
+            🔧 Stap 3: Onderhoud Beoordeling
+          </h2>
+
+          <div className="space-y-6">
+            {/* Bestrating */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-dark-text-secondary">
+                Staat Bestrating
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <ChoiceButton active={onderhoud.bestrating === 'goed'} onClick={() => setOnderhoud({...onderhoud, bestrating: 'goed'})}>
+                  ✅ Goed
+                </ChoiceButton>
+                <ChoiceButton active={onderhoud.bestrating === 'voldoende'} onClick={() => setOnderhoud({...onderhoud, bestrating: 'voldoende'})}>
+                  👍 Voldoende
+                </ChoiceButton>
+                <ChoiceButton active={onderhoud.bestrating === 'matig'} onClick={() => setOnderhoud({...onderhoud, bestrating: 'matig'})}>
+                  ⚠️ Matig
+                </ChoiceButton>
+                <ChoiceButton active={onderhoud.bestrating === 'vervangen'} onClick={() => setOnderhoud({...onderhoud, bestrating: 'vervangen'})}>
+                  ❌ Vervangen
+                </ChoiceButton>
+              </div>
+            </div>
+
+            {/* Begroeiing */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-dark-text-secondary">
+                Begroeiing
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <ChoiceButton active={onderhoud.begroeiing === 'goed_verzorgd'} onClick={() => setOnderhoud({...onderhoud, begroeiing: 'goed_verzorgd'})}>
+                  🌳 Goed verzorgd
+                </ChoiceButton>
+                <ChoiceButton active={onderhoud.begroeiing === 'voldoende'} onClick={() => setOnderhoud({...onderhoud, begroeiing: 'voldoende'})}>
+                  🌿 Voldoende
+                </ChoiceButton>
+                <ChoiceButton active={onderhoud.begroeiing === 'overlast'} onClick={() => setOnderhoud({...onderhoud, begroeiing: 'overlast'})}>
+                  🌾 Overlast
+                </ChoiceButton>
+                <ChoiceButton active={onderhoud.begroeiing === 'verwijderen'} onClick={() => setOnderhoud({...onderhoud, begroeiing: 'verwijderen'})}>
+                  🪓 Verwijderen
+                </ChoiceButton>
+              </div>
+            </div>
+
+            {/* Vervuiling */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-dark-text-secondary">
+                Vervuiling / Afval
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <ChoiceButton active={onderhoud.vervuiling === 'schoon'} onClick={() => setOnderhoud({...onderhoud, vervuiling: 'schoon'})}>
+                  ✨ Schoon
+                </ChoiceButton>
+                <ChoiceButton active={onderhoud.vervuiling === 'licht_vervuild'} onClick={() => setOnderhoud({...onderhoud, vervuiling: 'licht_vervuild'})}>
+                  🍂 Licht vervuild
+                </ChoiceButton>
+                <ChoiceButton active={onderhoud.vervuiling === 'vervuild'} onClick={() => setOnderhoud({...onderhoud, vervuiling: 'vervuild'})}>
+                  🗑️ Vervuild
+                </ChoiceButton>
+                <ChoiceButton active={onderhoud.vervuiling === 'zwaar_vervuild'} onClick={() => setOnderhoud({...onderhoud, vervuiling: 'zwaar_vervuild'})}>
+                  🚮 Zwaar vervuild
+                </ChoiceButton>
+              </div>
+            </div>
+
+            {/* Urgentie */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-dark-text-secondary">
+                Urgentie Onderhoud *
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <ChoiceButton active={onderhoud.urgentie === 'geen'} onClick={() => setOnderhoud({...onderhoud, urgentie: 'geen'})}>
+                  ⚪ Geen
+                </ChoiceButton>
+                <ChoiceButton active={onderhoud.urgentie === 'laag'} onClick={() => setOnderhoud({...onderhoud, urgentie: 'laag'})}>
+                  🟢 Laag
+                </ChoiceButton>
+                <ChoiceButton active={onderhoud.urgentie === 'normaal'} onClick={() => setOnderhoud({...onderhoud, urgentie: 'normaal'})}>
+                  🟡 Normaal
+                </ChoiceButton>
+                <ChoiceButton active={onderhoud.urgentie === 'hoog'} onClick={() => setOnderhoud({...onderhoud, urgentie: 'hoog'})}>
+                  🟠 Hoog
+                </ChoiceButton>
+                <ChoiceButton active={onderhoud.urgentie === 'spoed'} onClick={() => setOnderhoud({...onderhoud, urgentie: 'spoed'})}>
+                  🔴 Spoed
+                </ChoiceButton>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* STAP 4: Foto's & Opmerkingen */}
+        <div className="bg-white dark:bg-dark-surface rounded-xl shadow-sm p-6">
+          <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-dark-text-primary flex items-center gap-2">
+            📸 Stap 4: Foto's & Opmerkingen
+          </h2>
+
+          <div className="space-y-4">
+            {/* Foto Upload */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-dark-text-secondary">
+                Foto's * (minimaal 1 verplicht)
+              </label>
+
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*,video/*"
+                capture="environment"
+                onChange={handleMediaChange}
+                className="hidden"
+                multiple
+              />
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*,video/*"
+                onChange={handleMediaChange}
+                className="hidden"
+                multiple
+              />
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={openCamera}
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg font-medium transition"
+                >
+                  📷 Foto maken
+                </button>
+                <button
+                  type="button"
+                  onClick={openGallery}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-dark-border hover:bg-gray-300 text-gray-700 dark:text-dark-text-primary rounded-lg font-medium transition"
+                >
+                  🖼️ Bestanden kiezen
+                </button>
+              </div>
+
+              {media.length > 0 && (
+                <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                  {media.map((file, idx) => (
+                    <div key={idx} className="relative group">
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={file.name}
+                        className="w-full h-24 object-cover rounded border-2 border-gray-200 dark:border-dark-border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeMedia(idx)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Opmerkingen */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-dark-text-secondary">
+                Extra Opmerkingen (optioneel)
+              </label>
+              <textarea
+                value={beschrijving}
+                onChange={(e) => setBeschrijving(e.target.value)}
+                rows={4}
+                placeholder="Aanvullende informatie over het achterpad..."
+                className="w-full border rounded-lg p-3 bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary border-gray-300 dark:border-dark-border"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* STAP 5: Bewoner Enquête (optioneel) */}
+        <div className="bg-white dark:bg-dark-surface rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-dark-text-primary flex items-center gap-2">
+              👥 Stap 5: Bewoner Input (optioneel)
+            </h2>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={bewonerEnquete}
+                onChange={(e) => setBewonerEnquete(e.target.checked)}
+                className="w-5 h-5"
+              />
+              <span className="text-sm font-medium">Bewoners gesproken?</span>
+            </label>
+          </div>
+
+          {bewonerEnquete && (
+            <div className="space-y-4">
+              {enquetes.map((enquete, idx) => (
+                <div key={idx} className="border-2 border-gray-200 dark:border-dark-border rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="font-medium">Bewoner {idx + 1}</h3>
+                    <button
+                      type="button"
+                      onClick={() => removeEnquete(idx)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Verwijderen
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm mb-1">Gebruikt u dit pad regelmatig?</label>
+                      <div className="flex gap-2">
+                        <ChoiceButton
+                          active={enquete.gebruikt === 'ja'}
+                          onClick={() => updateEnquete(idx, 'gebruikt', 'ja')}
+                        >
+                          Ja
+                        </ChoiceButton>
+                        <ChoiceButton
+                          active={enquete.gebruikt === 'soms'}
+                          onClick={() => updateEnquete(idx, 'gebruikt', 'soms')}
+                        >
+                          Soms
+                        </ChoiceButton>
+                        <ChoiceButton
+                          active={enquete.gebruikt === 'nee'}
+                          onClick={() => updateEnquete(idx, 'gebruikt', 'nee')}
+                        >
+                          Nee
+                        </ChoiceButton>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm mb-1">Veiligheidsgevoel (1-5 sterren)</label>
+                      <StarRating
+                        value={enquete.veiligheidScore}
+                        onChange={(v) => updateEnquete(idx, 'veiligheidScore', v)}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm mb-1">Wat kan er verbeterd worden?</label>
+                      <div className="flex flex-wrap gap-2">
+                        {['verlichting', 'bestrating', 'begroeiing', 'afval', 'anders'].map(opt => (
+                          <ChoiceButton
+                            key={opt}
+                            active={enquete.verbeteringen.includes(opt)}
+                            onClick={() => {
+                              const current = enquete.verbeteringen;
+                              const updated = current.includes(opt)
+                                ? current.filter(v => v !== opt)
+                                : [...current, opt];
+                              updateEnquete(idx, 'verbeteringen', updated);
+                            }}
+                          >
+                            {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                          </ChoiceButton>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm mb-1">Extra opmerkingen</label>
+                      <textarea
+                        value={enquete.opmerkingen}
+                        onChange={(e) => updateEnquete(idx, 'opmerkingen', e.target.value)}
+                        rows={2}
+                        className="w-full border rounded p-2 bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary border-gray-300 dark:border-dark-border"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {enquetes.length < 3 && (
+                <button
+                  type="button"
+                  onClick={addBewonerEnquete}
+                  className="w-full py-2 border-2 border-dashed border-gray-300 dark:border-dark-border rounded-lg text-gray-600 dark:text-dark-text-secondary hover:border-brand-primary hover:text-brand-primary transition"
+                >
+                  + Bewoner toevoegen
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Submit Button */}
+        <div className="flex items-center gap-4">
+          <button
+            type="submit"
+            disabled={uploading || routePoints.length < 2}
+            className="px-8 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-bold text-lg shadow-lg transition-all disabled:cursor-not-allowed"
+          >
+            {uploading ? '⏳ Opslaan...' : '✅ Achterpad Registreren'}
+          </button>
+
+          {success && (
+            <div className="text-green-600 dark:text-green-400 font-semibold">
+              ✓ Succesvol opgeslagen!
+            </div>
+          )}
+        </div>
       </form>
     </div>
   );

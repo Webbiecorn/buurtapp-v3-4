@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { getAchterpadStatusColor } from '../utils/statusColors';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
@@ -35,13 +34,52 @@ const RoutePolyline: React.FC<{
   return null;
 };
 
-// Using shared statusColors utility
+// Bepaal marker kleur op basis van veiligheid en onderhoud
+const getMarkerColor = (achterpad: any): string => {
+  const veiligheidScore = achterpad.veiligheid?.score || 0;
+  const urgentie = achterpad.onderhoud?.urgentie?.toLowerCase() || '';
+  
+  // Prioriteit: urgentie en veiligheid samen
+  // Spoed of zeer onveilig (score 1-2) = ROOD
+  if (urgentie === 'spoed' || veiligheidScore <= 2) {
+    return '#EF4444'; // 🔴 Rood
+  }
+  
+  // Hoog urgentie of matige veiligheid (score 3) = ORANJE
+  if (urgentie === 'hoog' || veiligheidScore === 3) {
+    return '#F59E0B'; // 🟠 Oranje
+  }
+  
+  // Normaal urgentie = GEEL
+  if (urgentie === 'normaal') {
+    return '#EAB308'; // 🟡 Geel
+  }
+  
+  // Laag/geen urgentie en goede veiligheid (score 4-5) = GROEN
+  return '#10B981'; // 🟢 Groen
+};
+
+// Status kleur helper (backwards compatibility voor oude data)
+const getStatusColor = (staat: string): string => {
+  switch (staat?.toLowerCase()) {
+    case 'goed':
+      return '#10B981'; // groen
+    case 'matig':
+      return '#F59E0B'; // oranje
+    case 'slecht':
+      return '#EF4444'; // rood
+    default:
+      return '#6B7280'; // grijs
+  }
+};
 
 // Detail Modal
 const DetailModal: React.FC<{
   achterpad: any;
   onClose: () => void;
-}> = ({ achterpad, onClose }) => {
+  onEdit?: (achterpad: any) => void;
+}> = ({ achterpad, onClose, onEdit }) => {
+  const { currentUser } = useAppContext();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const allMedia = [
@@ -68,54 +106,178 @@ const DetailModal: React.FC<{
             <h2 className="text-2xl font-bold text-gray-900 dark:text-dark-text-primary">
               {achterpad.straat} - {achterpad.wijk}
             </h2>
-            <button
-              className="px-4 py-2 bg-gray-200 dark:bg-dark-border text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 transition"
-              onClick={onClose}
-            >
-              Sluiten
-            </button>
+            <div className="flex gap-2">
+              {onEdit && currentUser && (currentUser.role === 'Beheerder' || currentUser.role === 'Concierge') && (
+                <button
+                  className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition"
+                  onClick={() => onEdit(achterpad)}
+                >
+                  Bewerken
+                </button>
+              )}
+              <button
+                className="px-4 py-2 bg-gray-200 dark:bg-dark-border text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 transition"
+                onClick={onClose}
+              >
+                Sluiten
+              </button>
+            </div>
           </div>
 
           <div className="p-6 space-y-6">
             {/* GPS Kaart */}
-            {achterpad.gpsBeginpunt && achterpad.gpsEindpunt && (
+            {(achterpad.gpsRoute?.length >= 2 || (achterpad.gpsBeginpunt && achterpad.gpsEindpunt)) && (
               <div className="border border-gray-300 dark:border-dark-border rounded-lg overflow-hidden">
                 <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
                   <Map
-                    defaultCenter={achterpad.gpsBeginpunt}
+                    defaultCenter={achterpad.gpsRoute?.[0] || achterpad.gpsBeginpunt}
                     defaultZoom={16}
                     mapId={import.meta.env.VITE_GOOGLE_MAP_LIGHT_ID}
                     style={{ width: '100%', height: '300px' }}
                     gestureHandling="cooperative"
                   >
-                    <Marker position={achterpad.gpsBeginpunt} title="Beginpunt" />
-                    <Marker position={achterpad.gpsEindpunt} title="Eindpunt" />
-                    <RoutePolyline 
-                      start={achterpad.gpsBeginpunt} 
-                      end={achterpad.gpsEindpunt} 
-                      color={getAchterpadStatusColor(achterpad.staat)} 
-                    />
+                    {achterpad.gpsRoute?.length >= 2 ? (
+                      <>
+                        {/* Route met meerdere punten */}
+                        {achterpad.gpsRoute.map((point: any, idx: number) => {
+                          if (idx === achterpad.gpsRoute.length - 1) return null;
+                          return (
+                            <RoutePolyline
+                              key={idx}
+                              start={point}
+                              end={achterpad.gpsRoute[idx + 1]}
+                              color={getMarkerColor(achterpad)}
+                            />
+                          );
+                        })}
+                        <Marker position={achterpad.gpsRoute[0]} title="Start" />
+                        <Marker position={achterpad.gpsRoute[achterpad.gpsRoute.length - 1]} title="Eind" />
+                      </>
+                    ) : (
+                      <>
+                        {/* Oude data format (begin/eind punt) */}
+                        <Marker position={achterpad.gpsBeginpunt} title="Beginpunt" />
+                        <Marker position={achterpad.gpsEindpunt} title="Eindpunt" />
+                        <RoutePolyline 
+                          start={achterpad.gpsBeginpunt} 
+                          end={achterpad.gpsEindpunt} 
+                          color={getMarkerColor(achterpad)} 
+                        />
+                      </>
+                    )}
                   </Map>
                 </APIProvider>
               </div>
             )}
 
-            {/* Info Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div><span className="font-semibold">Beschrijving:</span> {achterpad.beschrijving}</div>
-              <div><span className="font-semibold">Type:</span> {achterpad.typePad}</div>
-              <div><span className="font-semibold">Lengte:</span> {achterpad.lengte}m</div>
-              <div><span className="font-semibold">Breedte:</span> {achterpad.breedte}m</div>
-              <div><span className="font-semibold">Eigendom:</span> {achterpad.eigendom}</div>
-              <div><span className="font-semibold">Toegankelijk:</span> {achterpad.toegankelijk}</div>
-              <div>
-                <span className="font-semibold">Staat:</span>{' '}
-                <span style={{ color: getAchterpadStatusColor(achterpad.staat) }} className="font-bold">
-                  {achterpad.staat}
-                </span>
+            {/* Basis Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">📏 Lengte:</span> {achterpad.lengte || 0}m
               </div>
-              <div><span className="font-semibold">Obstakels:</span> {achterpad.obstakels}</div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">🏘️ Huisnummers:</span> {achterpad.huisnummers || 'Onbekend'}
+              </div>
+              {achterpad.registeredBy && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">👤 Geregistreerd door:</span> {achterpad.registeredBy.userName}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">📅 Datum:</span> {achterpad.createdAt ? new Date(achterpad.createdAt.seconds * 1000).toLocaleDateString('nl-NL') : 'Onbekend'}
+                  </div>
+                </>
+              )}
             </div>
+
+            {/* Veiligheid & Onderhoud Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Veiligheid Card */}
+              {achterpad.veiligheid && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <h3 className="font-bold text-blue-900 dark:text-blue-300 mb-3 flex items-center gap-2">
+                    🛡️ Veiligheid
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Verlichting:</span>
+                      <span className="font-semibold">{achterpad.veiligheid.verlichting || 'n.v.t.'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Zichtbaarheid:</span>
+                      <span className="font-semibold">{achterpad.veiligheid.zichtbaarheid || 'n.v.t.'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Score:</span>
+                      <span className="text-lg">{'⭐'.repeat(achterpad.veiligheid.score || 0)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Onderhoud Card */}
+              {achterpad.onderhoud && (
+                <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                  <h3 className="font-bold text-orange-900 dark:text-orange-300 mb-3 flex items-center gap-2">
+                    🔧 Onderhoud
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Bestrating:</span>
+                      <span className="font-semibold">{achterpad.onderhoud.bestrating || 'n.v.t.'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Begroeiing:</span>
+                      <span className="font-semibold">{achterpad.onderhoud.begroeiing || 'n.v.t.'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Vervuiling:</span>
+                      <span className="font-semibold">{achterpad.onderhoud.vervuiling || 'n.v.t.'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Urgentie:</span>
+                      <span 
+                        className="font-bold px-2 py-0.5 rounded"
+                        style={{ 
+                          backgroundColor: getMarkerColor(achterpad),
+                          color: 'white'
+                        }}
+                      >
+                        {achterpad.onderhoud.urgentie || 'n.v.t.'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Beschrijving */}
+            {achterpad.beschrijving && (
+              <div className="bg-gray-50 dark:bg-dark-surface rounded-lg p-4">
+                <h3 className="font-semibold mb-2">💬 Opmerkingen</h3>
+                <p className="text-sm text-gray-700 dark:text-dark-text-secondary">{achterpad.beschrijving}</p>
+              </div>
+            )}
+
+            {/* Bewoner Enquêtes */}
+            {achterpad.bewonerEnquetes?.length > 0 && (
+              <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                <h3 className="font-bold text-purple-900 dark:text-purple-300 mb-3">👥 Bewoner Feedback ({achterpad.bewonerEnquetes.length})</h3>
+                <div className="space-y-3">
+                  {achterpad.bewonerEnquetes.map((enquete: any, idx: number) => (
+                    <div key={idx} className="text-sm border-b border-purple-200 dark:border-purple-800 last:border-0 pb-2">
+                      <div className="flex justify-between mb-1">
+                        <span>Bewoner {idx + 1}</span>
+                        <span>{'⭐'.repeat(enquete.veiligheidScore || 0)}</span>
+                      </div>
+                      {enquete.opmerkingen && (
+                        <p className="text-gray-600 dark:text-gray-400 italic">"{enquete.opmerkingen}"</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {achterpad.extraInfo && (
               <div className="p-4 bg-gray-50 dark:bg-dark-surface rounded-lg">
@@ -179,7 +341,7 @@ const DetailModal: React.FC<{
 };
 
 // Main Component
-const AchterpadenKaartOverzicht: React.FC = () => {
+const AchterpadenKaartOverzicht: React.FC<{ onEditAchterpad?: (achterpad: any) => void }> = ({ onEditAchterpad }) => {
   const [registraties, setRegistraties] = useState<any[]>([]);
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,10 +350,10 @@ const AchterpadenKaartOverzicht: React.FC = () => {
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [veiligheidFilter, setVeiligheidFilter] = useState<string>('all'); // all/onveilig/matig/veilig
+  const [urgentieFilter, setUrgentieFilter] = useState<string>('all'); // all/spoed/hoog/normaal/laag/geen
+  const [wijkFilter, setWijkFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('date');
-
-  const { currentUser } = useAppContext();
 
   // Load data
   useEffect(() => {
@@ -220,9 +382,27 @@ const AchterpadenKaartOverzicht: React.FC = () => {
       );
     }
 
-    // Status
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(r => r.staat?.toLowerCase() === statusFilter.toLowerCase());
+    // Veiligheid filter
+    if (veiligheidFilter !== 'all') {
+      filtered = filtered.filter(r => {
+        const score = r.veiligheid?.score || 0;
+        if (veiligheidFilter === 'onveilig') return score <= 2;
+        if (veiligheidFilter === 'matig') return score === 3;
+        if (veiligheidFilter === 'veilig') return score >= 4;
+        return true;
+      });
+    }
+
+    // Urgentie filter
+    if (urgentieFilter !== 'all') {
+      filtered = filtered.filter(r => 
+        r.onderhoud?.urgentie?.toLowerCase() === urgentieFilter.toLowerCase()
+      );
+    }
+
+    // Wijk filter
+    if (wijkFilter !== 'all') {
+      filtered = filtered.filter(r => r.wijk === wijkFilter);
     }
 
     // Sort
@@ -232,10 +412,19 @@ const AchterpadenKaartOverzicht: React.FC = () => {
       filtered.sort((a, b) => (b.lengte || 0) - (a.lengte || 0));
     } else if (sortBy === 'street') {
       filtered.sort((a, b) => (a.straat || '').localeCompare(b.straat || ''));
+    } else if (sortBy === 'urgentie') {
+      const urgOrder: any = { 'spoed': 5, 'hoog': 4, 'normaal': 3, 'laag': 2, 'geen': 1 };
+      filtered.sort((a, b) => {
+        const aUrg = urgOrder[a.onderhoud?.urgentie?.toLowerCase()] || 0;
+        const bUrg = urgOrder[b.onderhoud?.urgentie?.toLowerCase()] || 0;
+        return bUrg - aUrg;
+      });
+    } else if (sortBy === 'veiligheid') {
+      filtered.sort((a, b) => (a.veiligheid?.score || 0) - (b.veiligheid?.score || 0));
     }
 
     setFilteredData(filtered);
-  }, [registraties, searchTerm, statusFilter, sortBy]);
+  }, [registraties, searchTerm, veiligheidFilter, urgentieFilter, wijkFilter, sortBy]);
 
   // Export PDF
   const exportToPDF = () => {
@@ -323,7 +512,7 @@ const AchterpadenKaartOverzicht: React.FC = () => {
 
       {/* Filters Bar */}
       <div className="bg-white dark:bg-dark-bg rounded-xl p-4 shadow-sm space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Search */}
           <input
             type="text"
@@ -333,16 +522,42 @@ const AchterpadenKaartOverzicht: React.FC = () => {
             className="px-4 py-2 border border-gray-300 dark:border-dark-border rounded-lg bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary"
           />
 
-          {/* Status Filter */}
+          {/* Veiligheid Filter */}
           <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            value={veiligheidFilter}
+            onChange={(e) => setVeiligheidFilter(e.target.value)}
             className="px-4 py-2 border border-gray-300 dark:border-dark-border rounded-lg bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary"
           >
-            <option value="all">Alle statussen</option>
-            <option value="goed">Goed</option>
-            <option value="matig">Matig</option>
-            <option value="slecht">Slecht</option>
+            <option value="all">🛡️ Alle veiligheid</option>
+            <option value="onveilig">🔴 Onveilig (1-2★)</option>
+            <option value="matig">🟠 Matig (3★)</option>
+            <option value="veilig">🟢 Veilig (4-5★)</option>
+          </select>
+
+          {/* Urgentie Filter */}
+          <select
+            value={urgentieFilter}
+            onChange={(e) => setUrgentieFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 dark:border-dark-border rounded-lg bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary"
+          >
+            <option value="all">🔧 Alle urgentie</option>
+            <option value="spoed">🔴 Spoed</option>
+            <option value="hoog">🟠 Hoog</option>
+            <option value="normaal">🟡 Normaal</option>
+            <option value="laag">🟢 Laag</option>
+            <option value="geen">⚪ Geen</option>
+          </select>
+
+          {/* Wijk Filter */}
+          <select
+            value={wijkFilter}
+            onChange={(e) => setWijkFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 dark:border-dark-border rounded-lg bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary"
+          >
+            <option value="all">📍 Alle wijken</option>
+            {Array.from(new Set(registraties.map(r => r.wijk).filter(Boolean))).sort().map(wijk => (
+              <option key={wijk} value={wijk}>{wijk}</option>
+            ))}
           </select>
 
           {/* Sort */}
@@ -351,8 +566,10 @@ const AchterpadenKaartOverzicht: React.FC = () => {
             onChange={(e) => setSortBy(e.target.value)}
             className="px-4 py-2 border border-gray-300 dark:border-dark-border rounded-lg bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary"
           >
-            <option value="date">Sorteer op datum</option>
-            <option value="length">Sorteer op lengte</option>
+            <option value="date">📅 Datum</option>
+            <option value="urgentie">🚨 Urgentie</option>
+            <option value="veiligheid">🛡️ Veiligheid</option>
+            <option value="length">📏 Lengte</option>
             <option value="street">Sorteer op straat</option>
           </select>
 
@@ -393,57 +610,122 @@ const AchterpadenKaartOverzicht: React.FC = () => {
                 gestureHandling="greedy"
               >
                 {filteredData
-                  .filter(a => a.gpsBeginpunt && a.gpsEindpunt)
-                  .map((achterpad) => (
-                    <React.Fragment key={achterpad.id}>
-                      <Marker
-                        position={achterpad.gpsBeginpunt}
-                        title={`${achterpad.straat} - Begin`}
-                        onClick={() => setSelectedAchterpad(achterpad)}
-                      />
-                      <Marker
-                        position={achterpad.gpsEindpunt}
-                        title={`${achterpad.straat} - Eind`}
-                        onClick={() => setSelectedAchterpad(achterpad)}
-                      />
-                      <RoutePolyline
-                        start={achterpad.gpsBeginpunt}
-                        end={achterpad.gpsEindpunt}
-                        color={getAchterpadStatusColor(achterpad.staat)}
-                      />
-                    </React.Fragment>
-                  ))}
+                  .filter(a => a.gpsRoute?.length >= 2 || (a.gpsBeginpunt && a.gpsEindpunt))
+                  .map((achterpad) => {
+                    const markerColor = getMarkerColor(achterpad);
+                    const firstPoint = achterpad.gpsRoute?.[0] || achterpad.gpsBeginpunt;
+                    const lastPoint = achterpad.gpsRoute?.[achterpad.gpsRoute.length - 1] || achterpad.gpsEindpunt;
+                    
+                    return (
+                      <React.Fragment key={achterpad.id}>
+                        {/* Eerste punt marker met kleur */}
+                        <Marker
+                          position={firstPoint}
+                          title={`${achterpad.straat} - ${achterpad.wijk}`}
+                          onClick={() => setSelectedAchterpad(achterpad)}
+                          icon={{
+                            path: window.google?.maps?.SymbolPath?.CIRCLE || 0,
+                            fillColor: markerColor,
+                            fillOpacity: 1,
+                            strokeColor: '#ffffff',
+                            strokeWeight: 2,
+                            scale: 8,
+                          }}
+                        />
+                        
+                        {/* Route lijn (indien beschikbaar) */}
+                        {achterpad.gpsRoute?.length >= 2 ? (
+                          achterpad.gpsRoute.map((point: any, idx: number) => {
+                            if (idx === achterpad.gpsRoute.length - 1) return null;
+                            return (
+                              <RoutePolyline
+                                key={idx}
+                                start={point}
+                                end={achterpad.gpsRoute[idx + 1]}
+                                color={markerColor}
+                              />
+                            );
+                          })
+                        ) : (
+                          <RoutePolyline
+                            start={firstPoint}
+                            end={lastPoint}
+                            color={markerColor}
+                          />
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
               </Map>
             </APIProvider>
+            
+            {/* Legenda overlay */}
+            <div className="absolute bottom-6 left-6 bg-white dark:bg-dark-bg rounded-lg shadow-lg p-4 border border-gray-200 dark:border-dark-border">
+              <h4 className="font-bold text-sm mb-2 text-gray-900 dark:text-dark-text-primary">Legenda</h4>
+              <div className="space-y-1.5 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-[#EF4444]"></div>
+                  <span>🔴 Spoed / Zeer onveilig</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-[#F59E0B]"></div>
+                  <span>🟠 Hoog / Matig veilig</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-[#EAB308]"></div>
+                  <span>🟡 Normaal onderhoud</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-[#10B981]"></div>
+                  <span>🟢 Goed in orde</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Sidebar */}
           <div className="bg-white dark:bg-dark-bg rounded-xl shadow-sm p-4 max-h-96 overflow-auto">
-            <h3 className="font-semibold text-lg mb-3">Achterpaden op kaart</h3>
+            <h3 className="font-semibold text-lg mb-3">Achterpaden ({filteredData.length})</h3>
             <div className="space-y-2">
               {filteredData
-                .filter(a => a.gpsBeginpunt && a.gpsEindpunt)
-                .map((achterpad) => (
-                  <div
-                    key={achterpad.id}
-                    className="p-3 border border-gray-200 dark:border-dark-border rounded-lg hover:bg-gray-50 dark:hover:bg-dark-surface cursor-pointer transition"
-                    onClick={() => setSelectedAchterpad(achterpad)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium">{achterpad.straat}</div>
-                        <div className="text-sm text-gray-600 dark:text-dark-text-secondary">
-                          {achterpad.wijk} • {achterpad.lengte}m
+                .filter(a => a.gpsRoute?.length >= 2 || (a.gpsBeginpunt && a.gpsEindpunt))
+                .map((achterpad) => {
+                  const markerColor = getMarkerColor(achterpad);
+                  const urgentie = achterpad.onderhoud?.urgentie || 'onbekend';
+                  const veiligheidScore = achterpad.veiligheid?.score || 0;
+                  
+                  return (
+                    <div
+                      key={achterpad.id}
+                      className="p-3 border-2 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-surface cursor-pointer transition"
+                      style={{ borderColor: markerColor }}
+                      onClick={() => setSelectedAchterpad(achterpad)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900 dark:text-dark-text-primary">
+                            {achterpad.straat}
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-dark-text-secondary">
+                            {achterpad.wijk} • {achterpad.lengte}m
+                          </div>
+                          <div className="flex gap-2 mt-1">
+                            <span className="text-xs bg-gray-100 dark:bg-dark-border px-2 py-0.5 rounded">
+                              {'⭐'.repeat(veiligheidScore)}
+                            </span>
+                            <span className="text-xs bg-gray-100 dark:bg-dark-border px-2 py-0.5 rounded">
+                              {urgentie}
+                            </span>
+                          </div>
                         </div>
+                        <div
+                          className="w-4 h-4 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: markerColor }}
+                        />
                       </div>
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: getAchterpadStatusColor(achterpad.staat) }}
-                        title={achterpad.staat}
-                      />
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           </div>
         </div>
@@ -485,7 +767,7 @@ const AchterpadenKaartOverzicht: React.FC = () => {
                     </div>
                     <div
                       className="px-2 py-1 rounded text-xs font-medium text-white"
-                      style={{ backgroundColor: getAchterpadStatusColor(achterpad.staat) }}
+                      style={{ backgroundColor: getStatusColor(achterpad.staat) }}
                     >
                       {achterpad.staat}
                     </div>
@@ -511,6 +793,7 @@ const AchterpadenKaartOverzicht: React.FC = () => {
         <DetailModal
           achterpad={selectedAchterpad}
           onClose={() => setSelectedAchterpad(null)}
+          onEdit={onEditAchterpad}
         />
       )}
     </div>
