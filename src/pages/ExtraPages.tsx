@@ -1594,89 +1594,83 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
                 </div>
             </div>
 
-            {/* Charts Section for PDF Export */}
-            <div id="report-charts-container" className="bg-white rounded-xl shadow-xl p-6 print:shadow-none">
+            {/* Charts Section for PDF Export - using fixed dimensions for html2canvas */}
+            <div id="report-charts-container" className="bg-white rounded-xl shadow-xl p-6 print:shadow-none" style={{ width: '800px' }}>
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">
                     Visuele Analyse
                 </h2>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
                     {/* Meldingen per Categorie Pie Chart */}
-                    <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="bg-gray-50 rounded-lg p-4" style={{ width: '380px' }}>
                         <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">Meldingen per Categorie</h3>
-                        <ResponsiveContainer width="100%" height={250}>
-                            <PieChart>
-                                <Pie
-                                    data={Object.entries(statistics.meldingen.byCategorie).map(([name, value]) => ({ name, value }))}
-                                    cx="50%"
-                                    cy="50%"
-                                    labelLine={false}
-                                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                                    outerRadius={80}
-                                    fill="#8884d8"
-                                    dataKey="value"
-                                >
-                                    {Object.entries(statistics.meldingen.byCategorie).map((_, index) => (
-                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                            </PieChart>
-                        </ResponsiveContainer>
+                        <PieChart width={350} height={250}>
+                            <Pie
+                                data={Object.entries(statistics.meldingen.byCategorie).map(([name, value]) => ({ name, value }))}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                outerRadius={80}
+                                fill="#8884d8"
+                                dataKey="value"
+                            >
+                                {Object.entries(statistics.meldingen.byCategorie).map((_, index) => (
+                                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip />
+                        </PieChart>
                     </div>
 
-                    {/* Status Verdeling Bar Chart */}
-                    <div className="bg-gray-50 rounded-lg p-4">
+                    {/* Status Verdeling Pie Chart */}
+                    <div className="bg-gray-50 rounded-lg p-4" style={{ width: '380px' }}>
                         <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">Overzicht Status</h3>
-                        <ResponsiveContainer width="100%" height={250}>
-                            <PieChart>
-                                <Pie
-                                    data={[
-                                        { name: 'Meldingen Afgerond', value: statistics.meldingen.afgerond },
-                                        { name: 'Meldingen Open', value: statistics.meldingen.totaal - statistics.meldingen.afgerond },
-                                        { name: 'Projecten Afgerond', value: statistics.projecten.afgerond },
-                                        { name: 'Projecten Lopend', value: statistics.projecten.lopend },
-                                    ]}
-                                    cx="50%"
-                                    cy="50%"
-                                    labelLine={false}
-                                    label={({ name, value }) => value > 0 ? `${name}: ${value}` : ''}
-                                    outerRadius={80}
-                                    fill="#8884d8"
-                                    dataKey="value"
-                                >
-                                    <Cell fill="#22c55e" />
-                                    <Cell fill="#ef4444" />
-                                    <Cell fill="#3b82f6" />
-                                    <Cell fill="#f97316" />
-                                </Pie>
-                                <Tooltip />
-                                <Legend />
-                            </PieChart>
-                        </ResponsiveContainer>
+                        <PieChart width={350} height={250}>
+                            <Pie
+                                data={[
+                                    { name: 'Meldingen Afgerond', value: statistics.meldingen.afgerond },
+                                    { name: 'Meldingen Open', value: statistics.meldingen.totaal - statistics.meldingen.afgerond },
+                                    { name: 'Projecten Afgerond', value: statistics.projecten.afgerond },
+                                    { name: 'Projecten Lopend', value: statistics.projecten.lopend },
+                                ]}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={({ name, value }) => value > 0 ? `${name}: ${value}` : ''}
+                                outerRadius={80}
+                                fill="#8884d8"
+                                dataKey="value"
+                            >
+                                <Cell fill="#22c55e" />
+                                <Cell fill="#ef4444" />
+                                <Cell fill="#3b82f6" />
+                                <Cell fill="#f97316" />
+                            </Pie>
+                            <Tooltip />
+                            <Legend />
+                        </PieChart>
                     </div>
 
                     {/* Uren per Activiteit */}
-                    <div className="bg-gray-50 rounded-lg p-4 lg:col-span-2">
+                    <div className="bg-gray-50 rounded-lg p-4" style={{ width: '780px' }}>
                         <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">Uren per Activiteit</h3>
-                        <ResponsiveContainer width="100%" height={200}>
-                            <PieChart>
-                                <Pie
-                                    data={Object.entries(statistics.uren.byActiviteit).slice(0, 6).map(([name, value]) => ({ name, value: parseFloat(value.toFixed(1)) }))}
-                                    cx="50%"
-                                    cy="50%"
-                                    labelLine={true}
-                                    label={({ name, value }) => `${name}: ${value}h`}
-                                    outerRadius={70}
-                                    fill="#8884d8"
-                                    dataKey="value"
-                                >
-                                    {Object.entries(statistics.uren.byActiviteit).slice(0, 6).map((_, index) => (
-                                        <Cell key={`cell-uren-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                            </PieChart>
-                        </ResponsiveContainer>
+                        <PieChart width={750} height={220}>
+                            <Pie
+                                data={Object.entries(statistics.uren.byActiviteit).slice(0, 6).map(([name, value]) => ({ name, value: parseFloat(value.toFixed(1)) }))}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={true}
+                                label={({ name, value }) => `${name}: ${value}h`}
+                                outerRadius={70}
+                                fill="#8884d8"
+                                dataKey="value"
+                            >
+                                {Object.entries(statistics.uren.byActiviteit).slice(0, 6).map((_, index) => (
+                                    <Cell key={`cell-uren-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip />
+                        </PieChart>
                     </div>
                 </div>
             </div>
