@@ -547,7 +547,7 @@ export const ReportsPage: React.FC = () => {
             const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
             const prompt = `
-Je bent een ervaren buurtmanager die een professioneel en uitgebreid kwartaalverslag schrijft voor de gemeente en belanghebbenden.
+Je bent een ervaren buurtmanager die een professioneel en uitgebreid verslag schrijft voor de gemeente en belanghebbenden.
 Je focus ligt op het presenteren van de resultaten en de impact van het Buurtconcierge-team.
 
 **Periode:** ${periodLabels[reportPeriod]}
@@ -613,7 +613,7 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(28);
             doc.setFont('helvetica', 'bold');
-            doc.text('Kwartaalverslag', pageWidth / 2, 25, { align: 'center' });
+            doc.text('Verslag', pageWidth / 2, 25, { align: 'center' });
 
             doc.setFontSize(14);
             doc.setFont('helvetica', 'normal');
@@ -771,46 +771,154 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
                 yPos += 5;
             }
 
-            // ===== PAGE 3: CHARTS =====
-            const chartContainer = document.getElementById('report-charts-container');
-            if (chartContainer) {
-                try {
-                    doc.addPage();
-                    yPos = 20;
+            // ===== PAGE 3: VISUAL CHARTS (drawn with jsPDF) =====
+            doc.addPage();
+            yPos = 20;
 
-                    doc.setFontSize(18);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(21, 128, 61);
-                    doc.text('Visuele Analyse', margin, yPos);
-                    yPos += 5;
-                    
-                    // Green accent line
-                    doc.setDrawColor(34, 197, 94);
-                    doc.setLineWidth(1);
-                    doc.line(margin, yPos, margin + 35, yPos);
-                    yPos += 15;
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(21, 128, 61);
+            doc.text('Visuele Analyse', margin, yPos);
+            yPos += 5;
+            
+            // Green accent line
+            doc.setDrawColor(34, 197, 94);
+            doc.setLineWidth(1);
+            doc.line(margin, yPos, margin + 35, yPos);
+            yPos += 15;
 
-                    const canvas = await html2canvas(chartContainer, { 
-                        scale: 2, 
-                        backgroundColor: '#ffffff',
-                        logging: false 
-                    });
-                    const imgData = canvas.toDataURL('image/png');
-                    const imgWidth = contentWidth;
-                    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            // Helper function to draw a simple bar chart
+            const drawBarChart = (title: string, data: { label: string; value: number; color: string }[], startY: number, chartWidth: number, chartHeight: number) => {
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(55, 65, 81);
+                doc.text(title, margin, startY);
+                
+                const barStartY = startY + 8;
+                const maxValue = Math.max(...data.map(d => d.value), 1);
+                const barHeight = 8;
+                const barGap = 4;
+                const maxBarWidth = chartWidth - 60;
+                
+                data.forEach((item, index) => {
+                    const y = barStartY + (index * (barHeight + barGap));
+                    const barWidth = (item.value / maxValue) * maxBarWidth;
                     
-                    // Scale down if too tall
-                    const maxImgHeight = maxY - yPos - 10;
-                    const finalHeight = Math.min(imgHeight, maxImgHeight);
-                    const finalWidth = imgHeight > maxImgHeight 
-                        ? (imgWidth * maxImgHeight) / imgHeight 
-                        : imgWidth;
+                    // Draw bar
+                    const rgb = hexToRgb(item.color);
+                    doc.setFillColor(rgb.r, rgb.g, rgb.b);
+                    doc.roundedRect(margin + 50, y, barWidth, barHeight, 2, 2, 'F');
                     
-                    doc.addImage(imgData, 'PNG', margin, yPos, finalWidth, finalHeight);
-                } catch (chartError) {
-                    console.warn('Could not capture charts:', chartError);
-                }
+                    // Draw label
+                    doc.setFontSize(8);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(55, 65, 81);
+                    const labelText = item.label.length > 12 ? item.label.substring(0, 12) + '...' : item.label;
+                    doc.text(labelText, margin, y + 6);
+                    
+                    // Draw value
+                    doc.text(item.value.toString(), margin + 55 + barWidth, y + 6);
+                });
+                
+                return barStartY + (data.length * (barHeight + barGap)) + 10;
+            };
+
+            // Helper to convert hex to RGB
+            const hexToRgb = (hex: string) => {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? {
+                    r: parseInt(result[1], 16),
+                    g: parseInt(result[2], 16),
+                    b: parseInt(result[3], 16)
+                } : { r: 0, g: 0, b: 0 };
+            };
+
+            // Chart 1: Meldingen per Categorie
+            const categorieData = Object.entries(statistics.meldingen.byCategorie)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 6)
+                .map((entry, i) => ({
+                    label: entry[0],
+                    value: entry[1],
+                    color: PIE_COLORS[i % PIE_COLORS.length]
+                }));
+            
+            if (categorieData.length > 0) {
+                yPos = drawBarChart('Meldingen per Categorie', categorieData, yPos, contentWidth, 80);
             }
+
+            // Chart 2: Status Overzicht
+            const statusData = [
+                { label: 'Meld. Afgerond', value: statistics.meldingen.afgerond, color: '#22c55e' },
+                { label: 'Meld. Open', value: statistics.meldingen.totaal - statistics.meldingen.afgerond, color: '#ef4444' },
+                { label: 'Proj. Afgerond', value: statistics.projecten.afgerond, color: '#3b82f6' },
+                { label: 'Proj. Lopend', value: statistics.projecten.lopend, color: '#f97316' },
+            ].filter(d => d.value > 0);
+            
+            if (statusData.length > 0) {
+                yPos = drawBarChart('Status Overzicht', statusData, yPos, contentWidth, 60);
+            }
+
+            // Chart 3: Uren per Activiteit
+            const urenData = Object.entries(statistics.uren.byActiviteit)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 6)
+                .map((entry, i) => ({
+                    label: entry[0],
+                    value: Math.round(entry[1]),
+                    color: PIE_COLORS[i % PIE_COLORS.length]
+                }));
+            
+            if (urenData.length > 0) {
+                yPos = drawBarChart('Uren per Activiteit', urenData, yPos, contentWidth, 80);
+            }
+
+            // Summary boxes at the bottom
+            checkPageBreak(50);
+            yPos += 10;
+            
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(55, 65, 81);
+            doc.text('Kerngetallen Samenvatting', margin, yPos);
+            yPos += 10;
+
+            const summaryBoxWidth = (contentWidth - 20) / 3;
+            const summaryBoxHeight = 30;
+            const summaryData = [
+                { label: 'Achterpaden', value: `${statistics.achterpaden.schoonPercentage}%`, sub: 'schoon', color: '#22c55e' },
+                { label: 'Meldingen', value: `${statistics.meldingen.afgerondPercentage}%`, sub: 'opgelost', color: '#3b82f6' },
+                { label: 'Projecten', value: `${statistics.projecten.afgerondPercentage}%`, sub: 'afgerond', color: '#8b5cf6' },
+            ];
+
+            summaryData.forEach((item, index) => {
+                const x = margin + (index * (summaryBoxWidth + 10));
+                const rgb = hexToRgb(item.color);
+                
+                // Box background
+                doc.setFillColor(249, 250, 251);
+                doc.roundedRect(x, yPos, summaryBoxWidth, summaryBoxHeight, 3, 3, 'F');
+                
+                // Colored left border
+                doc.setFillColor(rgb.r, rgb.g, rgb.b);
+                doc.rect(x, yPos, 3, summaryBoxHeight, 'F');
+                
+                // Text
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(107, 114, 128);
+                doc.text(item.label, x + 8, yPos + 8);
+                
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(rgb.r, rgb.g, rgb.b);
+                doc.text(item.value, x + 8, yPos + 20);
+                
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(107, 114, 128);
+                doc.text(item.sub, x + 8, yPos + 26);
+            });
 
             // Footer on all pages
             const totalPages = (doc as any).internal.pages.length - 1;
@@ -838,7 +946,7 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
                 );
             }
 
-            doc.save(`Kwartaalverslag-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+            doc.save(`Verslag-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
 
         } catch (error) {
             console.error('AI Report Error:', error);
