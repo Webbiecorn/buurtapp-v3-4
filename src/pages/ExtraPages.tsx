@@ -547,30 +547,38 @@ export const ReportsPage: React.FC = () => {
             const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
             const prompt = `
-Je bent een ervaren buurtmanager die een enorm positief en professioneel jaarverslag (of kwartaal/maandverslag) schrijft voor de gemeente en belanghebbenden.
-Je focus ligt op het vieren van successen en de positieve impact van het Buurtconcierge-team.
+Je bent een ervaren buurtmanager die een professioneel en uitgebreid kwartaalverslag schrijft voor de gemeente en belanghebbenden.
+Je focus ligt op het presenteren van de resultaten en de impact van het Buurtconcierge-team.
 
 **Periode:** ${periodLabels[reportPeriod]}
 **Wijk:** ${selectedWijk === 'alle' ? 'Alle Wijken' : selectedWijk}
 
 **Data voor het verslag:**
-1. Achterpaden: ${statistics.achterpaden.totaal} gecontroleerd, waarvan ${statistics.achterpaden.schoonPercentage}% brandschoon is. Successen: ${statistics.achterpaden.schoon} paden zijn nu in topconditie.
+1. Achterpaden: ${statistics.achterpaden.totaal} gecontroleerd, waarvan ${statistics.achterpaden.schoonPercentage}% brandschoon is. Successen: ${statistics.achterpaden.schoon} paden zijn nu in topconditie. Vervuild: ${statistics.achterpaden.vervuild} locaties vereisen nog aandacht.
 2. Woningdossiers: ${statistics.dossiers.totaal} actieve dossiers, ${statistics.dossiers.afgerond} succesvol afgeronde dossiers waarin bewoners zijn geholpen. Focus op preventie en bewonerscontact.
-3. Projecten: ${statistics.projecten.totaal} lopende initiatieven, waarvan ${statistics.projecten.afgerond} al succesvol zijn opgeleverd. Denk aan buurtverbeteringen en sociale events.
-4. Urenregistratie: Het team heeft maar liefst ${statistics.uren.totaal.toFixed(1)} uur geïnvesteerd in de wijk. De meeste tijd ging naar: ${Object.entries(statistics.uren.byActiviteit).slice(0, 3).map(([k, v]) => `${k} (${v.toFixed(1)}u)`).join(', ')}.
-5. Meldingen: Van de ${statistics.meldingen.totaal} binnengekomen meldingen hebben we er al ${statistics.meldingen.afgerondPercentage}% opgelost!
+3. Projecten: ${statistics.projecten.totaal} lopende initiatieven, waarvan ${statistics.projecten.afgerond} al succesvol zijn opgeleverd. Dit betreft buurtverbeteringen, sociale events en infrastructurele projecten.
+4. Urenregistratie: Het team heeft ${statistics.uren.totaal.toFixed(1)} uur geïnvesteerd in de wijk. De meeste tijd ging naar: ${Object.entries(statistics.uren.byActiviteit).slice(0, 5).map(([k, v]) => `${k} (${v.toFixed(1)}u)`).join(', ')}.
+5. Meldingen: Van de ${statistics.meldingen.totaal} binnengekomen meldingen is ${statistics.meldingen.afgerondPercentage}% opgelost. Categorieën: ${Object.entries(statistics.meldingen.byCategorie).slice(0, 4).map(([k, v]) => `${k}: ${v}`).join(', ')}.
+6. Team: ${statistics.team.totaal} teamleden zijn betrokken, waarvan ${statistics.team.actief} actief geregistreerde uren hebben.
 
 **Opdracht:**
-Schrijf een prachtig, inspirerend en professioneel verhaal (Nederlands).
-Gebruik een 'storytelling' aanpak. Maak het levendig.
-Begin met een pakkende titel die de essentie van de periode samenvat (bijv. "Een Periode van Verbinding en Zichtbare Vooruitgang").
-Structureer het in 3-4 korte paragrafen:
-- De 'Vibe' in de wijk en algemene voortgang.
-- Specifieke successen bij de achterpaden en woningdossiers (Focus op leefbaarheid).
-- De kracht van het team en de afgeronde projecten.
-- Een vooruitblik vol vertrouwen.
+Schrijf een uitgebreid, professioneel en feitelijk verslag in het Nederlands.
+Gebruik een zakelijke maar toegankelijke schrijfstijl.
+Begin met een pakkende subtitel die de essentie van de periode samenvat (bijv. "Een Periode van Groei, Verbinding en Zichtbare Vooruitgang").
 
-Houd het professioneel maar zeer positief. Gebruik geen markdown-titels (zoals # of ##), want dit wordt direct in een PDF geplaatst. Gebruik wel gewoon platte tekst.
+Structureer het verslag in 4-5 uitgebreide paragrafen van elk minimaal 4-5 zinnen:
+
+1. INLEIDING - Schets de algemene context en de belangrijkste ontwikkelingen in de wijk deze periode. Benoem de kern van de werkzaamheden.
+
+2. LEEFBAARHEID - Bespreek de resultaten bij achterpaden (controles, vervuiling, verbeteringen) en woningdossiers (aantal actief, afgerond, type problematiek). Leg uit wat dit betekent voor bewoners.
+
+3. TEAM PRESTATIES - Beschrijf de inzet van het team: uren, activiteiten, verdeling over werkzaamheden. Benoem ook de lopende en afgeronde projecten en hun impact.
+
+4. MELDINGEN & RESPONS - Analyseer de binnenkomende meldingen, categorieën en oplossingspercentage. Wat zegt dit over de responsiviteit?
+
+5. VOORUITBLIK - Sluit af met een blik op de toekomst: wat zijn de prioriteiten, kansen en uitdagingen voor de komende periode?
+
+Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zoals # of ##), want dit wordt direct in een PDF geplaatst. Schrijf in vloeiende paragrafen.
 `;
 
             const result = await model.generateContent(prompt);
@@ -590,7 +598,7 @@ Houd het professioneel maar zeer positief. Gebruik geen markdown-titels (zoals #
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(24);
             doc.setFont('helvetica', 'bold');
-            doc.text('Positief Kwartaalverslag', pageWidth / 2, 20, { align: 'center' });
+            doc.text('Kwartaalverslag', pageWidth / 2, 20, { align: 'center' });
 
             doc.setFontSize(12);
             doc.setFont('helvetica', 'normal');
@@ -603,7 +611,7 @@ Houd het professioneel maar zeer positief. Gebruik geen markdown-titels (zoals #
             doc.setFontSize(10);
             doc.setFont('helvetica', 'italic');
             doc.text(`Periode: ${periodLabels[reportPeriod]} | Locatie: ${selectedWijk === 'alle' ? 'Alle Wijken' : selectedWijk}`, 20, yPos);
-            doc.text(`Gegenereerd door AI op: ${format(new Date(), 'dd-MM-yyyy')}`, pageWidth - 20, yPos, { align: 'right' });
+            doc.text(`${format(new Date(), 'dd-MM-yyyy')}`, pageWidth - 20, yPos, { align: 'right' });
             yPos += 12;
 
             // Narrative Title (if AI generated one, else default)
@@ -636,11 +644,11 @@ Houd het professioneel maar zeer positief. Gebruik geen markdown-titels (zoals #
 
             // KPI Table for PDF
             const kpiData = [
-                ['🏆 Successen in Achterpaden', `${statistics.achterpaden.schoonPercentage}% Schoon`, `${statistics.achterpaden.schoon} locaties op orde`],
-                ['🏠 Woningdossiers Impact', `${statistics.dossiers.totaal} Actief`, `${statistics.dossiers.afgerond} Afgerond`],
-                ['🚀 Projectvoortgang', `${statistics.projecten.totaal} Projecten`, `${statistics.projecten.afgerondPercentage}% Voltooid`],
-                ['⏱️ Team Inzet', `${statistics.uren.totaal.toFixed(0)} Uur`, `${Object.keys(statistics.uren.byUser).length} Teamleden`],
-                ['📝 Meldingen Opgelost', statistics.meldingen.totaal.toString(), `${statistics.meldingen.afgerondPercentage}% Afgehandeld`],
+                ['Achterpaden', `${statistics.achterpaden.schoonPercentage}% Schoon`, `${statistics.achterpaden.schoon} van ${statistics.achterpaden.totaal} locaties op orde`],
+                ['Woningdossiers', `${statistics.dossiers.totaal} Actief`, `${statistics.dossiers.afgerond} Afgerond`],
+                ['Projecten', `${statistics.projecten.totaal} Totaal`, `${statistics.projecten.afgerond} Afgerond (${statistics.projecten.afgerondPercentage}%)`],
+                ['Team Inzet', `${statistics.uren.totaal.toFixed(0)} Uur`, `${Object.keys(statistics.uren.byUser).length} Teamleden actief`],
+                ['Meldingen', `${statistics.meldingen.totaal} Totaal`, `${statistics.meldingen.afgerond} Opgelost (${statistics.meldingen.afgerondPercentage}%)`],
             ];
 
             autoTable(doc, {
@@ -706,7 +714,7 @@ Houd het professioneel maar zeer positief. Gebruik geen markdown-titels (zoals #
                 );
             }
 
-            doc.save(`AI-Positief-Verslag-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+            doc.save(`Kwartaalverslag-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
 
         } catch (error) {
             console.error('AI Report Error:', error);
@@ -1464,8 +1472,7 @@ Houd het professioneel maar zeer positief. Gebruik geen markdown-titels (zoals #
 
             {/* Charts Section for PDF Export */}
             <div id="report-charts-container" className="bg-white rounded-xl shadow-xl p-6 print:shadow-none">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                    <span className="text-3xl mr-3">📊</span>
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">
                     Visuele Analyse
                 </h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

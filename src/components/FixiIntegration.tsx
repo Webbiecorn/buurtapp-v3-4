@@ -42,7 +42,8 @@ const FixiIntegration: React.FC = () => {
     loadLogs();
   }, []);
 
-  // Wijk mapping voor Lelystad
+  // Get GPS location and reverse geocode
+  const getGPSLocation = () => {
     if (!navigator.geolocation) {
       setGpsError('GPS is niet beschikbaar op dit apparaat');
       return;
