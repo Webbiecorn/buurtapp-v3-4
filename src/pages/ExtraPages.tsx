@@ -584,65 +584,112 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
             const result = await model.generateContent(prompt);
             const narrative = result.response.text();
 
-            // Create PDF
+            // Create PDF with better layout
             const doc = new jsPDF('p', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 20;
+            const contentWidth = pageWidth - (margin * 2);
+            const footerHeight = 15;
+            const maxY = pageHeight - footerHeight;
             let yPos = 20;
 
+            // Helper function to check and add new page if needed
+            const checkPageBreak = (neededHeight: number) => {
+                if (yPos + neededHeight > maxY) {
+                    doc.addPage();
+                    yPos = 20;
+                    return true;
+                }
+                return false;
+            };
+
+            // ===== PAGE 1: TITLE PAGE =====
             // Header Background
             doc.setFillColor(34, 197, 94); // Green-500
-            doc.rect(0, 0, pageWidth, 40, 'F');
+            doc.rect(0, 0, pageWidth, 50, 'F');
 
             // Title in Header
             doc.setTextColor(255, 255, 255);
-            doc.setFontSize(24);
+            doc.setFontSize(28);
             doc.setFont('helvetica', 'bold');
-            doc.text('Kwartaalverslag', pageWidth / 2, 20, { align: 'center' });
+            doc.text('Kwartaalverslag', pageWidth / 2, 25, { align: 'center' });
 
-            doc.setFontSize(12);
+            doc.setFontSize(14);
             doc.setFont('helvetica', 'normal');
-            doc.text(`Buurtconciërge - Team Impact Rapportage`, pageWidth / 2, 28, { align: 'center' });
+            doc.text('Buurtconcierge - Team Impact Rapportage', pageWidth / 2, 38, { align: 'center' });
 
-            yPos = 50;
+            yPos = 60;
             doc.setTextColor(0, 0, 0);
 
-            // Period & Context
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'italic');
-            doc.text(`Periode: ${periodLabels[reportPeriod]} | Locatie: ${selectedWijk === 'alle' ? 'Alle Wijken' : selectedWijk}`, 20, yPos);
-            doc.text(`${format(new Date(), 'dd-MM-yyyy')}`, pageWidth - 20, yPos, { align: 'right' });
-            yPos += 12;
+            // Period & Date info box
+            doc.setFillColor(249, 250, 251); // Gray-50
+            doc.roundedRect(margin, yPos, contentWidth, 20, 3, 3, 'F');
+            
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(55, 65, 81);
+            doc.text(`Periode: ${periodLabels[reportPeriod]}`, margin + 5, yPos + 8);
+            doc.text(`Locatie: ${selectedWijk === 'alle' ? 'Alle Wijken' : selectedWijk}`, margin + 5, yPos + 15);
+            doc.text(`Datum: ${format(new Date(), 'dd MMMM yyyy', { locale: nl })}`, pageWidth - margin - 5, yPos + 12, { align: 'right' });
+            
+            yPos += 30;
 
-            // Narrative Title (if AI generated one, else default)
-            doc.setFontSize(16);
+            // Section: Samenvatting
+            doc.setFontSize(18);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(21, 128, 61); // Dark green
-            doc.text('Onze Impact in de Wijk', 20, yPos);
-            yPos += 8;
+            doc.text('Samenvatting', margin, yPos);
+            yPos += 10;
 
-            // Narrative Body
-            doc.setFontSize(11);
+            // Draw green accent line
+            doc.setDrawColor(34, 197, 94);
+            doc.setLineWidth(1);
+            doc.line(margin, yPos - 3, margin + 40, yPos - 3);
+
+            // Narrative Body - split into proper paragraphs
+            doc.setFontSize(10);
             doc.setFont('helvetica', 'normal');
-            doc.setTextColor(55, 65, 81); // Gray-700
-            const splitText = doc.splitTextToSize(narrative, pageWidth - 40);
-            doc.text(splitText, 20, yPos);
-
-            yPos += (splitText.length * 6) + 10;
-
-            // Stats Section Header
-            if (yPos > pageHeight - 60) {
-                doc.addPage();
-                yPos = 20;
+            doc.setTextColor(55, 65, 81);
+            
+            const lineHeight = 5;
+            const paragraphs = narrative.split('\n\n').filter(p => p.trim());
+            
+            for (const paragraph of paragraphs) {
+                const lines = doc.splitTextToSize(paragraph.trim(), contentWidth);
+                const paragraphHeight = lines.length * lineHeight + 5;
+                
+                checkPageBreak(paragraphHeight);
+                
+                for (const line of lines) {
+                    if (yPos > maxY) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    doc.text(line, margin, yPos);
+                    yPos += lineHeight;
+                }
+                yPos += 5; // Extra space between paragraphs
             }
 
-            doc.setFontSize(16);
+            // ===== PAGE 2: KPI's =====
+            doc.addPage();
+            yPos = 20;
+
+            // Section header
+            doc.setFontSize(18);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(21, 128, 61);
-            doc.text('Kerncijfers van Succes', 20, yPos);
-            yPos += 8;
+            doc.text('Kerncijfers', margin, yPos);
+            yPos += 5;
+            
+            // Green accent line
+            doc.setDrawColor(34, 197, 94);
+            doc.setLineWidth(1);
+            doc.line(margin, yPos, margin + 30, yPos);
+            yPos += 10;
 
-            // KPI Table for PDF
+            // KPI Table with better styling
             const kpiData = [
                 ['Achterpaden', `${statistics.achterpaden.schoonPercentage}% Schoon`, `${statistics.achterpaden.schoon} van ${statistics.achterpaden.totaal} locaties op orde`],
                 ['Woningdossiers', `${statistics.dossiers.totaal} Actief`, `${statistics.dossiers.afgerond} Afgerond`],
@@ -655,28 +702,93 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
                 startY: yPos,
                 head: [['Domein', 'Status', 'Resultaat']],
                 body: kpiData,
-                theme: 'grid',
-                headStyles: { fillColor: [34, 197, 94], textColor: 255 },
-                styles: { fontSize: 10, cellPadding: 5 },
+                theme: 'striped',
+                headStyles: { 
+                    fillColor: [34, 197, 94], 
+                    textColor: 255,
+                    fontSize: 11,
+                    fontStyle: 'bold',
+                    cellPadding: 6
+                },
+                bodyStyles: {
+                    fontSize: 10,
+                    cellPadding: 5
+                },
+                alternateRowStyles: {
+                    fillColor: [249, 250, 251]
+                },
+                columnStyles: {
+                    0: { fontStyle: 'bold', cellWidth: 45 },
+                    1: { cellWidth: 50 },
+                    2: { cellWidth: 'auto' }
+                },
+                margin: { left: margin, right: margin }
             });
 
-            yPos = (doc as any).lastAutoTable.finalY + 15;
+            yPos = (doc as any).lastAutoTable.finalY + 20;
 
-            // Add charts to PDF
+            // Details section
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(21, 128, 61);
+            doc.text('Details per Domein', margin, yPos);
+            yPos += 8;
+
+            // Uren breakdown
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(55, 65, 81);
+            doc.text('Uren per Activiteit:', margin, yPos);
+            yPos += 6;
+            
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            const topActivities = Object.entries(statistics.uren.byActiviteit)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+            
+            for (const [activity, hours] of topActivities) {
+                doc.text(`• ${activity}: ${hours.toFixed(1)} uur`, margin + 5, yPos);
+                yPos += 5;
+            }
+            yPos += 10;
+
+            // Meldingen breakdown
+            checkPageBreak(40);
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Meldingen per Categorie:', margin, yPos);
+            yPos += 6;
+            
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            const topCategories = Object.entries(statistics.meldingen.byCategorie)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+            
+            for (const [category, count] of topCategories) {
+                doc.text(`• ${category}: ${count} melding${count !== 1 ? 'en' : ''}`, margin + 5, yPos);
+                yPos += 5;
+            }
+
+            // ===== PAGE 3: CHARTS =====
             const chartContainer = document.getElementById('report-charts-container');
             if (chartContainer) {
                 try {
-                    // Check if we need a new page for charts
-                    if (yPos > pageHeight - 100) {
-                        doc.addPage();
-                        yPos = 20;
-                    }
+                    doc.addPage();
+                    yPos = 20;
 
-                    doc.setFontSize(16);
+                    doc.setFontSize(18);
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(21, 128, 61);
-                    doc.text('Visuele Analyse', 20, yPos);
-                    yPos += 10;
+                    doc.text('Visuele Analyse', margin, yPos);
+                    yPos += 5;
+                    
+                    // Green accent line
+                    doc.setDrawColor(34, 197, 94);
+                    doc.setLineWidth(1);
+                    doc.line(margin, yPos, margin + 35, yPos);
+                    yPos += 15;
 
                     const canvas = await html2canvas(chartContainer, { 
                         scale: 2, 
@@ -684,17 +796,17 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
                         logging: false 
                     });
                     const imgData = canvas.toDataURL('image/png');
-                    const imgWidth = pageWidth - 40;
+                    const imgWidth = contentWidth;
                     const imgHeight = (canvas.height * imgWidth) / canvas.width;
                     
-                    // Check if image fits on current page
-                    if (yPos + imgHeight > pageHeight - 20) {
-                        doc.addPage();
-                        yPos = 20;
-                    }
+                    // Scale down if too tall
+                    const maxImgHeight = maxY - yPos - 10;
+                    const finalHeight = Math.min(imgHeight, maxImgHeight);
+                    const finalWidth = imgHeight > maxImgHeight 
+                        ? (imgWidth * maxImgHeight) / imgHeight 
+                        : imgWidth;
                     
-                    doc.addImage(imgData, 'PNG', 20, yPos, imgWidth, imgHeight);
-                    yPos += imgHeight + 10;
+                    doc.addImage(imgData, 'PNG', margin, yPos, finalWidth, finalHeight);
                 } catch (chartError) {
                     console.warn('Could not capture charts:', chartError);
                 }
@@ -704,13 +816,25 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
             const totalPages = (doc as any).internal.pages.length - 1;
             for (let i = 1; i <= totalPages; i++) {
                 doc.setPage(i);
+                
+                // Footer line
+                doc.setDrawColor(229, 231, 235);
+                doc.setLineWidth(0.5);
+                doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
+                
+                // Footer text
                 doc.setFontSize(8);
                 doc.setTextColor(156, 163, 175);
                 doc.text(
-                    `Buurtconciërge Management Verslag - Pagina ${i} van ${totalPages} - Samen bouwen we aan een fijnere buurt`,
-                    pageWidth / 2,
-                    pageHeight - 10,
-                    { align: 'center' }
+                    `Buurtconcierge Rapportage`,
+                    margin,
+                    pageHeight - 8
+                );
+                doc.text(
+                    `Pagina ${i} van ${totalPages}`,
+                    pageWidth - margin,
+                    pageHeight - 8,
+                    { align: 'right' }
                 );
             }
 
