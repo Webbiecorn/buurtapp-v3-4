@@ -22,7 +22,7 @@ const MapPage: React.FC = () => {
     const [statusFilter, setStatusFilter] = useState<string>('all');
     // State om bij te houden welke infowindow (popup) open is
     const [openInfoWindow, setOpenInfoWindow] = useState<string | null>(null);
-    
+
     // Filter de meldingen die een locatie hebben
     const locatedMeldingen = meldingen.filter(m => m.locatie && m.locatie.lat && m.locatie.lon);
     // Filter op de geselecteerde status
@@ -35,8 +35,8 @@ const MapPage: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
                  <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">Kaartoverzicht</h1>
                  <div className="flex items-center space-x-4">
-                     <select 
-                        value={statusFilter} 
+                     <select
+                        value={statusFilter}
                         onChange={e => setStatusFilter(e.target.value)}
                         className="bg-white dark:bg-dark-surface border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
                     >
@@ -61,7 +61,7 @@ const MapPage: React.FC = () => {
                                 position={{ lat: melding.locatie!.lat, lng: melding.locatie!.lon }}
                                 onClick={() => setOpenInfoWindow(melding.id)}
                             >
-                                <Pin 
+                                <Pin
                                     background={getStatusPinColor(melding.status)}
                                     borderColor={'#FFF'}
                                     glyphColor={'#FFF'}
@@ -71,9 +71,9 @@ const MapPage: React.FC = () => {
 
                         {openInfoWindow && (
                             <InfoWindow
-                                position={{ 
-                                    lat: filteredMeldingen.find(m => m.id === openInfoWindow)!.locatie!.lat, 
-                                    lng: filteredMeldingen.find(m => m.id === openInfoWindow)!.locatie!.lon 
+                                position={{
+                                    lat: filteredMeldingen.find(m => m.id === openInfoWindow)!.locatie!.lat,
+                                    lng: filteredMeldingen.find(m => m.id === openInfoWindow)!.locatie!.lon
                                 }}
                                 onCloseClick={() => setOpenInfoWindow(null)}
                             >

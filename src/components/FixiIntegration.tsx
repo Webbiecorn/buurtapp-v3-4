@@ -31,7 +31,7 @@ const FixiIntegration: React.FC = () => {
   const [logs, setLogs] = useState<FixiLog[]>([]);
   const [note, setNote] = useState('');
   const [isLogging, setIsLogging] = useState(false);
-  
+
   // GPS Modal state
   const [showGPSModal, setShowGPSModal] = useState(false);
   const [gpsLocation, setGpsLocation] = useState<GPSLocation | null>(null);
@@ -71,16 +71,16 @@ const FixiIntegration: React.FC = () => {
 
           if (data.response && data.response.docs && data.response.docs.length > 0) {
             const doc = data.response.docs[0];
-            
+
             console.log('PDOK document:', doc);
             console.log('Alle beschikbare velden:', Object.keys(doc));
-            
+
             // Parse adres uit PDOK response - probeer meerdere velden
             const straat = doc.straatnaam || doc.weergavenaam?.split(',')[0] || doc.type || 'Onbekende locatie';
             const huisnummer = doc.huisnummer ? String(doc.huisnummer) : undefined;
             const postcode = doc.postcode || '';
             const woonplaats = doc.woonplaatsnaam || 'Lelystad';
-            
+
             // Wijk bepalen via postcode of via woonplaats
             let wijk = getWijkFromPostcode(postcode);
             if (wijk === 'Onbekend' && doc.wijk) {
@@ -153,7 +153,7 @@ const FixiIntegration: React.FC = () => {
 
   const handleLogFixiMelding = async () => {
     if (!currentUser || !gpsLocation) return;
-    
+
     setIsLogging(true);
     try {
       // Clean location object: verwijder undefined waarden
@@ -165,26 +165,26 @@ const FixiIntegration: React.FC = () => {
         wijk: gpsLocation.wijk,
         postcode: gpsLocation.postcode
       };
-      
+
       // Voeg huisnummer alleen toe als het bestaat
       if (gpsLocation.huisnummer) {
         cleanLocation.huisnummer = gpsLocation.huisnummer;
       }
-      
+
       const logData: any = {
         timestamp: Timestamp.now(),
         userId: currentUser.id,
         userName: currentUser.name,
         location: cleanLocation
       };
-      
+
       // Voeg note alleen toe als het bestaat
       if (note.trim()) {
         logData.note = note.trim();
       }
-      
+
       await addDoc(collection(db, 'fixiLogs'), logData);
-      
+
       setNote('');
       setGpsLocation(null);
       setShowGPSModal(false);
@@ -238,8 +238,8 @@ const FixiIntegration: React.FC = () => {
         <button
           onClick={() => setShowIframe(true)}
           className={`px-4 py-2 rounded-lg transition-colors ${
-            showIframe 
-              ? 'bg-purple-600 text-white' 
+            showIframe
+              ? 'bg-purple-600 text-white'
               : 'bg-gray-200 dark:bg-dark-border text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
           }`}
         >
@@ -248,8 +248,8 @@ const FixiIntegration: React.FC = () => {
         <button
           onClick={() => setShowIframe(false)}
           className={`px-4 py-2 rounded-lg transition-colors ${
-            !showIframe 
-              ? 'bg-purple-600 text-white' 
+            !showIframe
+              ? 'bg-purple-600 text-white'
               : 'bg-gray-200 dark:bg-dark-border text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
           }`}
         >
@@ -262,7 +262,7 @@ const FixiIntegration: React.FC = () => {
         <div className="bg-white dark:bg-dark-surface rounded-lg shadow-lg overflow-hidden">
           <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border-b dark:border-dark-border">
             <p className="text-sm text-gray-700 dark:text-gray-300">
-              ℹ️ Dit is de officiële Fixi website. Je kunt hier direct meldingen maken. 
+              ℹ️ Dit is de officiële Fixi website. Je kunt hier direct meldingen maken.
               <strong> Vergeet niet om hieronder je melding te registreren!</strong>
             </p>
           </div>
@@ -310,7 +310,7 @@ const FixiIntegration: React.FC = () => {
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Heb je een melding gemaakt via Fixi? Registreer het hier met GPS locatie zodat we het kunnen bijhouden in onze statistieken.
             </p>
-            
+
             <div className="flex gap-3">
               <button
                 onClick={openGPSModal}
@@ -338,19 +338,19 @@ const FixiIntegration: React.FC = () => {
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                     📍 Fixi Melding Registreren
                   </h3>
-                  
+
                   {!gpsLocation ? (
                     <>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         Klik op de knop hieronder om je huidige GPS locatie vast te leggen.
                       </p>
-                      
+
                       {gpsError && (
                         <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
                           ⚠️ {gpsError}
                         </div>
                       )}
-                      
+
                       <button
                         onClick={getGPSLocation}
                         disabled={isGettingGPS}
@@ -367,13 +367,13 @@ const FixiIntegration: React.FC = () => {
                         </div>
                         <div className="text-sm text-gray-700 dark:text-gray-300">
                           <span className="font-medium">📍 Locatie: </span>
-                          {gpsLocation.huisnummer 
+                          {gpsLocation.huisnummer
                             ? `ter hoogte van ${gpsLocation.straat} ${gpsLocation.huisnummer}`
                             : gpsLocation.straat
                           }
                         </div>
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           Notitie (optioneel)
@@ -386,7 +386,7 @@ const FixiIntegration: React.FC = () => {
                           rows={3}
                         />
                       </div>
-                      
+
                       <div className="flex gap-3">
                         <button
                           onClick={handleLogFixiMelding}
@@ -405,7 +405,7 @@ const FixiIntegration: React.FC = () => {
                       </div>
                     </>
                   )}
-                  
+
                   <button
                     onClick={closeGPSModal}
                     disabled={isLogging}
@@ -423,7 +423,7 @@ const FixiIntegration: React.FC = () => {
             <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
               📋 Registratie Geschiedenis
             </h3>
-            
+
             {logs.length === 0 ? (
               <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                 <div className="text-4xl mb-2">📭</div>
@@ -432,7 +432,7 @@ const FixiIntegration: React.FC = () => {
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {logs.map((log) => (
-                  <div 
+                  <div
                     key={log.id}
                     className="p-4 bg-gray-50 dark:bg-dark-bg rounded-lg border border-gray-200 dark:border-dark-border"
                   >
@@ -444,17 +444,17 @@ const FixiIntegration: React.FC = () => {
                         {formatSafe(log.timestamp, 'dd-MM-yyyy HH:mm', '—')}
                       </div>
                     </div>
-                    
+
                     {log.location && (
                       <div className="mb-2 text-sm text-gray-700 dark:text-gray-300">
                         <span className="font-medium">📍 Locatie: </span>
-                        {log.location.huisnummer 
+                        {log.location.huisnummer
                           ? `ter hoogte van ${log.location.straat} ${log.location.huisnummer}`
                           : log.location.straat
                         }
                       </div>
                     )}
-                    
+
                     {log.note && (
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         💬 {log.note}

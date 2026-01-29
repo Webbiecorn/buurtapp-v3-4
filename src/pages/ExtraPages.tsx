@@ -625,14 +625,14 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
             // Period & Date info box
             doc.setFillColor(249, 250, 251); // Gray-50
             doc.roundedRect(margin, yPos, contentWidth, 20, 3, 3, 'F');
-            
+
             doc.setFontSize(11);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(55, 65, 81);
             doc.text(`Periode: ${periodLabels[reportPeriod]}`, margin + 5, yPos + 8);
             doc.text(`Locatie: ${selectedWijk === 'alle' ? 'Alle Wijken' : selectedWijk}`, margin + 5, yPos + 15);
             doc.text(`Datum: ${format(new Date(), 'dd MMMM yyyy', { locale: nl })}`, pageWidth - margin - 5, yPos + 12, { align: 'right' });
-            
+
             yPos += 30;
 
             // Section: Samenvatting
@@ -651,16 +651,16 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
             doc.setFontSize(10);
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(55, 65, 81);
-            
+
             const lineHeight = 5;
             const paragraphs = narrative.split('\n\n').filter(p => p.trim());
-            
+
             for (const paragraph of paragraphs) {
                 const lines = doc.splitTextToSize(paragraph.trim(), contentWidth);
                 const paragraphHeight = lines.length * lineHeight + 5;
-                
+
                 checkPageBreak(paragraphHeight);
-                
+
                 for (const line of lines) {
                     if (yPos > maxY) {
                         doc.addPage();
@@ -682,7 +682,7 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
             doc.setTextColor(21, 128, 61);
             doc.text('Kerncijfers', margin, yPos);
             yPos += 5;
-            
+
             // Green accent line
             doc.setDrawColor(34, 197, 94);
             doc.setLineWidth(1);
@@ -703,8 +703,8 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
                 head: [['Domein', 'Status', 'Resultaat']],
                 body: kpiData,
                 theme: 'striped',
-                headStyles: { 
-                    fillColor: [34, 197, 94], 
+                headStyles: {
+                    fillColor: [34, 197, 94],
                     textColor: 255,
                     fontSize: 11,
                     fontStyle: 'bold',
@@ -740,13 +740,13 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
             doc.setTextColor(55, 65, 81);
             doc.text('Uren per Activiteit:', margin, yPos);
             yPos += 6;
-            
+
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(9);
             const topActivities = Object.entries(statistics.uren.byActiviteit)
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 5);
-            
+
             for (const [activity, hours] of topActivities) {
                 doc.text(`• ${activity}: ${hours.toFixed(1)} uur`, margin + 5, yPos);
                 yPos += 5;
@@ -759,13 +759,13 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
             doc.setFont('helvetica', 'bold');
             doc.text('Meldingen per Categorie:', margin, yPos);
             yPos += 6;
-            
+
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(9);
             const topCategories = Object.entries(statistics.meldingen.byCategorie)
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 5);
-            
+
             for (const [category, count] of topCategories) {
                 doc.text(`• ${category}: ${count} melding${count !== 1 ? 'en' : ''}`, margin + 5, yPos);
                 yPos += 5;
@@ -780,7 +780,7 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
             doc.setTextColor(21, 128, 61);
             doc.text('Visuele Analyse', margin, yPos);
             yPos += 5;
-            
+
             // Green accent line
             doc.setDrawColor(34, 197, 94);
             doc.setLineWidth(1);
@@ -793,33 +793,33 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor(55, 65, 81);
                 doc.text(title, margin, startY);
-                
+
                 const barStartY = startY + 8;
                 const maxValue = Math.max(...data.map(d => d.value), 1);
                 const barHeight = 8;
                 const barGap = 4;
                 const maxBarWidth = chartWidth - 60;
-                
+
                 data.forEach((item, index) => {
                     const y = barStartY + (index * (barHeight + barGap));
                     const barWidth = (item.value / maxValue) * maxBarWidth;
-                    
+
                     // Draw bar
                     const rgb = hexToRgb(item.color);
                     doc.setFillColor(rgb.r, rgb.g, rgb.b);
                     doc.roundedRect(margin + 50, y, barWidth, barHeight, 2, 2, 'F');
-                    
+
                     // Draw label
                     doc.setFontSize(8);
                     doc.setFont('helvetica', 'normal');
                     doc.setTextColor(55, 65, 81);
                     const labelText = item.label.length > 12 ? item.label.substring(0, 12) + '...' : item.label;
                     doc.text(labelText, margin, y + 6);
-                    
+
                     // Draw value
                     doc.text(item.value.toString(), margin + 55 + barWidth, y + 6);
                 });
-                
+
                 return barStartY + (data.length * (barHeight + barGap)) + 10;
             };
 
@@ -842,7 +842,7 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
                     value: entry[1],
                     color: PIE_COLORS[i % PIE_COLORS.length]
                 }));
-            
+
             if (categorieData.length > 0) {
                 yPos = drawBarChart('Meldingen per Categorie', categorieData, yPos, contentWidth, 80);
             }
@@ -854,7 +854,7 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
                 { label: 'Proj. Afgerond', value: statistics.projecten.afgerond, color: '#3b82f6' },
                 { label: 'Proj. Lopend', value: statistics.projecten.lopend, color: '#f97316' },
             ].filter(d => d.value > 0);
-            
+
             if (statusData.length > 0) {
                 yPos = drawBarChart('Status Overzicht', statusData, yPos, contentWidth, 60);
             }
@@ -868,7 +868,7 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
                     value: Math.round(entry[1]),
                     color: PIE_COLORS[i % PIE_COLORS.length]
                 }));
-            
+
             if (urenData.length > 0) {
                 yPos = drawBarChart('Uren per Activiteit', urenData, yPos, contentWidth, 80);
             }
@@ -876,7 +876,7 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
             // Summary boxes at the bottom
             checkPageBreak(50);
             yPos += 10;
-            
+
             doc.setFontSize(12);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(55, 65, 81);
@@ -894,26 +894,26 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
             summaryData.forEach((item, index) => {
                 const x = margin + (index * (summaryBoxWidth + 10));
                 const rgb = hexToRgb(item.color);
-                
+
                 // Box background
                 doc.setFillColor(249, 250, 251);
                 doc.roundedRect(x, yPos, summaryBoxWidth, summaryBoxHeight, 3, 3, 'F');
-                
+
                 // Colored left border
                 doc.setFillColor(rgb.r, rgb.g, rgb.b);
                 doc.rect(x, yPos, 3, summaryBoxHeight, 'F');
-                
+
                 // Text
                 doc.setFontSize(8);
                 doc.setFont('helvetica', 'normal');
                 doc.setTextColor(107, 114, 128);
                 doc.text(item.label, x + 8, yPos + 8);
-                
+
                 doc.setFontSize(16);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor(rgb.r, rgb.g, rgb.b);
                 doc.text(item.value, x + 8, yPos + 20);
-                
+
                 doc.setFontSize(8);
                 doc.setFont('helvetica', 'normal');
                 doc.setTextColor(107, 114, 128);
@@ -924,12 +924,12 @@ Houd het professioneel en feitelijk onderbouwd. Gebruik GEEN markdown-titels (zo
             const totalPages = (doc as any).internal.pages.length - 1;
             for (let i = 1; i <= totalPages; i++) {
                 doc.setPage(i);
-                
+
                 // Footer line
                 doc.setDrawColor(229, 231, 235);
                 doc.setLineWidth(0.5);
                 doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
-                
+
                 // Footer text
                 doc.setFontSize(8);
                 doc.setTextColor(156, 163, 175);

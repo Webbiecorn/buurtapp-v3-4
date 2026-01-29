@@ -104,7 +104,7 @@ Zorg dat de inzichten praktisch en actionable zijn.`;
     }
 
     const insights: AIInsight[] = JSON.parse(jsonMatch[0]);
-    
+
     // Sort by priority and return top 3
     return insights
       .sort((a, b) => b.priority - a.priority)

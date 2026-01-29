@@ -36,63 +36,63 @@ interface PriorityItem {
 
 export async function generateDailyUpdate(data: DailyUpdateData, userName?: string, greeting?: string): Promise<string> {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-  
+
   const today = startOfToday();
   const todayStr = format(today, 'EEEE d MMMM yyyy', { locale: nl });
   const greetingText = greeting || 'Goedemorgen';
   const nameText = userName || 'daar';
-  
+
   // 1. WEER INFORMATIE
   const weather = await getLelystadWeather();
-  const weatherText = weather 
+  const weatherText = weather
     ? `${weather.icon} **Weer in Lelystad:** ${weather.temperature}°C, ${weather.weatherDescription}. Wind: ${weather.windSpeed} km/u. ${weather.suggestion}`
     : '';
-  
+
   // 2. SLIMME PRIORITEITEN DETECTIE
   const priorities = identifyPriorities(data.allMeldingen, data.allProjects);
   const prioritiesText = priorities.length > 0
-    ? `\n**⚠️ Aandachtspunten:**\n${priorities.slice(0, 3).map(p => 
+    ? `\n**⚠️ Aandachtspunten:**\n${priorities.slice(0, 3).map(p =>
         `- ${p.urgency === 'high' ? '🔴' : '🟡'} ${p.type === 'melding' ? 'Melding' : 'Project'}: ${p.title} (${p.reason})`
       ).join('\n')}`
     : '';
-  
+
   // 3. VERGELIJKINGEN MET VORIGE PERIODES
   const yesterday = subDays(today, 1);
-  
-  const yesterdayMeldingen = data.allMeldingen.filter(m => 
+
+  const yesterdayMeldingen = data.allMeldingen.filter(m =>
     format(m.timestamp, 'yyyy-MM-dd') === format(yesterday, 'yyyy-MM-dd')
   ).length;
-  
+
   const lastWeekMeldingen = data.allMeldingen.filter(m => {
     const weekAgo = subWeeks(today, 1);
     return m.timestamp >= weekAgo && m.timestamp < today;
   }).length;
-  
+
   const avgMeldingenPerDay = lastWeekMeldingen / 7;
-  const comparison = data.newMeldingen.length > avgMeldingenPerDay * 1.2 
+  const comparison = data.newMeldingen.length > avgMeldingenPerDay * 1.2
     ? '📈 Meer dan gemiddeld'
     : data.newMeldingen.length < avgMeldingenPerDay * 0.8
     ? '📉 Rustiger dan gemiddeld'
     : '📊 Gemiddelde drukte';
-  
+
   // 4. WIJK-FOCUS ANALYSE
   const wijkStats = [...new Set(data.allMeldingen.map(m => m.wijk))]
     .map(wijk => ({
       wijk,
-      count: data.allMeldingen.filter(m => m.wijk === wijk && 
+      count: data.allMeldingen.filter(m => m.wijk === wijk &&
         format(m.timestamp, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')).length
     }))
     .sort((a, b) => b.count - a.count);
-  
-  const focusWijk = wijkStats[0]?.count > 0 
+
+  const focusWijk = wijkStats[0]?.count > 0
     ? `\n**🏘️ Wijk Focus:** Meeste activiteit vandaag in ${wijkStats[0].wijk} (${wijkStats[0].count} meldingen)`
     : '';
-  
+
   const quietWijken = wijkStats.filter(w => w.count === 0).map(w => w.wijk);
-  const quietWijkText = quietWijken.length > 0 
+  const quietWijkText = quietWijken.length > 0
     ? ` • Rustig in: ${quietWijken.slice(0, 3).join(', ')}`
     : '';
-  
+
   // 5. TEAM INSIGHTS & NIEUWE MEDEWERKERS (alleen vandaag aangemaakt)
   const newUsers = data.allUsers.filter(u => {
     const createdAt = (u as any).createdAt;
@@ -100,11 +100,11 @@ export async function generateDailyUpdate(data: DailyUpdateData, userName?: stri
     const userDate = createdAt instanceof Date ? createdAt : new Date(createdAt);
     return format(userDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd'); // Alleen vandaag
   });
-  
+
   const newUserWelcome = newUsers.length > 0
     ? `\n\n**👋 Welkom nieuwe teamleden!**\n${newUsers.map(u => `- ${u.name} (${u.role})`).join('\n')}\nWe heten jullie van harte welkom in het team!`
     : '';
-  
+
   const totalHoursToday = data.todayUren.reduce((acc, u) => {
     if (u.eind) {
       const start = u.start instanceof Date ? u.start : new Date(u.start);
@@ -113,11 +113,11 @@ export async function generateDailyUpdate(data: DailyUpdateData, userName?: stri
     }
     return acc;
   }, 0);
-  
+
   const teamMotivation = data.activeUsers.length > 0
     ? `\n**👥 Team vandaag:** ${data.activeUsers.length} medewerker${data.activeUsers.length > 1 ? 's' : ''} actief${totalHoursToday > 0 ? ` (${totalHoursToday.toFixed(1)} uur geregistreerd)` : ''}`
     : '';
-  
+
   const prompt = `Je bent een AI-assistent voor een buurtconciërge app die dagelijkse updates genereert.
 
 **Gebruiker: ${nameText}**
@@ -170,39 +170,39 @@ Focus op: hoogtepunten, context, en wat aandacht verdient vandaag.`;
     return response.text();
   } catch (error) {
     console.error('Error generating daily update:', error);
-    
+
     // Fallback response met nieuwe features
     let fallback = `${greetingText} ${nameText}! 📊\n\n`;
-    
+
     if (weather) {
       fallback += `${weather.icon} ${weather.temperature}°C in Lelystad. ${weather.suggestion}\n\n`;
     }
-    
+
     fallback += `**Vandaag:**\n`;
     fallback += `- ${data.newMeldingen.length} nieuwe melding(en) ${comparison}\n`;
-    
+
     if (data.newMeldingen.length > 0 || data.newProjects.length > 0) {
       fallback += `- ${data.newProjects.length} nieuw(e) project(en)\n`;
     }
-    
+
     if (data.completedProjects.length > 0) {
       fallback += `\n🎉 ${data.completedProjects.length} project(en) afgerond!\n`;
     }
-    
+
     if (priorities.length > 0) {
       fallback += `\n⚠️ Let op: ${priorities[0].title} (${priorities[0].reason})\n`;
     }
-    
+
     if (focusWijk) {
       fallback += focusWijk + '\n';
     }
-    
+
     if (newUsers.length > 0) {
       fallback += `\n👋 Welkom ${newUsers.map(u => u.name).join(' en ')}!\n`;
     }
-    
+
     fallback += `\n\n💪 Succes vandaag, ${nameText}!`;
-    
+
     return fallback;
   }
 }
@@ -210,11 +210,11 @@ Focus op: hoogtepunten, context, en wat aandacht verdient vandaag.`;
 // Generate weekly update with trends
 export async function generateWeeklyUpdate(data: DailyUpdateData): Promise<string> {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-  
+
   const today = startOfToday();
   const weekStart = startOfWeek(today, { locale: nl });
   const weekStr = format(weekStart, 'd MMMM', { locale: nl }) + ' - ' + format(today, 'd MMMM yyyy', { locale: nl });
-  
+
   const prompt = `Je bent een AI-assistent voor een buurtconciërge app die wekelijkse updates genereert.
 
 **Week van ${weekStr}**
@@ -268,7 +268,7 @@ Houd het bondig (max 200 woorden).`;
 export function identifyPriorities(meldingen: Melding[], projecten: Project[]): PriorityItem[] {
   const priorities: PriorityItem[] = [];
   const today = new Date();
-  
+
   // High priority: Meldingen in behandeling ouder dan 7 dagen
   meldingen
     .filter(m => m.status === 'In behandeling')
@@ -285,7 +285,7 @@ export function identifyPriorities(meldingen: Melding[], projecten: Project[]): 
         });
       }
     });
-  
+
   // High priority: Lopende projecten zonder recente updates
   projecten
     .filter(p => p.status === 'Lopend')
@@ -304,7 +304,7 @@ export function identifyPriorities(meldingen: Melding[], projecten: Project[]): 
         });
       }
     });
-  
+
   // Sorteer op urgency en dan op daysSince
   return priorities.sort((a, b) => {
     if (a.urgency !== b.urgency) {
