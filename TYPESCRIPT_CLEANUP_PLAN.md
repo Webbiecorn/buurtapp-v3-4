@@ -7,7 +7,7 @@
 ### Error Breakdown
 - **ECharts params**: ~30 instances van `(params: any)` in formatter/callback functies
 - **Firestore data**: ~15 instances van `doc.data() as any`
-- **Type assertions**: ~20 instances van `as any` in event handlers  
+- **Type assertions**: ~20 instances van `as any` in event handlers
 - **Generic types**: `type Registratie = any` en soortgelijke
 - **Tailwind CSS warnings**: ~50 deprecated class names
 
@@ -86,7 +86,7 @@ onChange={e => setStatus(e.target.value as any)}
 
 Met:
 ```typescript
-onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
   setStatus(e.target.value as MeldingStatus)
 }
 ```
@@ -134,15 +134,15 @@ Met:
 
 ## Voortgang Tracking
 
-| Category | Total | Fixed | Remaining |
-|----------|-------|-------|-----------|
-| ECharts params | ~30 | 0 | 30 |
-| Firestore data | ~15 | 0 | 15 |
-| Event handlers | ~20 | 0 | 20 |
-| Generic types | ~10 | 0 | 10 |
-| Error handling | ~25 | 0 | 25 |
-| Tailwind CSS | ~50 | 0 | 50 |
-| **TOTAAL** | **~150*** | **0** | **150** |
+| Category       | Total     | Fixed | Remaining |
+| -------------- | --------- | ----- | --------- |
+| ECharts params | ~30       | 0     | 30        |
+| Firestore data | ~15       | 0     | 15        |
+| Event handlers | ~20       | 0     | 20        |
+| Generic types  | ~10       | 0     | 10        |
+| Error handling | ~25       | 0     | 25        |
+| Tailwind CSS   | ~50       | 0     | 50        |
+| **TOTAAL**     | **~150*** | **0** | **150**   |
 
 *Exclusief duplicaten en minder kritieke warnings
 
@@ -178,5 +178,5 @@ const data = doc.data() as any;
 
 ---
 
-**Laatst bijgewerkt:** 16 februari 2026  
+**Laatst bijgewerkt:** 16 februari 2026
 **Geschatte tijd voor volledige cleanup:** 15-20 uur

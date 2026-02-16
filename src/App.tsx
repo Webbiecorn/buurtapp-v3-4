@@ -40,7 +40,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: UserRole[] }
   if (!currentUser) {
     return <ReactRouterDOM.Navigate to="/login" replace />;
   }
-  
+
   if(roles && !roles.includes(currentUser.role)) {
     return <ReactRouterDOM.Navigate to="/" replace />;
   }

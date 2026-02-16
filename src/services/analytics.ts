@@ -1,6 +1,6 @@
 /**
  * Firebase Analytics Service
- * 
+ *
  * Gecentraliseerde tracking van user events en app usage via Firebase Analytics.
  * Werkt samen met de logger service voor complete monitoring.
  */
@@ -65,9 +65,9 @@ export function trackUserInvited(role: string) {
  * Track wanneer uren worden geregistreerd
  */
 export function trackUrenRegistered(hours: number, projectLinked: boolean) {
-  trackEvent('uren_registered', { 
-    hours: Math.round(hours * 100) / 100, 
-    project_linked: projectLinked 
+  trackEvent('uren_registered', {
+    hours: Math.round(hours * 100) / 100,
+    project_linked: projectLinked
   });
 }
 
@@ -75,7 +75,7 @@ export function trackUrenRegistered(hours: number, projectLinked: boolean) {
  * Track wanneer een document wordt geüpload
  */
 export function trackDocumentUploaded(fileType: string, sizeKB: number) {
-  trackEvent('document_uploaded', { 
+  trackEvent('document_uploaded', {
     file_type: fileType,
     size_kb: Math.round(sizeKB)
   });
@@ -85,7 +85,7 @@ export function trackDocumentUploaded(fileType: string, sizeKB: number) {
  * Track wanneer een export wordt gegenereerd
  */
 export function trackExport(exportType: 'pdf' | 'excel', dataType: string) {
-  trackEvent('export_generated', { 
+  trackEvent('export_generated', {
     export_type: exportType,
     data_type: dataType
   });
@@ -109,9 +109,9 @@ export function trackAdminPageViewed(tab?: string) {
  * Track search queries
  */
 export function trackSearch(query: string, resultsCount: number) {
-  trackEvent('search', { 
+  trackEvent('search', {
     search_term: query.substring(0, 50), // Limiteer privacy
-    results_count: resultsCount 
+    results_count: resultsCount
   });
 }
 
@@ -119,7 +119,7 @@ export function trackSearch(query: string, resultsCount: number) {
  * Track errors (samenwerkend met logger)
  */
 export function trackError(errorType: string, errorMessage: string, context?: Record<string, any>) {
-  trackEvent('error_occurred', { 
+  trackEvent('error_occurred', {
     error_type: errorType,
     error_message: errorMessage.substring(0, 100),
     ...context
@@ -162,9 +162,9 @@ export function setAnalyticsUserId(userId: string) {
  * Track page views (voor SPA routing)
  */
 export function trackPageView(pageName: string, path: string) {
-  trackEvent('page_view', { 
+  trackEvent('page_view', {
     page_title: pageName,
-    page_path: path 
+    page_path: path
   });
 }
 
@@ -172,8 +172,8 @@ export function trackPageView(pageName: string, path: string) {
  * Track feature usage
  */
 export function trackFeatureUsed(featureName: string, details?: Record<string, any>) {
-  trackEvent('feature_used', { 
+  trackEvent('feature_used', {
     feature_name: featureName,
-    ...details 
+    ...details
   });
 }

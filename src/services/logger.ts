@@ -67,7 +67,7 @@ class Logger {
     if (this.enableConsole) {
       const consoleMethod = level === 'debug' ? 'log' : level;
       const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
-      
+
       if (context && Object.keys(context).length > 0) {
         // eslint-disable-next-line no-console
         console[consoleMethod](prefix, message, context);
@@ -90,7 +90,7 @@ class Logger {
   async time<T>(label: string, fn: () => Promise<T>): Promise<T> {
     const start = performance.now();
     this.debug(`⏱️ Starting: ${label}`);
-    
+
     try {
       const result = await fn();
       const duration = performance.now() - start;

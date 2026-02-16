@@ -34,7 +34,7 @@ async function initializeFirebase() {
       analytics = getAnalytics(app);
     }
 
-    
+
     const useEmulators = import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true';
     if (useEmulators) {
       console.log("Connecting to Firebase Emulators...");

@@ -1,6 +1,6 @@
 /**
  * Zod Validation Schemas
- * 
+ *
  * Centralized input validation schemas voor alle formulieren in de applicatie.
  * Dit verbetert security en data integrity.
  */
@@ -181,16 +181,16 @@ export const createUrenregistratieSchema = z.object({
  */
 export function validate<T>(schema: z.ZodSchema<T>, data: unknown): { success: true; data: T } | { success: false; errors: string[] } {
   const result = schema.safeParse(data);
-  
+
   if (result.success) {
     return { success: true, data: result.data };
   }
-  
+
   const errors = result.error.errors.map(err => {
     const path = err.path.join('.');
     return path ? `${path}: ${err.message}` : err.message;
   });
-  
+
   return { success: false, errors };
 }
 

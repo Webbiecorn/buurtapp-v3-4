@@ -53,7 +53,7 @@ export const ChartSkeleton: React.FC = () => (
   <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow animate-pulse">
     {/* Title */}
     <div className="h-6 w-48 bg-gray-300 dark:bg-dark-border rounded mb-6"></div>
-    
+
     {/* Chart area */}
     <div className="relative h-80 bg-gray-100 dark:bg-dark-bg rounded">
       {/* Animated bars */}

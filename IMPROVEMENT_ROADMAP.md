@@ -1,6 +1,6 @@
 # 🚀 Improvement Roadmap - Buurtconciërge App
 
-**Versie:** v0.3.0 Planning  
+**Versie:** v0.3.0 Planning
 **Datum:** 16 februari 2026
 
 ## ✅ Geïmplementeerd (v0.2.0)
@@ -124,14 +124,14 @@ try {
 // Custom hook
 const useRateLimit = (delay: number = 1000) => {
   const [lastCall, setLastCall] = useState(0);
-  
+
   const canCall = () => {
     const now = Date.now();
     if (now - lastCall < delay) return false;
     setLastCall(now);
     return true;
   };
-  
+
   return canCall;
 };
 ```
@@ -185,7 +185,7 @@ const useKeyboardShortcuts = () => {
         // New melding
       }
     };
-    
+
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
   }, []);
@@ -248,7 +248,7 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     logger.error('React Error Boundary', error, errorInfo);
   }
-  
+
   render() {
     if (this.state.hasError) {
       return <ErrorFallback />;
@@ -292,7 +292,7 @@ import { trace } from 'firebase/performance';
 const loadData = async () => {
   const t = trace(perf, 'load_statistics_data');
   t.start();
-  
+
   try {
     // load data
   } finally {
@@ -379,10 +379,10 @@ const [isOnline, setIsOnline] = useState(navigator.onLine);
 useEffect(() => {
   const handleOnline = () => setIsOnline(true);
   const handleOffline = () => setIsOnline(false);
-  
+
   window.addEventListener('online', handleOnline);
   window.addEventListener('offline', handleOffline);
-  
+
   return () => {
     window.removeEventListener('online', handleOnline);
     window.removeEventListener('offline', handleOffline);
@@ -422,17 +422,17 @@ useEffect(() => {
 
 ## 📈 Verwachte Impact
 
-| Verbetering | Impact | Effort | ROI |
-|------------|--------|--------|-----|
-| ECharts Tree-Shaking | ⭐⭐⭐ | 🔨🔨 | Hoog |
-| Lazy Loading Libraries | ⭐⭐⭐ | 🔨🔨 | Hoog |
-| Input Validation | ⭐⭐⭐ | 🔨🔨 | Hoog |
-| Bulk Actions | ⭐⭐ | 🔨🔨🔨 | Medium |
-| Keyboard Shortcuts | ⭐⭐ | 🔨 | Medium |
-| Analytics | ⭐⭐⭐ | 🔨 | Zeer Hoog |
-| Testing | ⭐⭐ | 🔨🔨🔨🔨 | Lang Termijn |
+| Verbetering            | Impact | Effort | ROI          |
+| ---------------------- | ------ | ------ | ------------ |
+| ECharts Tree-Shaking   | ⭐⭐⭐    | 🔨🔨     | Hoog         |
+| Lazy Loading Libraries | ⭐⭐⭐    | 🔨🔨     | Hoog         |
+| Input Validation       | ⭐⭐⭐    | 🔨🔨     | Hoog         |
+| Bulk Actions           | ⭐⭐     | 🔨🔨🔨    | Medium       |
+| Keyboard Shortcuts     | ⭐⭐     | 🔨      | Medium       |
+| Analytics              | ⭐⭐⭐    | 🔨      | Zeer Hoog    |
+| Testing                | ⭐⭐     | 🔨🔨🔨🔨   | Lang Termijn |
 
 ---
 
-**Laatst bijgewerkt:** 16 februari 2026  
+**Laatst bijgewerkt:** 16 februari 2026
 **Status:** Planning Fase

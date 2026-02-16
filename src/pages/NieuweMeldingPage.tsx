@@ -50,7 +50,7 @@ const NieuweMeldingPage: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    // Zod validatie  
+    // Zod validatie
     const validation = validate(createMeldingSchema, {
       titel,
       omschrijving,
