@@ -14,6 +14,8 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { generateDailyUpdate } from '../services/dailyUpdateAI';
 import { logger } from '../services/logger';
+import { validate, inviteUserSchema } from '../utils/validation';
+import { trackUserInvited } from '../services/analytics';
 
 type AdminTab = 'users' | 'hours' | 'projects';
 
@@ -39,6 +41,14 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         setLoading(true);
         setError(null);
         setSuccess(null);
+
+        // Zod validatie
+        const validation = validate(inviteUserSchema, { name, email, role });
+        if (!validation.success) {
+            setError(validation.errors.join(', '));
+            setLoading(false);
+            return;
+        }
 
         try {
             const inviteUser = httpsCallable(functions, 'inviteUser');
@@ -67,6 +77,9 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 } else {
                     setSuccess(data.message || `✅ Gebruiker ${name} aangemaakt.`);
                 }
+
+                // Track analytics
+                trackUserInvited(role);
 
                 // Reset form
                 setName('');

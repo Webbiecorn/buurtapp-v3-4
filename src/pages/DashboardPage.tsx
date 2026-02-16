@@ -5,7 +5,6 @@ import { useAppContext } from '../context/AppContext';
 import { StatCard } from '../components/ui';
 import { AlertTriangleIcon, ClockIcon, BriefcaseIcon } from '../components/Icons';
 import ReactECharts from 'echarts-for-react';
-import * as echarts from 'echarts';
 import 'echarts-gl';
 import { DossierStatus, MeldingStatus, UserRole } from '../types';
 import { db } from '../firebase';

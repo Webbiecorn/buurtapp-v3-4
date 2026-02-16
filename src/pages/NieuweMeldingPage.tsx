@@ -4,6 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import { MeldingStatus } from '../types';
 import { CameraIcon, MapPinIcon, TrashIcon } from '../components/Icons';
 import { MOCK_WIJKEN } from '../data/mockData';
+import { validate, createMeldingSchema } from '../utils/validation';
 
 const NieuweMeldingPage: React.FC = () => {
   const { addMelding, uploadFile } = useAppContext();
@@ -48,6 +49,22 @@ const NieuweMeldingPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Zod validatie  
+    const validation = validate(createMeldingSchema, {
+      titel,
+      omschrijving,
+      wijk,
+      locatie,
+      categorie: 'Overig',
+      status,
+    });
+
+    if (!validation.success) {
+      setError(validation.errors.join(', '));
+      return;
+    }
+
     setIsUploading(true);
 
     try {

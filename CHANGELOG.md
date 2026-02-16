@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-02-16
+### Added
+#### Security & Validation
+- **Zod validation** toegevoegd voor formulieren: user invite, melding aanmaken
+- Input validatie schemas in `src/utils/validation.ts` voor alle belangrijke entities
+- Email, naam en wachtwoord validatie met duidelijke Nederlandse error messages
+
+#### Analytics & Monitoring
+- **Firebase Analytics** volledig geïntegreerd voor usage tracking
+- Automatische page view tracking in App.tsx bij route changes
+- Event tracking voor: login, meldingen, projecten, gebruikers uitnodigen, uren registratie
+- Analytics service in `src/services/analytics.ts` met 15+ tracking functies
+- User properties tracking (role, theme) en user ID voor segmentatie
+
+#### Performance
+- ECharts tree-shaking verkend (niet effectief voor echarts-gl, gedocumenteerd in IMPROVEMENT_ROADMAP.md)
+
+### Changed
+- Logger service nu geïntegreerd met Analytics voor complete monitoring
+- AppContext login functie tracked nu analytics events
+- AdminPage user invite met Zod validatie
+- NieuweMeldingPage met Zod validatie voor formulier input
+
+### Documentation
+- **IMPROVEMENT_ROADMAP.md**: Complete improvement roadmap met 20+ verbeteringen in 6 categorieën
+- **TYPESCRIPT_CLEANUP_PLAN.md**: Gedetailleerd plan voor TypeScript strict mode cleanup (~150 'any' types)
+- Phase 1-5 implementatie strategie voor toekomstige verbeteringen
+
+### Fixed
+- Firebase Analytics initialization (async isSupported check)
+- Validation errors tonen nu gebruiksvriendelijke boodschappen
+
+## [0.2.1] - 2026-02-16
+### Added
+- **Skeleton loaders** voor betere perceived performance (8 varianten)
+- **Logger service** voor gecentraliseerde error handling met environment-aware behavior
+- Skeletons voor: Page, Table, Chart, Card, List, Form, Stats components
+
+### Changed
+- Lazy loading geverifieerd (al aanwezig, nu gedocumenteerd)
+- Console.log vervangen door logger in 15+ bestanden
+- PageSkeleton als fallback voor alle Suspense boundaries
+
+### Removed
+- Backup bestanden (StatisticsPage.tsx.backup, StatisticsPage_old.tsx)
+- `.gitignore` aangepast om backup files te excluden
+
 ## [0.2.0] - 2026-02-16
 ### Added
 - Statistics: "Meldingen Overzicht" chart met bar + line visualisatie voor nieuwe en opgeloste meldingen

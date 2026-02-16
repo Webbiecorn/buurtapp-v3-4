@@ -3,6 +3,7 @@ import { getFirestore, connectFirestoreEmulator, Firestore, setLogLevel } from "
 import { getStorage, connectStorageEmulator, FirebaseStorage } from "firebase/storage";
 import { getAuth, connectAuthEmulator, Auth } from "firebase/auth";
 import { getFunctions, connectFunctionsEmulator, Functions } from "firebase/functions";
+import { getAnalytics, Analytics, isSupported } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -19,15 +20,21 @@ let auth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
 let functions: Functions;
+let analytics: Analytics | null = null;
 
-function initializeFirebase() {
+async function initializeFirebase() {
   if (!getApps().length) {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
     storage = getStorage(app);
     functions = getFunctions(app, 'us-central1'); // Specificeer regio indien nodig
+// Initialize Analytics (only in production and if supported)
+    if (import.meta.env.PROD && await isSupported()) {
+      analytics = getAnalytics(app);
+    }
 
+    
     const useEmulators = import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true';
     if (useEmulators) {
       console.log("Connecting to Firebase Emulators...");
@@ -54,7 +61,7 @@ if (import.meta.env.PROD) {
 }
 
 // Exporteer de instanties
-export { app, auth, db, storage, functions };
+export { app, auth, db, storage, functions, analytics };
 
 
 // Getter function to ensure db is always initialized

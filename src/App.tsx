@@ -1,9 +1,10 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { AppShell } from './components/AppShell';
 import { UserRole } from './types';
 import { PageSkeleton } from './components/Skeletons';
+import { trackPageView } from './services/analytics';
 
 // Lazy load alle pagina's voor betere performance
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
@@ -49,6 +50,15 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: UserRole[] }
 
 const AppRoutes: React.FC = () => {
     const { currentUser } = useAppContext();
+    const location = ReactRouterDOM.useLocation();
+
+  // Track page views bij elke route change
+  useEffect(() => {
+    if (currentUser) {
+      const pageName = location.pathname.split('/')[1] || 'dashboard';
+      trackPageView(pageName, location.pathname);
+    }
+  }, [location, currentUser]);
 
   return (
     <ReactRouterDOM.Routes>

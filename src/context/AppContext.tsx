@@ -51,7 +51,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    return signInWithEmailAndPassword(auth, email, password);
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    trackLogin('email');
+    return result;
   }, []);
 
   const logout = useCallback(async () => {
@@ -179,6 +181,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   }, [logout]);
 
+  // Set Analytics user properties wanneer currentUser verandert
+  useEffect(() => {
+    if (currentUser) {
+      setAnalyticsUserId(currentUser.id);
+      setAnalyticsUserProperties({ role: currentUser.role, theme });
+    }
+  }, [currentUser, theme]);
+
   const uploadFile = useCallback(async (file: File, path: string): Promise<string> => {
     const storageRef = ref(storage, path);
     await uploadBytes(storageRef, file);
@@ -198,6 +208,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dataToSend.afgerondTimestamp = serverTimestamp();
       }
       await addDoc(collection(db, 'meldingen'), dataToSend);
+      trackMeldingCreated(melding.categorie || 'Overig');
     } catch (error) {
       // Geef fouten door aan de UI
       throw error;
