@@ -8,6 +8,7 @@ import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimest
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { ExternalContact } from '../types';
 import { logger } from '../services/logger';
+import { trackLogin, trackMeldingCreated, setAnalyticsUserId, setAnalyticsUserProperties } from '../services/analytics';
 
 const convertTimestamps = (data: any) => {
   const convertedData = { ...data };
