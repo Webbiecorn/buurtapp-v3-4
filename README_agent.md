@@ -435,6 +435,7 @@ npm run build
 - **README.md**: Project overview en setup instructies
 
 ### Versie overzicht
+- v0.3.5 (16 feb 2026): Performance Monitoring (Firebase Performance, bundle analysis, slow query detection)
 - v0.3.4 (16 feb 2026): Bulk Actions voor multi-select operaties in Meldingen
 - v0.3.3 (16 feb 2026): Keyboard Shortcuts en Command Palette
 - v0.3.2 (16 feb 2026): Debounced Search met loading indicators

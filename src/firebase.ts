@@ -4,6 +4,7 @@ import { getStorage, connectStorageEmulator, FirebaseStorage } from "firebase/st
 import { getAuth, connectAuthEmulator, Auth } from "firebase/auth";
 import { getFunctions, connectFunctionsEmulator, Functions } from "firebase/functions";
 import { getAnalytics, Analytics, isSupported } from "firebase/analytics";
+import { getPerformance, Performance } from "firebase/performance";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -21,6 +22,7 @@ let db: Firestore;
 let storage: FirebaseStorage;
 let functions: Functions;
 let analytics: Analytics | null = null;
+let performance: Performance | null = null;
 
 async function initializeFirebase() {
   if (!getApps().length) {
@@ -34,6 +36,15 @@ async function initializeFirebase() {
       analytics = getAnalytics(app);
     }
 
+    // Initialize Performance Monitoring (only in production)
+    if (import.meta.env.PROD) {
+      try {
+        performance = getPerformance(app);
+        console.log('Firebase Performance Monitoring initialized');
+      } catch (error) {
+        console.warn('Failed to initialize Firebase Performance:', error);
+      }
+    }
 
     const useEmulators = import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true';
     if (useEmulators) {
@@ -52,7 +63,7 @@ async function initializeFirebase() {
   }
 }
 
-// Initialiseer direct
+// Initialiseer direct, performance
 initializeFirebase();
 
 // In productie, zet het log level op 'error' om interne SDK fouten te voorkomen en console noise te verminderen.

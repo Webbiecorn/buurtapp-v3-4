@@ -9,6 +9,7 @@ import { MOCK_WIJKEN } from '../data/mockData';
 import FixiIntegration from '../components/FixiIntegration';
 import { useBulkSelection } from '../hooks/useBulkSelection';
 import { BulkActionsToolbar, BulkAction } from '../components/BulkActionsToolbar';
+import { usePerformanceTrace } from '../hooks/usePerformanceTrace';
 
 type Tab = 'Lopende' | 'Fixi Meldingen' | 'Afgeronde';
 
@@ -37,13 +38,13 @@ const NewMeldingForm: React.FC<{ onClose: () => void; onToast: (t: Toast) => voi
             }
         );
     };
-    
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files) return;
         setAttachments(prev => [...prev, ...Array.from(files)]);
     };
-    
+
     const removeAttachment = (index: number) => {
         setAttachments(prev => prev.filter((_, i) => i !== index));
     };
@@ -82,7 +83,7 @@ const NewMeldingForm: React.FC<{ onClose: () => void; onToast: (t: Toast) => voi
             setIsUploading(false);
         }
     };
-    
+
     return (
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             <div className="space-y-2">
@@ -230,7 +231,7 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
     const handleUpdateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newUpdateText.trim() && newUpdateAttachments.length === 0) return;
-        
+
         setIsUploading(true);
         try {
             const attachmentURLs = await Promise.all(
@@ -339,9 +340,9 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
                 <div className="space-y-4 flex flex-col">
                     <div>
                         <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-1">Status</label>
-                        <select 
-                            id="status" 
-                            value={melding.status} 
+                        <select
+                            id="status"
+                            value={melding.status}
                             onChange={handleStatusChange}
                             disabled={!canEdit}
                             className={`w-full border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary ${!canEdit ? 'opacity-70 cursor-not-allowed' : ''} ${getStatusColor(melding.status)}`}
@@ -511,6 +512,8 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
 
 
 const IssuesPage: React.FC = () => {
+    usePerformanceTrace('IssuesPage');
+    
     const { meldingen, currentUser, notificaties, markNotificationsAsRead, updateMeldingStatus: contextUpdateStatus } = useAppContext();
     const [activeTab, setActiveTab] = useState<Tab>('Lopende');
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -518,7 +521,7 @@ const IssuesPage: React.FC = () => {
     const [pageToast, setPageToast] = useState<Toast | null>(null);
     const [showBulkStatusModal, setShowBulkStatusModal] = useState(false);
     const [bulkStatus, setBulkStatus] = useState<MeldingStatus>(MeldingStatus.InBehandeling);
-    
+
     // Bulk selection
     const {
         selectedIds,
@@ -533,7 +536,7 @@ const IssuesPage: React.FC = () => {
         if (currentUser?.role !== UserRole.Beheerder) {
             return false;
         }
-        return notificaties.some(n => 
+        return notificaties.some(n =>
             n.userId === currentUser.id &&
             !n.isRead &&
             n.targetType === 'melding' &&
@@ -553,9 +556,9 @@ const IssuesPage: React.FC = () => {
                 return true;
         }
     }).sort((a, b) => getTimeSafe(b.timestamp) - getTimeSafe(a.timestamp));
-    
+
     const tabs: Tab[] = ['Lopende', 'Fixi Meldingen', 'Afgeronde'];
-    
+
     const meldingForModal = selectedMelding ? meldingen.find(m => m.id === selectedMelding.id) : null;
 
     // Bulk actions
@@ -563,9 +566,9 @@ const IssuesPage: React.FC = () => {
         try {
             const promises = selectedIds.map(id => contextUpdateStatus(id, bulkStatus));
             await Promise.all(promises);
-            setPageToast({ 
-                type: 'success', 
-                message: `${selectedCount} ${selectedCount === 1 ? 'melding' : 'meldingen'} bijgewerkt` 
+            setPageToast({
+                type: 'success',
+                message: `${selectedCount} ${selectedCount === 1 ? 'melding' : 'meldingen'} bijgewerkt`
             });
             setTimeout(() => setPageToast(null), 2500);
             clearSelection();
@@ -582,9 +585,9 @@ const IssuesPage: React.FC = () => {
         }
         try {
             // TODO: Implement bulk delete in context
-            setPageToast({ 
-                type: 'success', 
-                message: `${selectedCount} ${selectedCount === 1 ? 'melding' : 'meldingen'} verwijderd` 
+            setPageToast({
+                type: 'success',
+                message: `${selectedCount} ${selectedCount === 1 ? 'melding' : 'meldingen'} verwijderd`
             });
             setTimeout(() => setPageToast(null), 2500);
             clearSelection();
@@ -617,7 +620,7 @@ const IssuesPage: React.FC = () => {
                     </Link>
                 )}
             </div>
-            
+
             <div>
                 <div className="border-b border-gray-200 dark:border-dark-border">
                     <nav className="-mb-px flex space-x-8" aria-label="Tabs">
@@ -637,7 +640,7 @@ const IssuesPage: React.FC = () => {
                                 {tab}
                             </button>
                         ))}
-                        
+
                         {/* Select All Checkbox */}
                         {activeTab !== 'Fixi Meldingen' && filteredMeldingen.length > 0 && (
                             <div className="ml-auto flex items-center">
@@ -678,7 +681,7 @@ const IssuesPage: React.FC = () => {
                                         className="w-5 h-5 rounded border-2 border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer shadow-sm"
                                     />
                                 </label>
-                                
+
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -704,7 +707,7 @@ const IssuesPage: React.FC = () => {
                     )}
                 </>
             )}
-            
+
             {/* Bulk Actions Toolbar */}
             <BulkActionsToolbar
                 selectedCount={selectedCount}
@@ -712,11 +715,11 @@ const IssuesPage: React.FC = () => {
                 actions={bulkActions}
                 itemName="melding"
             />
-            
+
             {/* Bulk Status Update Modal */}
-            <Modal 
-                isOpen={showBulkStatusModal} 
-                onClose={() => setShowBulkStatusModal(false)} 
+            <Modal
+                isOpen={showBulkStatusModal}
+                onClose={() => setShowBulkStatusModal(false)}
                 title={`Status wijzigen voor ${selectedCount} ${selectedCount === 1 ? 'melding' : 'meldingen'}`}
             >
                 <div className="space-y-4">
@@ -755,7 +758,7 @@ const IssuesPage: React.FC = () => {
             <Modal isOpen={isNewModalOpen} onClose={() => setIsNewModalOpen(false)} title="Nieuwe Melding Maken">
                 <NewMeldingForm onClose={() => setIsNewModalOpen(false)} onToast={(t)=>{ setPageToast(t); setTimeout(()=>setPageToast(null), 2500); }} />
             </Modal>
-            
+
             {meldingForModal && (
               <MeldingDetailModal melding={meldingForModal} onClose={() => setSelectedMelding(null)} />
             )}

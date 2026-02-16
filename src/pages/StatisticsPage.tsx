@@ -12,6 +12,7 @@ import { exportToExcel } from '../services/excelExport';
 import { exportMeldingenToPDF, exportProjectenToPDF, exportStatisticsToPDF } from '../services/pdfExport';
 import { db } from '../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
+import { usePerformanceTrace } from '../hooks/usePerformanceTrace';
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const GOOGLE_MAP_LIGHT_ID = import.meta.env.VITE_GOOGLE_MAP_LIGHT_ID;
@@ -21,6 +22,8 @@ import { format, subMonths, eachMonthOfInterval } from 'date-fns';
 import { nl } from 'date-fns/locale';
 
 const StatisticsPage: React.FC = () => {
+  usePerformanceTrace('StatisticsPage');
+  
   const { meldingen, projecten, urenregistraties, users, theme } = useAppContext();
   const [monthsBack, setMonthsBack] = useState(5);
   const [projectStatusFilter, setProjectStatusFilter] = useState<'alle' | 'Lopend' | 'Afgerond'>('alle');

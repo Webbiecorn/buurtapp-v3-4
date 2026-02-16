@@ -10,6 +10,7 @@ import { DossierStatus, MeldingStatus, UserRole } from '../types';
 import { db } from '../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { toDate } from '../utils/dateHelpers';
+import { usePerformanceTrace } from '../hooks/usePerformanceTrace';
 import { logger } from '../services/logger';
 import {
   endOfDay,
@@ -249,6 +250,9 @@ const DailyUpdateCard: React.FC = () => {
 };
 
 const DashboardPage: React.FC = () => {
+  // Track component performance
+  usePerformanceTrace('DashboardPage');
+  
   // Filter meldingen/uren/dossiers op geselecteerde gebruiker
   const { meldingen, urenregistraties, projecten, theme, users, currentUser } = useAppContext();
   const isConcierge = currentUser?.role === 'Concierge';

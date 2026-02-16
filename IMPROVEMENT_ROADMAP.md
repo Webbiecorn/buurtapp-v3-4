@@ -296,20 +296,29 @@ logEvent(analytics, 'chart_viewed', {
 });
 ```
 
-#### 18. **Firebase Performance Monitoring**
+#### 18. **Firebase Performance Monitoring** ✅ (v0.3.5)
+- ✅ Firebase Performance SDK geïntegreerd
+- ✅ Custom traces voor Firestore queries
+- ✅ Slow query detection (>1s threshold)
+- ✅ Component render performance tracking
+- ✅ Bundle size analyzer script (`npm run build:analyze`)
+- ✅ Automated trend tracking (`.bundle-stats.json`)
+- ✅ Performance hooks: `usePerformanceTrace`, `useAsyncPerformance`
+- ✅ Integrated in DashboardPage, StatisticsPage, IssuesPage
+
 ```typescript
-import { trace } from 'firebase/performance';
+// Example usage - See src/services/performance.ts
+import { trackFirestoreQuery, trackApiCall, startTrace, stopTrace } from '../services/performance';
 
-const loadData = async () => {
-  const t = trace(perf, 'load_statistics_data');
-  t.start();
+// Track slow Firestore queries
+const data = await trackFirestoreQuery('load_meldingen', async () => {
+  return await getDocs(collection(db, 'meldingen'));
+});
 
-  try {
-    // load data
-  } finally {
-    t.stop();
-  }
-};
+// Track component performance
+const trace = startTrace('component_render');
+// ... render logic
+stopTrace(trace, { component: 'MyComponent' });
 ```
 
 ### Gemiddelde Prioriteit
@@ -416,11 +425,11 @@ useEffect(() => {
 5. TypeScript Strict
 
 ### Fase 2 (Korte termijn)
-6. Bulk Actions
-7. Keyboard Shortcuts
-8. Debounced Search
-9. Error Boundaries
-10. Performance Monitoring
+6. Bulk Actions ✅ (v0.3.4)
+7. Keyboard Shortcuts ✅ (v0.3.3)
+8. Debounced Search ✅ (v0.3.2)
+9. Error Boundaries ✅ (v0.3.1)
+10. Performance Monitoring ✅ (v0.3.5)
 
 ### Fase 3 (Lange termijn)
 11. Testing (Unit + E2E)
@@ -441,6 +450,7 @@ useEffect(() => {
 | Bulk Actions           | ⭐⭐     | 🔨🔨🔨    | Medium       | ✅ Done (v0.3.4) |
 | Keyboard Shortcuts     | ⭐⭐     | 🔨      | Medium       | ✅ Done (v0.3.3) |
 | Analytics              | ⭐⭐⭐    | 🔨      | Zeer Hoog    | ✅ Done (v0.3.0) |
+| Performance Monitoring | ⭐⭐⭐    | 🔨🔨     | Hoog         | ✅ Done (v0.3.5) |
 | Testing                | ⭐⭐     | 🔨🔨🔨🔨   | Lang Termijn | ⏳ Planned       |
 
 ---

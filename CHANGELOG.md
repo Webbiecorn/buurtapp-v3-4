@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.5] - 2026-02-16
+### Added
+#### Performance Monitoring
+- **Firebase Performance Monitoring** integratie
+  - Automatische performance traces voor productie builds
+  - Custom metrics voor Firestore queries, API calls, en component renders
+- **Performance Service** (`src/services/performance.ts`)
+  - `trackFirestoreQuery()`: Monitor query performance met slow query detection (>1s warning)
+  - `trackApiCall()`: Monitor externe API calls
+  - `trackComponentRender()`: Track component render performance
+  - Performance utilities voor development (memory usage, navigation timing)
+- **Performance Hooks** (`src/hooks/usePerformanceTrace.ts`)
+  - `usePerformanceTrace()`: Component mount/unmount tracking
+  - `useAsyncPerformance()`: Async operation performance measuring
+  - `useSlowRenderDetection()`: Development warnings voor trage renders (>16ms)
+- **Bundle Size Tracking**
+  - `scripts/analyze-bundle.mjs`: Automated bundle size analyzer
+  - `npm run build:analyze`: Build + analyze command
+  - Tracks trends over time in `.bundle-stats.json` (git-ignored)
+  - Warns about chunks >500KB
+  - Detects size increases >10%
+- **Component Integration**
+  - Performance traces toegevoegd aan DashboardPage, StatisticsPage, IssuesPage
+  - Automatische Firebase Performance metrics in productie
+
+### Technical Details
+- Firebase Performance SDK geïntegreerd in `firebase.ts`
+- Performance monitoring alleen actief in productie (niet in dev/emulators)
+- Bundle analyzer script met trend tracking en warnings
+- Console performance utilities voor development debugging
+
 ## [0.3.4] - 2026-02-16
 ### Added
 #### Bulk Actions

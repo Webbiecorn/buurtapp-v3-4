@@ -1,9 +1,9 @@
 /**
  * BulkActionsToolbar Component
- * 
+ *
  * Toolbar die verschijnt wanneer items geselecteerd zijn
  * Toont aantal geselecteerde items en beschikbare acties
- * 
+ *
  * @example
  * ```tsx
  * <BulkActionsToolbar
@@ -43,8 +43,8 @@ export const BulkActionsToolbar: React.FC<BulkActionsToolbarProps> = ({
 }) => {
   if (selectedCount === 0) return null;
 
-  const itemText = selectedCount === 1 
-    ? `1 ${itemName}` 
+  const itemText = selectedCount === 1
+    ? `1 ${itemName}`
     : `${selectedCount} ${itemName}${itemName.endsWith('e') ? 'n' : 's'}`;
 
   return (
@@ -73,8 +73,8 @@ export const BulkActionsToolbar: React.FC<BulkActionsToolbarProps> = ({
               className={`
                 px-4 py-2 rounded-lg font-medium transition-colors
                 flex items-center gap-2
-                ${action.danger 
-                  ? 'bg-red-500 hover:bg-red-600 disabled:bg-red-500/50' 
+                ${action.danger
+                  ? 'bg-red-500 hover:bg-red-600 disabled:bg-red-500/50'
                   : 'bg-white/20 hover:bg-white/30 disabled:bg-white/10'
                 }
                 disabled:cursor-not-allowed disabled:opacity-50

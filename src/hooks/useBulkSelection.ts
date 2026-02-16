@@ -1,24 +1,24 @@
 /**
  * useBulkSelection Hook
- * 
+ *
  * Generieke hook voor multi-select functionaliteit
- * 
+ *
  * Features:
  * - Select/deselect individuele items
  * - Select all / clear all
  * - Check if item is selected
  * - Get selected count
- * 
+ *
  * @example
  * ```tsx
- * const { 
- *   selectedIds, 
- *   toggleItem, 
- *   selectAll, 
- *   clearSelection, 
- *   isSelected 
+ * const {
+ *   selectedIds,
+ *   toggleItem,
+ *   selectAll,
+ *   clearSelection,
+ *   isSelected
  * } = useBulkSelection();
- * 
+ *
  * <Checkbox checked={isSelected(item.id)} onChange={() => toggleItem(item.id)} />
  * ```
  */

@@ -24,6 +24,9 @@ firebase-emulator-data/
 *_old.*
 *_old/
 
+# Performance monitoring
+.bundle-stats.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
