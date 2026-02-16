@@ -16,6 +16,7 @@ import { generateDailyUpdate } from '../services/dailyUpdateAI';
 import { logger } from '../services/logger';
 import { validate, inviteUserSchema } from '../utils/validation';
 import { trackUserInvited } from '../services/analytics';
+import { useSearchDebounce } from '../hooks/useDebounce';
 
 type AdminTab = 'users' | 'hours' | 'projects';
 
@@ -168,6 +169,7 @@ const ProjectParticipantsModal: React.FC<{
     onUpdateParticipants: (projectId: string, participantIds: string[]) => Promise<void>;
 }> = ({ project, isOpen, onClose, users, onUpdateParticipants }) => {
     const [searchQuery, setSearchQuery] = useState('');
+    const { debouncedTerm: debouncedSearchQuery, isSearching } = useSearchDebounce(searchQuery);
     const [loading, setLoading] = useState(false);
 
     if (!project) return null;
@@ -176,10 +178,11 @@ const ProjectParticipantsModal: React.FC<{
     const availableUsers = users.filter(user => !currentParticipants.includes(user.id));
     const participantUsers = users.filter(user => currentParticipants.includes(user.id));
 
-    const filteredAvailableUsers = availableUsers.filter(user =>
-        user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredAvailableUsers = availableUsers.filter(user => {
+        if (!debouncedSearchQuery) return true;
+        return user.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+               user.email.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
+    });
 
     const handleAddParticipant = async (userId: string) => {
         if (currentParticipants.includes(userId)) return;
@@ -282,14 +285,19 @@ const ProjectParticipantsModal: React.FC<{
                     </h4>
 
                     {/* Zoekbalk */}
-                    <div className="mb-4">
+                    <div className="mb-4 relative">
                         <input
                             type="text"
                             placeholder="Zoek gebruikers op naam of email..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white bg-white text-gray-900"
+                            className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white bg-white text-gray-900"
                         />
+                        {isSearching && (
+                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Beschikbare Gebruikers */}
@@ -962,6 +970,7 @@ const AdminPage: React.FC = () => {
     const [projectStatusFilter, setProjectStatusFilter] = useState('alle');
     const [projectCreatorFilter, setProjectCreatorFilter] = useState('alle');
     const [projectSearchQuery, setProjectSearchQuery] = useState('');
+    const { debouncedTerm: debouncedProjectSearch, isSearching: isProjectSearching } = useSearchDebounce(projectSearchQuery);
 
     const setParam = (key: string, val: string) => {
         const next = new URLSearchParams(searchParams);
@@ -1479,8 +1488,8 @@ const AdminPage: React.FC = () => {
             .filter(p => projectStatusFilter === 'alle' ? true : p.status === projectStatusFilter)
             .filter(p => projectCreatorFilter === 'alle' ? true : p.creatorId === projectCreatorFilter)
             .filter(p => {
-                if (!projectSearchQuery.trim()) return true;
-                const q = projectSearchQuery.toLowerCase();
+                if (!debouncedProjectSearch.trim()) return true;
+                const q = debouncedProjectSearch.toLowerCase();
                 return (
                     p.title.toLowerCase().includes(q) ||
                     p.description.toLowerCase().includes(q)
@@ -1501,7 +1510,7 @@ const AdminPage: React.FC = () => {
                     return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
                 }
             });
-    }, [projecten, projectStatusFilter, projectCreatorFilter, projectSearchQuery]);
+    }, [projecten, projectStatusFilter, projectCreatorFilter, debouncedProjectSearch]);
 
     return (
         <div className="space-y-4 md:space-y-6">
@@ -2095,13 +2104,20 @@ const AdminPage: React.FC = () => {
                                 </div>
                                 <div className="sm:col-span-2 lg:col-span-1">
                                     <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-1">Zoeken</label>
-                                    <input
-                                        type="text"
-                                        value={projectSearchQuery}
-                                        onChange={(e) => setProjectSearchQuery(e.target.value)}
-                                        placeholder="Zoek projecten..."
-                                        className="w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            value={projectSearchQuery}
+                                            onChange={(e) => setProjectSearchQuery(e.target.value)}
+                                            placeholder="Zoek projecten..."
+                                            className="w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
+                                        />
+                                        {isProjectSearching && (
+                                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                                <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 

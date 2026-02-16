@@ -29,6 +29,7 @@ const UrenregistratiePage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [draft, setDraft] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const { debouncedTerm: debouncedSearch, isSearching } = useSearchDebounce(searchTerm);
   const [filterActivity, setFilterActivity] = useState('');
   const [filterDateRange, setFilterDateRange] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -508,11 +509,11 @@ const UrenregistratiePage: React.FC = () => {
   const filteredUren = useMemo(() => {
     let filtered = userUren;
     
-    // Search filter
-    if (searchTerm) {
+    // Search filter (debounced)
+    if (debouncedSearch) {
       filtered = filtered.filter(uur => {
         const omschrijving = formatOmschrijving(uur).toLowerCase();
-        return omschrijving.includes(searchTerm.toLowerCase());
+        return omschrijving.includes(debouncedSearch.toLowerCase());
       });
     }
     
@@ -554,7 +555,7 @@ const UrenregistratiePage: React.FC = () => {
     }
     
     return filtered;
-  }, [userUren, searchTerm, filterActivity, filterDateRange, formatOmschrijving, toDate]);
+  }, [userUren, debouncedSearch, filterActivity, filterDateRange, formatOmschrijving, toDate]);
 
   // Export functionality
   const exportToCSV = useCallback((data: any[]) => {
@@ -1187,8 +1188,13 @@ const UrenregistratiePage: React.FC = () => {
                 placeholder="Zoek in activiteiten..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-base"
+                className="w-full pl-10 pr-10 py-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-base"
               />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <select

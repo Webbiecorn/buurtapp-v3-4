@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.2] - 2026-02-16
+### Added
+#### Performance & UX
+- **Debounced Search** geïmplementeerd in alle zoekfuncties (300ms delay, min 3 karakters)
+- `useDebounce` en `useSearchDebounce` hooks in `src/hooks/useDebounce.ts`
+- Loading indicators tijdens zoeken (spinning icon)
+- Geïntegreerd in:
+  - AdminPage: gebruikers en projecten zoeken
+  - AchterpadenKaartOverzicht: straten en wijken zoeken
+  - UrenregistratiePage: activiteiten zoeken
+- Voorkomt onnodige filters/API calls bij snelle input
+- Betere perceived performance door directe feedback
+
 ## [0.3.1] - 2026-02-16
 ### Added
 #### Error Handling

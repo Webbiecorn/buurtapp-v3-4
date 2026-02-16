@@ -350,6 +350,7 @@ const AchterpadenKaartOverzicht: React.FC<{ onEditAchterpad?: (achterpad: any) =
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
+  const { debouncedTerm: debouncedSearch, isSearching } = useSearchDebounce(searchTerm);
   const [veiligheidFilter, setVeiligheidFilter] = useState<string>('all'); // all/onveilig/matig/veilig
   const [urgentieFilter, setUrgentieFilter] = useState<string>('all'); // all/spoed/hoog/normaal/laag/geen
   const [wijkFilter, setWijkFilter] = useState<string>('all');
@@ -373,12 +374,12 @@ const AchterpadenKaartOverzicht: React.FC<{ onEditAchterpad?: (achterpad: any) =
   useEffect(() => {
     let filtered = [...registraties];
 
-    // Search
-    if (searchTerm) {
-      filtered = filtered.filter(r => 
-        r.straat?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.wijk?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.beschrijving?.toLowerCase().includes(searchTerm.toLowerCase())
+// Search (debounced)
+    if (debouncedSearch) {
+      filtered = filtered.filter(r =>
+        r.straat?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        r.wijk?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        r.beschrijving?.toLowerCase().includes(debouncedSearch.toLowerCase())
       );
     }
 
@@ -424,7 +425,7 @@ const AchterpadenKaartOverzicht: React.FC<{ onEditAchterpad?: (achterpad: any) =
     }
 
     setFilteredData(filtered);
-  }, [registraties, searchTerm, veiligheidFilter, urgentieFilter, wijkFilter, sortBy]);
+  }, [registraties, debouncedSearch, veiligheidFilter, urgentieFilter, wijkFilter, sortBy]);
 
   // Export PDF
   const exportToPDF = () => {
@@ -514,13 +515,20 @@ const AchterpadenKaartOverzicht: React.FC<{ onEditAchterpad?: (achterpad: any) =
       <div className="bg-white dark:bg-dark-bg rounded-xl p-4 shadow-sm space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Search */}
-          <input
-            type="text"
-            placeholder="Zoek op straat, wijk..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="px-4 py-2 border border-gray-300 dark:border-dark-border rounded-lg bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Zoek op straat, wijk..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-dark-border rounded-lg bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary"
+            />
+            {isSearching && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+              </div>
+            )}
+          </div>
 
           {/* Veiligheid Filter */}
           <select
