@@ -13,6 +13,7 @@ import { DownloadIcon, ClockIcon, TrendingUpIcon, XIcon, UsersIcon, BriefcaseIco
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { generateDailyUpdate } from '../services/dailyUpdateAI';
+import { logger } from '../services/logger';
 
 type AdminTab = 'users' | 'hours' | 'projects';
 
@@ -59,7 +60,7 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
                         setSuccess(`✅ Gebruiker ${name} aangemaakt en uitnodigingsmail verzonden naar ${email}. De gebruiker ontvangt een link om een wachtwoord in te stellen.`);
                     } catch (emailError: any) {
-                        console.error("Fout bij versturen email:", emailError);
+                        logger.error('Failed to send invitation email', emailError, { email });
                         // Gebruiker is wel aangemaakt, maar email faalde
                         setSuccess(`⚠️ Gebruiker ${name} aangemaakt met standaard wachtwoord: Welkom01. Email kon niet worden verzonden: ${emailError.message}. De gebruiker kan een wachtwoord reset aanvragen op de login pagina.`);
                     }
@@ -75,7 +76,7 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                  throw new Error(data.message || 'Er is een onbekende fout opgetreden.');
             }
         } catch (err: any) {
-            console.error("Fout bij uitnodigen gebruiker:", err);
+            logger.error('Failed to invite user', err, { email });
             setError(err.message || 'Kon de uitnodiging niet versturen.');
         } finally {
             setLoading(false);
@@ -175,7 +176,7 @@ const ProjectParticipantsModal: React.FC<{
             const updatedParticipants = [...currentParticipants, userId];
             await onUpdateParticipants(project.id, updatedParticipants);
         } catch (error) {
-            console.error('Error adding participant:', error);
+            logger.error('Failed to add participant', error, { userId });
             alert('Fout bij het toevoegen van deelnemer');
         } finally {
             setLoading(false);
@@ -191,7 +192,7 @@ const ProjectParticipantsModal: React.FC<{
                 const updatedParticipants = currentParticipants.filter(id => id !== userId);
                 await onUpdateParticipants(project.id, updatedParticipants);
             } catch (error) {
-                console.error('Error removing participant:', error);
+                logger.error('Failed to remove participant', error, { userId });
                 alert('Fout bij het verwijderen van deelnemer');
             } finally {
                 setLoading(false);
@@ -796,7 +797,7 @@ const DailyUpdateCard: React.FC = () => {
             setUpdateText(update);
             setHasLoaded(true);
         } catch (error) {
-            console.error('Error loading daily update:', error);
+            logger.error('Failed to load daily update', error);
             setUpdateText('❌ Kon dagelijkse update niet laden. Probeer het later opnieuw.');
             setHasLoaded(true);
         } finally {

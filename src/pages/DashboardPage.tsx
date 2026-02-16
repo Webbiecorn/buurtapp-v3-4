@@ -11,6 +11,7 @@ import { DossierStatus, MeldingStatus, UserRole } from '../types';
 import { db } from '../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { toDate } from '../utils/dateHelpers';
+import { logger } from '../services/logger';
 import {
   endOfDay,
   endOfMonth,
@@ -97,7 +98,7 @@ const DailyUpdateCard: React.FC = () => {
       setUpdateText(update);
       setHasLoaded(true);
     } catch (error) {
-      console.error('Error loading daily update:', error);
+      logger.error('Failed to load daily update', error);
       setUpdateText('❌ Kon dagelijkse update niet laden.');
       setHasLoaded(true);
     } finally {

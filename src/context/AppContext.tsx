@@ -7,6 +7,7 @@ import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebas
 import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, Timestamp, arrayUnion, query, where, getDocs, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { ExternalContact } from '../types';
+import { logger } from '../services/logger';
 
 const convertTimestamps = (data: any) => {
   const convertedData = { ...data };
@@ -151,7 +152,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           } else {
             // Gebruiker is geauthenticeerd maar heeft geen profiel in Firestore.
             // Dit kan een fout zijn, of een race condition bij aanmaken. Log uit voor de zekerheid.
-            console.error("Authenticated user has no profile in Firestore. Logging out.");
+            logger.error('Authenticated user has no profile in Firestore', undefined, { userId: authUser.uid });
             logout();
           }
         });
@@ -299,7 +300,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateProject = useCallback(async (projectId: string, data: any) => {
     try {
-      console.log('AppContext: Updating project', projectId, 'with data:', data);
+      logger.debug('Updating project', { projectId, data });
       const projectRef = doc(db, 'projecten', projectId);
 
       // Clean undefined values from data
@@ -308,9 +309,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       );
 
       await updateDoc(projectRef, cleanData);
-      console.log('AppContext: Project updated successfully');
+      logger.info('Project updated successfully', { projectId });
     } catch (error) {
-      console.error('AppContext: Error updating project:', error);
+      logger.error('Failed to update project', error, { projectId });
       throw error;
     }
   }, []);

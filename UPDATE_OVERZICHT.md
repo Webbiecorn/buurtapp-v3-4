@@ -1,6 +1,6 @@
 # Buurtapp v3-4 Update Overzicht
-**Datum:** 16 februari 2026  
-**Versie:** v0.2.0  
+**Datum:** 16 februari 2026
+**Versie:** v0.2.0
 **Live URL:** https://buurtapp-v3-4.web.app
 
 ## 📊 **Nieuwste Updates (v0.2.0 - 16 februari 2026)**
@@ -38,10 +38,10 @@
 ## 📋 Overzicht van Uitgevoerde Updates
 
 ### 🎯 **Hoofddoelstellingen Behaald**
-✅ Mobiele optimalisatie van de AdminPage  
-✅ Volledige project management systeem geïmplementeerd  
-✅ Werkende beheer acties voor projecten  
-✅ Deelnemers beheer functionaliteit toegevoegd  
+✅ Mobiele optimalisatie van de AdminPage
+✅ Volledige project management systeem geïmplementeerd
+✅ Werkende beheer acties voor projecten
+✅ Deelnemers beheer functionaliteit toegevoegd
 
 ---
 
@@ -111,12 +111,12 @@
 ## ⚙️ **4. Werkende Beheer Acties**
 
 ### **Project Bewerking:**
-- **Volledig Werkende Edit Modal**: 
+- **Volledig Werkende Edit Modal**:
   - Alle project velden bewerkbaar
   - Real-time validatie
   - Database integratie met Firestore
   - Automatische modal switching (detail → edit)
-- **Status Management**: 
+- **Status Management**:
   - Dropdown voor status wijzigingen
   - Direct database updates
   - Visuele bevestiging van wijzigingen
@@ -292,7 +292,7 @@
 
 ---
 
-**🔗 Live Applicatie:** https://buurtapp-v3-4.web.app  
+**🔗 Live Applicatie:** https://buurtapp-v3-4.web.app
 **📧 Voor vragen of support:** Neem contact op via de gebruikelijke kanalen
 
 ---

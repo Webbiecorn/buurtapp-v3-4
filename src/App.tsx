@@ -3,6 +3,7 @@ import * as ReactRouterDOM from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { AppShell } from './components/AppShell';
 import { UserRole } from './types';
+import { PageSkeleton } from './components/Skeletons';
 
 // Lazy load alle pagina's voor betere performance
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
@@ -25,11 +26,7 @@ const ProjectInvitationDetailPage = React.lazy(() => import('./pages/ExtraPages'
 const UpdatesPage = React.lazy(() => import('./pages/UpdatesPage'));
 
 // Loading component voor Suspense fallback
-const PageLoader = () => (
-  <div className="flex items-center justify-center min-h-screen">
-    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-  </div>
-);
+const PageLoader = () => <PageSkeleton />;
 
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: UserRole[] }> = ({ children, roles }) => {
