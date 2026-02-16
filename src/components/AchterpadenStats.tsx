@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line } from 'recharts';
+import ReactECharts from 'echarts-for-react';
 
 type Registratie = any;
 
@@ -32,6 +32,11 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
   const { theme } = useAppContext();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
+  const isDark = theme === 'dark';
+  const textColor = isDark ? '#e5e7eb' : '#374151';
+  const backgroundColor = isDark ? '#1f2937' : '#ffffff';
+  const gridColor = isDark ? '#374151' : '#e5e7eb';
+
   useEffect(() => {
     if (!reportHtml || !iframeRef.current) return;
     const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
@@ -51,7 +56,7 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
 
   const byWijk = useMemo(() => aggregateBy(registraties, (r: any) => r.wijk), [registraties]);
   const byType = useMemo(() => aggregateBy(filtered, (r: any) => r.typePad || r.type), [filtered]);
-  
+
   // Nieuwe data: veiligheid + urgentie statistieken
   const byVeiligheid = useMemo(() => {
     const map = new Map<string, number>();
@@ -60,7 +65,7 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
     map.set('⭐⭐⭐ Matig', 0);
     map.set('⭐⭐⭐⭐ Veilig', 0);
     map.set('⭐⭐⭐⭐⭐ Zeer veilig', 0);
-    
+
     for (const r of filtered) {
       if (!r.veiligheid) continue;
       const score = r.veiligheid.score || 3;
@@ -70,10 +75,10 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
       else if (score === 4) map.set('⭐⭐⭐⭐ Veilig', (map.get('⭐⭐⭐⭐ Veilig') || 0) + 1);
       else if (score === 5) map.set('⭐⭐⭐⭐⭐ Zeer veilig', (map.get('⭐⭐⭐⭐⭐ Zeer veilig') || 0) + 1);
     }
-    
+
     return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
   }, [filtered]);
-  
+
   const byUrgentie = useMemo(() => {
     const map = new Map<string, number>();
     map.set('🔴 Spoed', 0);
@@ -81,7 +86,7 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
     map.set('🟡 Normaal', 0);
     map.set('🟢 Laag', 0);
     map.set('⚪ Geen', 0);
-    
+
     for (const r of filtered) {
       if (!r.onderhoud) continue;
       const urg = r.onderhoud.urgentie;
@@ -91,10 +96,10 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
       else if (urg === 'laag') map.set('🟢 Laag', (map.get('🟢 Laag') || 0) + 1);
       else map.set('⚪ Geen', (map.get('⚪ Geen') || 0) + 1);
     }
-    
+
     return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
   }, [filtered]);
-  
+
   const byMedewerker = useMemo(() => {
     return aggregateBy(filtered, (r: any) => r.registeredBy?.userName || r.registeredBy?.userRole || 'Onbekend');
   }, [filtered]);
@@ -120,7 +125,7 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
     const topType = byType.slice().sort((a, b) => b.value - a.value)[0];
     const trend = monthly.slice(-3).map(m => m.count);
     const trendText = trend.every((v, i, a) => i === 0 || v >= a[i - 1]) ? 'stijgende' : (trend.every((v, i, a) => i === 0 || v <= a[i - 1]) ? 'dalende' : 'wisselende');
-    
+
     // Nieuwe data insights
     const topMedewerker = byMedewerker.slice().sort((a, b) => b.value - a.value)[0];
     const onveiligCount = byVeiligheid.slice(0, 2).reduce((sum, item) => sum + item.value, 0); // ⭐ + ⭐⭐
@@ -251,7 +256,7 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
                 const veiligheidScore = r.veiligheid?.score || null;
                 const urgentie = r.onderhoud?.urgentie || null;
                 const medewerker = r.registeredBy?.userName || r.registeredBy?.userRole || '-';
-                
+
                 return (
                   <tr key={r.id || `${r.straat}-${r.wijk}-${r.createdAt}`} className="border-b border-gray-100 dark:border-dark-border last:border-0">
                     <td className="p-3 text-gray-800 dark:text-dark-text-primary">{ts ? ts.toLocaleDateString() : ''}</td>
@@ -320,22 +325,45 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
                 <span>Veiligheid score</span>
               </h4>
               <div style={{ width: '100%', height: 220 }}>
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie data={byVeiligheid} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8">
-                      {byVeiligheid.map((_entry, idx) => (
-                        <Cell 
-                          key={`cell-veiligheid-${idx}`} 
-                          fill={idx === 0 ? '#EF4444' : idx === 1 ? '#F97316' : idx === 2 ? '#EAB308' : idx === 3 ? '#10B981' : '#059669'} 
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+              <ReactECharts
+                option={{
+                  backgroundColor: 'transparent',
+                  tooltip: {
+                    trigger: 'item',
+                    formatter: '{b}: {c} ({d}%)',
+                    backgroundColor: backgroundColor,
+                    borderColor: gridColor,
+                    textStyle: { color: textColor }
+                  },
+                  series: [
+                    {
+                      type: 'pie',
+                      radius: ['40%', '70%'],
+                      center: ['50%', '50%'],
+                      itemStyle: {
+                        borderRadius: 8,
+                        borderColor: backgroundColor,
+                        borderWidth: 2
+                      },
+                      label: { show: true, formatter: '{b}\n{d}%', color: textColor },
+                      data: byVeiligheid.map((item, idx) => ({
+                        value: item.value,
+                        name: item.name,
+                        itemStyle: {
+                          color: idx === 0 ? '#ef4444' : idx === 1 ? '#f97316' : idx === 2 ? '#eab308' : idx === 3 ? '#10b981' : '#059669'
+                        }
+                      }))
+                    }
+                  ],
+                  animationDuration: 1000,
+                  animationEasing: 'cubicOut'
+                }}
+                style={{ height: '220px' }}
+                opts={{ renderer: 'svg' }}
+              />
               </div>
             </div>
-            
+
             {/* Urgentie distributie */}
             <div className="p-4 bg-white dark:bg-dark-surface rounded shadow">
               <h4 className="font-medium mb-2 flex items-center gap-2">
@@ -343,25 +371,63 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
                 <span>Onderhoud urgentie</span>
               </h4>
               <div style={{ width: '100%', height: 220 }}>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={byUrgentie}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#06B6D4">
-                      {byUrgentie.map((_entry, idx) => (
-                        <Cell 
-                          key={`cell-urgentie-${idx}`} 
-                          fill={idx === 0 ? '#EF4444' : idx === 1 ? '#F97316' : idx === 2 ? '#EAB308' : idx === 3 ? '#10B981' : '#6B7280'} 
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+              <ReactECharts
+                option={{
+                  backgroundColor: 'transparent',
+                  tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    backgroundColor: backgroundColor,
+                    borderColor: gridColor,
+                    textStyle: { color: textColor }
+                  },
+                  grid: { left: '3%', right: '4%', bottom: '20%', top: '3%', containLabel: true },
+                  xAxis: {
+                    type: 'category',
+                    data: byUrgentie.map(d => d.name),
+                    axisLine: { lineStyle: { color: gridColor } },
+                    axisLabel: { color: textColor, fontSize: 10, rotate: 15 }
+                  },
+                  yAxis: {
+                    type: 'value',
+                    axisLine: { lineStyle: { color: gridColor } },
+                    axisLabel: { color: textColor },
+                    splitLine: { lineStyle: { color: gridColor, type: 'dashed' } }
+                  },
+                  series: [
+                    {
+                      type: 'bar',
+                      data: byUrgentie.map((item, idx) => ({
+                        value: item.value,
+                        itemStyle: {
+                          color: {
+                            type: 'linear',
+                            x: 0, y: 0, x2: 0, y2: 1,
+                            colorStops: [
+                              {
+                                offset: 0,
+                                color: idx === 0 ? '#ef4444' : idx === 1 ? '#f97316' : idx === 2 ? '#eab308' : idx === 3 ? '#10b981' : '#6b7280'
+                              },
+                              {
+                                offset: 1,
+                                color: idx === 0 ? '#dc2626' : idx === 1 ? '#ea580c' : idx === 2 ? '#ca8a04' : idx === 3 ? '#059669' : '#4b5563'
+                              }
+                            ]
+                          },
+                          borderRadius: [6, 6, 0, 0]
+                        }
+                      }))
+                    }
+                  ],
+                  animationDuration: 800,
+                  animationEasing: 'elasticOut'
+                }}
+                style={{ height: '220px' }}
+                opts={{ renderer: 'svg' }}
+              />
               </div>
             </div>
-            
+
             {/* Medewerker activiteit */}
             <div className="p-4 bg-white dark:bg-dark-surface rounded shadow">
               <h4 className="font-medium mb-2 flex items-center gap-2">
@@ -369,46 +435,152 @@ export default function AchterpadenStats({ registraties }: { registraties: Regis
                 <span>Per medewerker</span>
               </h4>
               <div style={{ width: '100%', height: 220 }}>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={byMedewerker.slice(0, 8).sort((a, b) => b.value - a.value)}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#4F46E5" />
-                  </BarChart>
-                </ResponsiveContainer>
+              <ReactECharts
+                option={{
+                  backgroundColor: 'transparent',
+                  tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    backgroundColor: backgroundColor,
+                    borderColor: gridColor,
+                    textStyle: { color: textColor }
+                  },
+                  grid: { left: '3%', right: '4%', bottom: '30%', top: '3%', containLabel: true },
+                  xAxis: {
+                    type: 'category',
+                    data: byMedewerker.slice(0, 8).sort((a, b) => b.value - a.value).map(d => d.name),
+                    axisLine: { lineStyle: { color: gridColor } },
+                    axisLabel: { color: textColor, fontSize: 9, rotate: 45 }
+                  },
+                  yAxis: {
+                    type: 'value',
+                    axisLine: { lineStyle: { color: gridColor } },
+                    axisLabel: { color: textColor },
+                    splitLine: { lineStyle: { color: gridColor, type: 'dashed' } }
+                  },
+                  series: [
+                    {
+                      type: 'bar',
+                      data: byMedewerker.slice(0, 8).sort((a, b) => b.value - a.value).map(d => d.value),
+                      barWidth: '60%',
+                      itemStyle: {
+                        color: {
+                          type: 'linear',
+                          x: 0, y: 0, x2: 0, y2: 1,
+                          colorStops: [
+                            { offset: 0, color: '#4f46e5' },
+                            { offset: 1, color: '#4338ca' }
+                          ]
+                        },
+                        borderRadius: [6, 6, 0, 0]
+                      }
+                    }
+                  ],
+                  animationDuration: 800,
+                  animationEasing: 'elasticOut'
+                }}
+                style={{ height: '220px' }}
+                opts={{ renderer: 'svg' }}
+              />
               </div>
             </div>
           </div>
-          
+
           {/* Tweede rij met wijk + trend */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 bg-white dark:bg-dark-surface rounded shadow">
               <h4 className="font-medium mb-2">📍 Verdeling per wijk</h4>
               <div style={{ width: '100%', height: 220 }}>
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie data={byWijk} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8">
-                      {byWijk.map((entry, idx) => <Cell key={`cell-${idx}-${entry.name}`} fill={COLORS[idx % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+              <ReactECharts
+                option={{
+                  backgroundColor: 'transparent',
+                  tooltip: {
+                    trigger: 'item',
+                    formatter: '{b}: {c} ({d}%)',
+                    backgroundColor: backgroundColor,
+                    borderColor: gridColor,
+                    textStyle: { color: textColor }
+                  },
+                  series: [
+                    {
+                      type: 'pie',
+                      radius: ['40%', '70%'],
+                      center: ['50%', '50%'],
+                      itemStyle: {
+                        borderRadius: 8,
+                        borderColor: backgroundColor,
+                        borderWidth: 2
+                      },
+                      label: { show: true, formatter: '{b}\n{d}%', color: textColor },
+                      data: byWijk.map((item, idx) => ({
+                        value: item.value,
+                        name: item.name,
+                        itemStyle: {
+                          color: COLORS[idx % COLORS.length]
+                        }
+                      }))
+                    }
+                  ],
+                  animationDuration: 1000,
+                  animationEasing: 'cubicOut'
+                }}
+                style={{ height: '220px' }}
+                opts={{ renderer: 'svg' }}
+              />
               </div>
             </div>
             <div className="p-4 bg-white dark:bg-dark-surface rounded shadow">
               <h4 className="font-medium mb-2">📈 Trend (laatste 12 maanden)</h4>
               <div style={{ width: '100%', height: 220 }}>
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={monthly}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="count" stroke="#4F46E5" strokeWidth={2} dot={{ r: 2 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+              <ReactECharts
+                option={{
+                  backgroundColor: 'transparent',
+                  tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: backgroundColor,
+                    borderColor: gridColor,
+                    textStyle: { color: textColor }
+                  },
+                  grid: { left: '3%', right: '4%', bottom: '30%', top: '3%', containLabel: true },
+                  xAxis: {
+                    type: 'category',
+                    data: monthly.map(d => d.month),
+                    axisLine: { lineStyle: { color: gridColor } },
+                    axisLabel: { color: textColor, fontSize: 9, rotate: 45 }
+                  },
+                  yAxis: {
+                    type: 'value',
+                    axisLine: { lineStyle: { color: gridColor } },
+                    axisLabel: { color: textColor },
+                    splitLine: { lineStyle: { color: gridColor, type: 'dashed' } }
+                  },
+                  series: [
+                    {
+                      type: 'line',
+                      data: monthly.map(d => d.count),
+                      smooth: true,
+                      lineStyle: { width: 3, color: '#4f46e5' },
+                      itemStyle: { color: '#4f46e5' },
+                      symbol: 'circle',
+                      symbolSize: 4,
+                      areaStyle: {
+                        color: {
+                          type: 'linear',
+                          x: 0, y: 0, x2: 0, y2: 1,
+                          colorStops: [
+                            { offset: 0, color: 'rgba(79, 70, 229, 0.3)' },
+                            { offset: 1, color: 'rgba(79, 70, 229, 0.05)' }
+                          ]
+                        }
+                      }
+                    }
+                  ],
+                  animationDuration: 1000,
+                  animationEasing: 'cubicOut'
+                }}
+                style={{ height: '220px' }}
+                opts={{ renderer: 'svg' }}
+              />
               </div>
             </div>
           </div>

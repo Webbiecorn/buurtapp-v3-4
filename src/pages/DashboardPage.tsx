@@ -3,11 +3,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { StatCard } from '../components/ui';
-import { AlertTriangleIcon, ClockIcon, BriefcaseIcon, UsersIcon } from '../components/Icons';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { AlertTriangleIcon, ClockIcon, BriefcaseIcon } from '../components/Icons';
+import ReactECharts from 'echarts-for-react';
+import * as echarts from 'echarts';
+import 'echarts-gl';
 import { DossierStatus, MeldingStatus, UserRole } from '../types';
 import { db } from '../firebase';
-import { collection, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { toDate } from '../utils/dateHelpers';
 import {
   endOfDay,
@@ -28,7 +30,14 @@ import { useNavigate } from 'react-router-dom';
 
 
 type SlimDossier = { id: string; status: DossierStatus; woningType?: string | null; createdAt?: Date | null; gebruikerId?: string };
-const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#ef4444', '#f97316', '#eab308', '#22c55e'];
+const PIE_COLORS = [
+  { start: '#3b82f6', end: '#60a5fa' }, // blue
+  { start: '#8b5cf6', end: '#a78bfa' }, // purple
+  { start: '#ef4444', end: '#f87171' }, // red
+  { start: '#f97316', end: '#fb923c' }, // orange
+  { start: '#eab308', end: '#facc15' }, // yellow
+  { start: '#22c55e', end: '#4ade80' }  // green
+];
 
 // Daily Update Card Component for Dashboard
 const DailyUpdateCard: React.FC = () => {
@@ -53,17 +62,17 @@ const DailyUpdateCard: React.FC = () => {
 
   const todayData = useMemo(() => {
     const today = startOfToday();
-    
+
     const newMeldingen = meldingen.filter(m => m.timestamp >= today);
     const newProjects = projecten.filter(p => p.startDate >= today);
     const todayUren = urenregistraties.filter(u => u.start >= today);
-    const completedProjects = projecten.filter(p => 
+    const completedProjects = projecten.filter(p =>
       p.status === 'Afgerond' && p.endDate && new Date(p.endDate) >= today
     );
-    const resolvedMeldingen = meldingen.filter(m => 
+    const resolvedMeldingen = meldingen.filter(m =>
       m.status === 'Afgerond' && m.timestamp >= today
     );
-    
+
     const activeUserIds = new Set(todayUren.map(u => u.gebruikerId));
     const activeUsers = users.filter(u => activeUserIds.has(u.id));
 
@@ -103,122 +112,138 @@ const DailyUpdateCard: React.FC = () => {
   }, [hasLoaded, meldingen.length, projecten.length, loadDailyUpdate]);
 
   const quickActions = [
-    { label: 'Nieuwe Melding', icon: '📝', onClick: () => navigate('/issues/nieuw'), color: 'from-blue-500 to-blue-600' },
-    { label: 'Project Starten', icon: '🚀', onClick: () => navigate('/projects'), color: 'from-green-500 to-green-600' },
-    { label: 'Uren Registreren', icon: '⏱️', onClick: () => navigate('/time-tracking'), color: 'from-orange-500 to-orange-600' },
-    { label: 'Dossier Maken', icon: '📁', onClick: () => navigate('/dossiers'), color: 'from-purple-500 to-purple-600' },
+    { label: 'Nieuwe Melding', icon: '📝', onClick: () => navigate('/issues/nieuw'), color: 'from-slate-600 to-blue-600' },
+    { label: 'Project Starten', icon: '🚀', onClick: () => navigate('/projects'), color: 'from-blue-600 to-slate-600' },
+    { label: 'Uren Registreren', icon: '⏱️', onClick: () => navigate('/time-tracking'), color: 'from-gray-600 to-slate-600' },
+    { label: 'Dossier Maken', icon: '📁', onClick: () => navigate('/dossiers'), color: 'from-slate-700 to-blue-700' },
   ];
 
   return (
-    <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-3">
-          <div className="text-4xl animate-pulse">{greeting.emoji}</div>
-          <div>
-            <h2 className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-              {greeting.text}, {userName}!
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {format(new Date(), 'EEEE d MMMM yyyy', { locale: nl })}
-            </p>
+    <div className="relative group">
+      <div className="absolute -inset-1 bg-gradient-to-r from-slate-600 via-blue-600 to-gray-600 rounded-2xl blur opacity-15 group-hover:opacity-30 transition duration-1000 animate-glow"></div>
+      <div className="relative bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl p-6 shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="text-5xl drop-shadow-lg">{greeting.emoji}</div>
+            <div>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-slate-700 via-blue-700 to-gray-700 bg-clip-text text-transparent animate-gradient">
+                {greeting.text}, {userName}!
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                {format(new Date(), 'EEEE d MMMM yyyy', { locale: nl })}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={loadDailyUpdate}
+              disabled={isLoading}
+              className="p-3 bg-gradient-to-br from-slate-600 to-blue-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 hover:scale-110 disabled:hover:scale-100"
+              title="Vernieuwen"
+            >
+              <svg className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="p-3 bg-gradient-to-br from-gray-600 to-slate-600 text-white rounded-xl hover:shadow-lg hover:shadow-slate-500/50 transition-all hover:scale-110"
+              title={isExpanded ? 'Inklappen' : 'Uitklappen'}
+            >
+              <svg className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={loadDailyUpdate}
-            disabled={isLoading}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50 transition-all disabled:opacity-50 hover:scale-110"
-            title="Vernieuwen"
-          >
-            <svg className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-brand-primary dark:hover:text-brand-secondary rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50 transition-all"
-            title={isExpanded ? 'Inklappen' : 'Uitklappen'}
-          >
-            <svg className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-        </div>
-      </div>
 
-      {isExpanded && (
+        {isExpanded && (
         <>
-          {/* Quick Actions */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          {/* Quick Actions - Futuristic */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             {quickActions.map((action, idx) => (
               <button
                 key={idx}
                 onClick={action.onClick}
-                className={`bg-gradient-to-br ${action.color} text-white rounded-lg p-4 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all`}
+                className={`relative group bg-gradient-to-br ${action.color} text-white rounded-xl p-5 shadow-xl hover:shadow-2xl transform hover:scale-110 transition-all duration-300`}
               >
-                <div className="text-3xl mb-2">{action.icon}</div>
-                <div className="text-sm font-semibold">{action.label}</div>
+                <div className="absolute -inset-1 bg-gradient-to-r from-white/20 to-transparent rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                <div className="relative">
+                  <div className="text-4xl mb-3 drop-shadow-lg">{action.icon}</div>
+                  <div className="text-sm font-bold">{action.label}</div>
+                </div>
               </button>
             ))}
           </div>
 
-          {/* Quick Stats - Compact */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          {/* Quick Stats - Futuristic Neon Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
             {[
-              { label: 'Nieuwe meldingen', value: todayData.newMeldingen.length, icon: '📝', trend: '+12%', trendUp: true },
-              { label: 'Nieuwe projecten', value: todayData.newProjects.length, icon: '🚀', trend: '+5%', trendUp: true },
-              { label: 'Afgeronde items', value: todayData.completedProjects.length + todayData.resolvedMeldingen.length, icon: '✅', trend: '+8%', trendUp: true },
-              { label: 'Actieve medewerkers', value: todayData.activeUsers.length, icon: '👥', trend: '→', trendUp: null },
+              { label: 'Nieuwe meldingen', value: todayData.newMeldingen.length, icon: '📝', trend: '+12%', trendUp: true, color: 'from-blue-500 to-cyan-500' },
+              { label: 'Nieuwe projecten', value: todayData.newProjects.length, icon: '🚀', trend: '+5%', trendUp: true, color: 'from-blue-600 to-slate-600' },
+              { label: 'Afgeronde items', value: todayData.completedProjects.length + todayData.resolvedMeldingen.length, icon: '✅', trend: '+8%', trendUp: true, color: 'from-slate-600 to-blue-600' },
             ].map((stat, idx) => (
-              <div key={idx} className="bg-white/80 dark:bg-gray-800/80 backdrop-blur rounded-lg p-4 shadow-md hover:shadow-lg transition-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-2xl">{stat.icon}</span>
-                  {stat.trendUp !== null && (
-                    <span className={`text-xs font-semibold ${stat.trendUp ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {stat.trend}
-                    </span>
-                  )}
+              <div key={idx} className="relative group">
+                <div className={`absolute -inset-1 bg-gradient-to-r ${stat.color} rounded-xl blur opacity-25 group-hover:opacity-75 transition duration-500`}></div>
+                <div className="relative bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl p-5 shadow-xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-3xl drop-shadow-lg">{stat.icon}</span>
+                    {stat.trendUp !== null && (
+                      <span className={`text-xs font-bold px-2 py-1 rounded-full ${stat.trendUp ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'}`}>
+                        {stat.trend}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 mb-2">
+                    {stat.value}
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+                    {stat.label}
+                  </p>
                 </div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                  {stat.value}
-                </div>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  {stat.label}
-                </p>
               </div>
             ))}
           </div>
 
-          {/* AI Summary */}
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded-xl p-5 shadow-lg">
-            <div className="flex items-center space-x-2 mb-3">
-              <svg className="h-5 w-5 text-purple-600 dark:text-purple-400" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M13 7H7v6h6V7z" />
-                <path fillRule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clipRule="evenodd" />
-              </svg>
-              <h3 className="font-semibold text-gray-900 dark:text-white">
-                AI Dagelijkse Samenvatting
-              </h3>
-              <span className="text-xs bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-full font-medium">
-                Powered by Gemini
-              </span>
+          {/* AI Summary - Holographic */}
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-slate-600 via-gray-600 to-blue-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000 animate-glow"></div>
+            <div className="relative bg-gradient-to-br from-white/95 to-gray-50/95 dark:from-gray-800/95 dark:to-gray-900/95 backdrop-blur-xl rounded-2xl p-6 shadow-2xl">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg">
+                  <svg className="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M13 7H7v6h6V7z" />
+                    <path fillRule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <h3 className="font-bold text-lg bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  AI Dagelijkse Samenvatting
+                </h3>
+                <span className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full font-bold shadow-lg">
+                  Gemini AI
+                </span>
+              </div>
+
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="relative">
+                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 dark:border-purple-800"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-t-purple-600 dark:border-t-purple-400 absolute top-0"></div>
+                  </div>
+                </div>
+              ) : (
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <p className="text-gray-800 dark:text-gray-200 whitespace-pre-line leading-relaxed text-base">
+                    {updateText || 'Laden...'}
+                  </p>
+                </div>
+              )}
             </div>
-            
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
-              </div>
-            ) : (
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">
-                  {updateText || 'Laden...'}
-                </p>
-              </div>
-            )}
           </div>
         </>
       )}
+      </div>
     </div>
   );
 };
@@ -307,21 +332,20 @@ const DashboardPage: React.FC = () => {
     }
     return acc;
   }, 0).toFixed(1);
-  const activeColleagues = filteredUrenByUser.filter(u => !u.eind).length;
 
   // Chart data
   const chartData = useMemo(() => {
     const sourceData = timeFilter === 'total' ? filteredMeldingenByUser : filteredMeldingenByUser;
     if (sourceData.length === 0) return [];
-    
+
     let keyFormatter: (date: Date) => string;
-    
+
     switch (timeFilter) {
         case 'day':
             keyFormatter = (date) => format(date, 'HH:00');
             break;
         case 'week':
-            keyFormatter = (date) => format(date, 'i-EEE', { locale: nl }); 
+            keyFormatter = (date) => format(date, 'i-EEE', { locale: nl });
             break;
         case 'month':
             keyFormatter = (date) => format(date, 'dd');
@@ -348,10 +372,10 @@ const DashboardPage: React.FC = () => {
         }));
 
   }, [timeFilter, meldingen, filteredMeldingen]);
-  
+
   // Recent 3 meldingen - unchanged, shows absolute latest
   const latestMeldingen = filteredMeldingenByUser.slice().sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 3);
-  
+
   const filterOptions = [
     { label: 'Dag', value: 'day' },
     { label: 'Week', value: 'week' },
@@ -360,12 +384,9 @@ const DashboardPage: React.FC = () => {
     { label: 'Totaal', value: 'total' },
   ];
 
-  const tickColor = theme === 'dark' ? '#9ca3af' : '#6b7280';
-  const gridColor = theme === 'dark' ? '#374151' : '#e5e7eb';
-  const tooltipStyle = theme === 'dark'
-    ? { backgroundColor: '#1f2937', border: '1px solid #374151', color: '#f9fafb' }
-    : { backgroundColor: '#ffffff', border: '1px solid #e5e7eb', color: '#1f2937' };
-  const tooltipLabelStyle = theme === 'dark' ? { color: '#f9fafb' } : { color: '#111827' };
+  const isDark = theme === 'dark';
+  const textColor = isDark ? '#e5e7eb' : '#374151';
+  const gridColor = isDark ? '#374151' : '#e5e7eb';
 
   // Admin KPIs and distributions
   const filteredProjectenByUser = useMemo(() => {
@@ -475,110 +496,335 @@ const DashboardPage: React.FC = () => {
         <StatCard icon={<span className="font-bold">🏠</span>} title="Dossiers (totaal)" value={dossierStats.totaal} color="bg-rose-600" />
       </div>
 
-      {/* Distributions */}
+      {/* 3D Pie Charts with Futuristic Glow */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-        <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-dark-text-primary">Dossierstatus</h3>
-            <div className="flex items-center gap-2">
-              <label htmlFor="woningtype-filter" className="text-sm text-gray-600 dark:text-dark-text-secondary">Woningtype:</label>
-              <select id="woningtype-filter" value={filterWoningType} onChange={e => setFilterWoningType(e.target.value)} className="bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md py-1 px-2 text-sm">
-                {woningTypeOptions.map(opt => (
-                  <option key={opt} value={opt} className="bg-white dark:bg-dark-surface">{opt}</option>
-                ))}
-              </select>
+        <div className="relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-slate-600 to-gray-600 rounded-lg blur opacity-15 group-hover:opacity-30 transition duration-1000 animate-glow"></div>
+          <div className="relative bg-white dark:bg-dark-surface p-6 rounded-lg shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <h3 className="text-xl font-semibold bg-gradient-to-r from-slate-600 to-blue-600 bg-clip-text text-transparent">🎯 Dossierstatus 3D</h3>
+              <div className="flex items-center gap-2">
+                <label htmlFor="woningtype-filter" className="text-sm text-gray-600 dark:text-dark-text-secondary">Woningtype:</label>
+                <select id="woningtype-filter" value={filterWoningType} onChange={e => setFilterWoningType(e.target.value)} className="bg-gray-50 dark:bg-dark-bg border-2 border-slate-400 dark:border-slate-600 rounded-md py-1 px-2 text-sm focus:ring-2 focus:ring-blue-500">
+                  {woningTypeOptions.map(opt => (
+                    <option key={opt} value={opt} className="bg-white dark:bg-dark-surface">{opt}</option>
+                  ))}
+                </select>
+              </div>
             </div>
+            <ReactECharts
+              option={{
+                backgroundColor: 'transparent',
+                tooltip: {
+                  trigger: 'item',
+                  formatter: '{b}: {c} ({d}%)',
+                  backgroundColor: isDark ? 'rgba(31, 41, 55, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                  borderColor: '#64748b',
+                  borderWidth: 2,
+                  textStyle: { color: textColor },
+                  shadowBlur: 10,
+                  shadowColor: 'rgba(100, 116, 139, 0.5)'
+                },
+                legend: {
+                  orient: 'horizontal',
+                  bottom: 0,
+                  textStyle: { color: textColor, fontSize: 11 }
+                },
+                series: [
+                  {
+                    type: 'pie',
+                    radius: ['35%', '65%'],
+                    center: ['50%', '45%'],
+                    roseType: 'area',
+                    itemStyle: {
+                      borderRadius: 8,
+                      borderColor: isDark ? '#1f2937' : '#fff',
+                      borderWidth: 3,
+                      shadowBlur: 20,
+                      shadowOffsetX: 0,
+                      shadowOffsetY: 10,
+                      shadowColor: 'rgba(0, 0, 0, 0.3)'
+                    },
+                    label: {
+                      show: true,
+                      formatter: '{b}\n{d}%',
+                      color: textColor,
+                      fontSize: 11,
+                      fontWeight: 'bold'
+                    },
+                    labelLine: {
+                      show: true,
+                      length: 15,
+                      length2: 10,
+                      smooth: true
+                    },
+                    emphasis: {
+                      label: { show: true, fontSize: 14, fontWeight: 'bold' },
+                      itemStyle: {
+                        shadowBlur: 30,
+                        shadowOffsetY: 15,
+                        shadowColor: 'rgba(0, 0, 0, 0.5)'
+                      },
+                      scale: true,
+                      scaleSize: 10
+                    },
+                    data: dossierStatusData.map((item, idx) => ({
+                      value: item.value,
+                      name: item.name,
+                      itemStyle: {
+                        color: {
+                          type: 'linear',
+                          x: 0, y: 0, x2: 0, y2: 1,
+                          colorStops: [
+                            { offset: 0, color: PIE_COLORS[idx % PIE_COLORS.length].start },
+                            { offset: 1, color: PIE_COLORS[idx % PIE_COLORS.length].end }
+                          ]
+                        }
+                      }
+                    }))
+                  }
+                ],
+                animation: true,
+                animationDuration: 1500,
+                animationEasing: 'elasticOut',
+                animationDurationUpdate: 800
+              }}
+              style={{ height: '350px' }}
+              opts={{ renderer: 'canvas' }}
+            />
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie data={dossierStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100 || 0).toFixed(0)}%`}>
-                {dossierStatusData.map((_, idx) => (
-                  <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={tooltipStyle} />
-              <Legend wrapperStyle={{ color: tickColor }} />
-            </PieChart>
-          </ResponsiveContainer>
         </div>
-        <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-dark-text-primary">Woningtype verdeling</h3>
-            <div className="flex items-center gap-2">
-              <label htmlFor="status-filter" className="text-sm text-gray-600 dark:text-dark-text-secondary">Status:</label>
-              <select id="status-filter" value={filterDossierStatus} onChange={e => setFilterDossierStatus(e.target.value as any)} className="bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md py-1 px-2 text-sm">
-                <option value="alle" className="bg-white dark:bg-dark-surface">alle</option>
-                <option value="actief" className="bg-white dark:bg-dark-surface">actief</option>
-                <option value="afgesloten" className="bg-white dark:bg-dark-surface">afgesloten</option>
-                <option value="in onderzoek" className="bg-white dark:bg-dark-surface">in onderzoek</option>
-              </select>
+        <div className="relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-slate-600 via-gray-600 to-blue-600 rounded-lg blur opacity-15 group-hover:opacity-30 transition duration-1000 animate-glow"></div>
+          <div className="relative bg-white dark:bg-dark-surface p-6 rounded-lg shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <h3 className="text-xl font-semibold bg-gradient-to-r from-gray-600 to-slate-600 bg-clip-text text-transparent">🏘️ Woningtype 3D</h3>
+              <div className="flex items-center gap-2">
+                <label htmlFor="status-filter" className="text-sm text-gray-600 dark:text-dark-text-secondary">Status:</label>
+                <select id="status-filter" value={filterDossierStatus} onChange={e => setFilterDossierStatus(e.target.value as any)} className="bg-gray-50 dark:bg-dark-bg border-2 border-green-400 dark:border-green-600 rounded-md py-1 px-2 text-sm focus:ring-2 focus:ring-green-500">
+                  <option value="alle" className="bg-white dark:bg-dark-surface">alle</option>
+                  <option value="actief" className="bg-white dark:bg-dark-surface">actief</option>
+                  <option value="afgesloten" className="bg-white dark:bg-dark-surface">afgesloten</option>
+                  <option value="in onderzoek" className="bg-white dark:bg-dark-surface">in onderzoek</option>
+                </select>
+              </div>
             </div>
+            <ReactECharts
+              option={{
+                backgroundColor: 'transparent',
+                tooltip: {
+                  trigger: 'item',
+                  formatter: '{b}: {c} ({d}%)',
+                  backgroundColor: isDark ? 'rgba(31, 41, 55, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                  borderColor: '#3b82f6',
+                  borderWidth: 2,
+                  textStyle: { color: textColor },
+                  shadowBlur: 10,
+                  shadowColor: 'rgba(59, 130, 246, 0.5)'
+                },
+                legend: {
+                  orient: 'horizontal',
+                  bottom: 0,
+                  textStyle: { color: textColor, fontSize: 11 },
+                  type: 'scroll'
+                },
+                series: [
+                  {
+                    type: 'pie',
+                    radius: ['35%', '65%'],
+                    center: ['50%', '45%'],
+                    roseType: 'area',
+                    itemStyle: {
+                      borderRadius: 8,
+                      borderColor: isDark ? '#1f2937' : '#fff',
+                      borderWidth: 3,
+                      shadowBlur: 20,
+                      shadowOffsetX: 0,
+                      shadowOffsetY: 10,
+                      shadowColor: 'rgba(0, 0, 0, 0.3)'
+                    },
+                    label: {
+                      show: true,
+                      formatter: '{b}\n{d}%',
+                      color: textColor,
+                      fontSize: 11,
+                      fontWeight: 'bold'
+                    },
+                    labelLine: {
+                      show: true,
+                      length: 15,
+                      length2: 10,
+                      smooth: true
+                    },
+                    emphasis: {
+                      label: { show: true, fontSize: 14, fontWeight: 'bold' },
+                      itemStyle: {
+                        shadowBlur: 30,
+                        shadowOffsetY: 15,
+                        shadowColor: 'rgba(0, 0, 0, 0.5)'
+                      },
+                      scale: true,
+                      scaleSize: 10
+                    },
+                    data: woningTypeData.map((item, idx) => ({
+                      value: item.value,
+                      name: item.name,
+                      itemStyle: {
+                        color: {
+                          type: 'linear',
+                          x: 0, y: 0, x2: 0, y2: 1,
+                          colorStops: [
+                            { offset: 0, color: PIE_COLORS[idx % PIE_COLORS.length].start },
+                            { offset: 1, color: PIE_COLORS[idx % PIE_COLORS.length].end }
+                          ]
+                        }
+                      }
+                    }))
+                  }
+                ],
+                animation: true,
+                animationDuration: 1500,
+                animationEasing: 'elasticOut',
+                animationDurationUpdate: 800
+              }}
+              style={{ height: '350px' }}
+              opts={{ renderer: 'canvas' }}
+            />
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie data={woningTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100 || 0).toFixed(0)}%`}>
-                {woningTypeData.map((_, idx) => (
-                  <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={tooltipStyle} />
-              <Legend wrapperStyle={{ color: tickColor }} />
-            </PieChart>
-          </ResponsiveContainer>
         </div>
       </div>
-      
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard icon={<AlertTriangleIcon className="h-6 w-6 text-white"/>} title="Meldingen" value={totalMeldingen} color="bg-blue-600"/>
-        <StatCard icon={<BriefcaseIcon className="h-6 w-6 text-white"/>} title="Fixi Meldingen" value={fixiMeldingen} color="bg-purple-600"/>
-        <StatCard icon={<ClockIcon className="h-6 w-6 text-white"/>} title="Gewerkte Uren" value={totalUren} color="bg-green-600"/>
-        <StatCard icon={<UsersIcon className="h-6 w-6 text-white"/>} title="Actieve Collega's" value={activeColleagues} color="bg-yellow-500"/>
+
+      {/* Futuristic Stat Cards with Glow */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-slate-600 to-blue-600 rounded-lg blur opacity-20 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 animate-glow"></div>
+          <StatCard icon={<AlertTriangleIcon className="h-6 w-6 text-white"/>} title="Meldingen" value={totalMeldingen} color="bg-blue-600"/>
+        </div>
+        <div className="relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-slate-600 rounded-lg blur opacity-20 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 animate-glow"></div>
+          <StatCard icon={<BriefcaseIcon className="h-6 w-6 text-white"/>} title="Fixi Meldingen" value={fixiMeldingen} color="bg-slate-600"/>
+        </div>
+        <div className="relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-slate-600 rounded-lg blur opacity-20 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 animate-glow"></div>
+          <StatCard icon={<ClockIcon className="h-6 w-6 text-white"/>} title="Gewerkte Uren" value={totalUren} color="bg-gray-600"/>
+        </div>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Meldingen Chart */}
-        <div className="lg:col-span-2 bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Meldingsactiviteit</h2>
-           {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                <XAxis dataKey="name" stroke={tickColor} fontSize={12} />
-                <YAxis allowDecimals={false} stroke={tickColor} fontSize={12} />
-                <Tooltip 
-                  cursor={{fill: theme === 'dark' ? '#374151' : '#f3f4f6'}}
-                  contentStyle={tooltipStyle}
-                  labelStyle={tooltipLabelStyle}
-                />
-                <Bar dataKey="count" name="Aantal meldingen" fill="#1d4ed8" barSize={30}/>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[300px] text-gray-500 dark:text-dark-text-secondary">
-              Geen data beschikbaar voor deze periode.
-            </div>
-          )}
+        {/* 3D Meldingen Chart */}
+        <div className="lg:col-span-2 relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-slate-600 to-gray-600 rounded-lg blur opacity-15 group-hover:opacity-30 transition duration-1000 animate-glow"></div>
+          <div className="relative bg-white dark:bg-dark-surface p-6 rounded-lg shadow-xl">
+            <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-blue-600 to-slate-600 bg-clip-text text-transparent">🚀 Meldingsactiviteit 3D</h2>
+            {chartData.length > 0 ? (
+              <ReactECharts
+                option={{
+                  backgroundColor: 'transparent',
+                  tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: isDark ? 'rgba(31, 41, 55, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                    borderColor: '#3b82f6',
+                    borderWidth: 2,
+                    textStyle: { color: textColor },
+                    shadowBlur: 10,
+                    shadowColor: 'rgba(59, 130, 246, 0.5)'
+                  },
+                  xAxis3D: {
+                    type: 'category',
+                    data: chartData.map(d => d.name),
+                    axisLabel: { color: textColor, fontSize: 10 },
+                    axisLine: { lineStyle: { color: '#3b82f6' } }
+                  },
+                  yAxis3D: {
+                    type: 'value',
+                    axisLabel: { color: textColor },
+                    axisLine: { lineStyle: { color: '#3b82f6' } },
+                    splitLine: { show: true, lineStyle: { color: gridColor, opacity: 0.3 } }
+                  },
+                  zAxis3D: {
+                    type: 'value',
+                    axisLabel: { color: textColor }
+                  },
+                  grid3D: {
+                    boxWidth: 200,
+                    boxDepth: 80,
+                    viewControl: {
+                      autoRotate: true,
+                      autoRotateSpeed: 5,
+                      distance: 180
+                    },
+                    light: {
+                      main: {
+                        intensity: 1.5,
+                        shadow: true
+                      },
+                      ambient: {
+                        intensity: 0.5
+                      }
+                    },
+                    environment: isDark ? '#1f2937' : '#f3f4f6'
+                  },
+                  series: [
+                    {
+                      type: 'bar3D',
+                      data: chartData.map((d, idx) => [idx, d.count, 0]),
+                      shading: 'realistic',
+                      itemStyle: {
+                        color: (params: any) => {
+                      const colors = ['#3b82f6', '#64748b', '#475569', '#1e40af', '#94a3b8'];
+                          return colors[params.dataIndex % colors.length];
+                        },
+                        opacity: 0.9
+                      },
+                      emphasis: {
+                        itemStyle: {
+                          color: '#60a5fa'
+                        },
+                        label: {
+                          show: true,
+                          color: '#fff',
+                          fontSize: 14,
+                          fontWeight: 'bold'
+                        }
+                      },
+                      animation: true,
+                      animationDuration: 1500,
+                      animationEasing: 'elasticOut'
+                    }
+                  ]
+                }}
+                style={{ height: '400px' }}
+                opts={{ renderer: 'canvas' }}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500 dark:text-dark-text-secondary">
+                Geen data beschikbaar voor deze periode.
+              </div>
+            )}
+          </div>
         </div>
-        
-        {/* Latest Meldingen List */}
-        <div className="bg-white dark:bg-dark-surface p-6 rounded-lg shadow-md">
-           <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-dark-text-primary">Laatste Meldingen</h2>
-           <div className="space-y-4">
-               {latestMeldingen.length > 0 ? latestMeldingen.map(melding => (
-                   <div key={melding.id} className="flex items-start space-x-4">
-                       <img src={melding.attachments[0]} alt={melding.titel} className="w-16 h-16 rounded-md object-cover"/>
-                       <div>
-                           <h3 className="font-semibold text-gray-800 dark:text-dark-text-primary line-clamp-1">{melding.titel}</h3>
-                           <p className="text-sm text-gray-600 dark:text-dark-text-secondary line-clamp-2">{melding.omschrijving}</p>
-                       </div>
-                   </div>
-               )) : (
-                 <div className="flex items-center justify-center h-full text-gray-500 dark:text-dark-text-secondary">
-                    Geen meldingen gevonden.
-                 </div>
-               )}
-           </div>
+
+        {/* Latest Meldingen List - Futuristic */}
+        <div className="relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-slate-600 to-gray-600 rounded-lg blur opacity-15 group-hover:opacity-30 transition duration-1000 animate-glow"></div>
+          <div className="relative bg-white dark:bg-dark-surface p-6 rounded-lg shadow-xl">
+            <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent">⚡ Laatste Meldingen</h2>
+            <div className="space-y-4">
+              {latestMeldingen.length > 0 ? latestMeldingen.map(melding => (
+                <div key={melding.id} className="flex items-start space-x-4 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-300 border-l-4 border-cyan-500">
+                  <img src={melding.attachments[0]} alt={melding.titel} className="w-16 h-16 rounded-md object-cover shadow-lg ring-2 ring-cyan-400/50"/>
+                  <div>
+                    <h3 className="font-semibold text-gray-800 dark:text-dark-text-primary line-clamp-1">{melding.titel}</h3>
+                    <p className="text-sm text-gray-600 dark:text-dark-text-secondary line-clamp-2">{melding.omschrijving}</p>
+                  </div>
+                </div>
+              )) : (
+                <div className="flex items-center justify-center h-full text-gray-500 dark:text-dark-text-secondary">
+                  Geen meldingen gevonden.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -19,6 +19,11 @@ ui-debug.log
 firebase-emulator-data/
 .firebase/
 
+# Backup files
+*.backup
+*_old.*
+*_old/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

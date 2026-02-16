@@ -1,7 +1,39 @@
 # Buurtapp v3-4 Update Overzicht
-**Datum:** 18 september 2025  
-**Versie:** Nieuwste deployment  
+**Datum:** 16 februari 2026  
+**Versie:** v0.2.0  
 **Live URL:** https://buurtapp-v3-4.web.app
+
+## 📊 **Nieuwste Updates (v0.2.0 - 16 februari 2026)**
+
+### **Statistieken Pagina - Alle Charts Werkend**
+✅ **"Uren per Medewerker" 3D Chart Fixed**
+- Automatische rotatie werkt nu correct (3 rotaties/minuut)
+- Key prop toegevoegd voor proper re-initialisatie bij type-wisseling
+- Verbeterde tooltips voor 3D data weergave
+- Hover labels in scatter3D mode
+
+✅ **"Meldingen Overzicht" Chart Geïmplementeerd**
+- Combinatie van bar chart (nieuwe meldingen) en line chart (opgeloste)
+- Mooie gradient kleuren: paars voor nieuw, groen voor opgelost
+- Area fill onder lijn voor visueel effect
+- Smooth animaties bij laden
+
+✅ **"Meldingen per Categorie" Chart Geïmplementeerd**
+- Donut chart met alle categorieën
+- 10-kleuren palette voor unieke categorie kleuren
+- Percentages direct zichtbaar op chart
+- Categorie namen met aantallen in legenda
+- Elastische hover animaties
+
+✅ **2D Heatmap Visueel Verbeterd**
+- 6-staps kleurverloop in plaats van 3
+- Afgeronde borders met spacing tussen cellen
+- Verbeterde tooltip (grote font, padding, schaduw)
+- Zebra-striping voor betere leesbaarheid
+- Glow effect bij hover (blauw licht)
+- Dark mode aware kleuren
+
+---
 
 ## 📋 Overzicht van Uitgevoerde Updates
 
