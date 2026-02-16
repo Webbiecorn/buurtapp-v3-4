@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { AppShell } from './components/AppShell';
@@ -6,6 +6,9 @@ import { UserRole } from './types';
 import { PageSkeleton } from './components/Skeletons';
 import { trackPageView } from './services/analytics';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { CommandPalette } from './components/CommandPalette';
+import { KeyboardShortcutsHelp } from './components/KeyboardShortcutsHelp';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 // Lazy load alle pagina's voor betere performance
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
@@ -56,6 +59,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: UserRole[] }
 const AppRoutes: React.FC = () => {
     const { currentUser } = useAppContext();
     const location = ReactRouterDOM.useLocation();
+    const [showCommandPalette, setShowCommandPalette] = useState(false);
+    const [showHelp, setShowHelp] = useState(false);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onCommandPalette: () => setShowCommandPalette(true),
+    onHelp: () => setShowHelp(true),
+  });
 
   // Track page views bij elke route change
   useEffect(() => {
@@ -66,15 +77,29 @@ const AppRoutes: React.FC = () => {
   }, [location, currentUser]);
 
   return (
-    <ReactRouterDOM.Routes>
-      <ReactRouterDOM.Route path="/login" element={
-        <ErrorBoundary>
-          <Suspense fallback={<PageLoader />}>
-            <LoginPage />
-          </Suspense>
-        </ErrorBoundary>
-      } />
-      <ReactRouterDOM.Route path="/" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><DashboardPage /></Suspense></ProtectedRoute>} />
+    <>
+      {/* Command Palette */}
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+      />
+
+      {/* Keyboard Shortcuts Help */}
+      <KeyboardShortcutsHelp
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+      />
+
+      {/* Routes */}
+      <ReactRouterDOM.Routes>
+        <ReactRouterDOM.Route path="/login" element={
+          <ErrorBoundary>
+            <Suspense fallback={<PageLoader />}>
+              <LoginPage />
+            </Suspense>
+          </ErrorBoundary>
+        } />
+        <ReactRouterDOM.Route path="/" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><DashboardPage /></Suspense></ProtectedRoute>} />
       <ReactRouterDOM.Route path="/issues" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><IssuesPage /></Suspense></ProtectedRoute>} />
   <ReactRouterDOM.Route path="/issues/nieuw" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><NieuweMeldingPage /></Suspense></ProtectedRoute>} />
       <ReactRouterDOM.Route path="/projects" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ProjectsPage /></Suspense></ProtectedRoute>} />
@@ -91,8 +116,9 @@ const AppRoutes: React.FC = () => {
       <ReactRouterDOM.Route path="/reports" element={<ProtectedRoute roles={[UserRole.Beheerder]}><Suspense fallback={<PageLoader />}><ReportsPage /></Suspense></ProtectedRoute>} />
       <ReactRouterDOM.Route path="/contacten" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ContactenPage /></Suspense></ProtectedRoute>} />
       <ReactRouterDOM.Route path="/updates" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><UpdatesPage /></Suspense></ProtectedRoute>} />
-      <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to={currentUser ? "/" : "/login"} replace />} />
-    </ReactRouterDOM.Routes>
+        <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to={currentUser ? "/" : "/login"} replace />} />
+      </ReactRouterDOM.Routes>
+    </>
   );
 };
 

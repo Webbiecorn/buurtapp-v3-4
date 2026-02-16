@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.3] - 2026-02-16
+### Added
+#### Keyboard Shortcuts & Navigation
+- **Command Palette** voor snelle navigatie (Cmd/Ctrl+K)
+  - Fuzzy search door alle beschikbare pagina's en acties
+  - Pijltjestoetsen voor navigatie, Enter om te selecteren
+  - Automatische rolfiltering (alleen relevante acties tonen)
+- **Globale keyboard shortcuts**:
+  - `Cmd/Ctrl+K`: Command Palette
+  - `?`: Keyboard shortcuts help
+  - `H`: Dashboard
+  - `M`: Meldingen
+  - `P`: Projecten
+  - `D`: Dossiers (Beheerder/Conciërge/Viewer)
+  - `U`: Urenregistratie (Beheerder/Conciërge)
+  - `S`: Statistieken (Beheerder/Viewer)
+  - `A`: Admin (Beheerder)
+- **Help Modal** met overzicht van alle shortcuts
+- Components: `CommandPalette.tsx`, `KeyboardShortcutsHelp.tsx`
+- Hook: `useKeyboardShortcuts.ts` voor globale shortcut handling
+- Shortcuts werken niet in invoervelden (behalve Cmd+K)
+- Automatische logging van shortcut gebruik
+
 ## [0.3.2] - 2026-02-16
 ### Added
 #### Performance & UX
