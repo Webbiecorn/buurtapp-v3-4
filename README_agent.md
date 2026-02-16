@@ -278,6 +278,19 @@ Deze handleiding bundelt twee overzichten voor AI‑agents:
 - Console disabled in productie voor cleaner logs
 - Geïntegreerd met Analytics voor error tracking
 
+### Error Boundaries (v0.3.1)
+- Locatie: `src/components/ErrorBoundary.tsx`, `src/components/ErrorFallback.tsx`
+- React Error Boundaries voor graceful error handling
+- Automatische error logging naar logger + Firebase Analytics
+- 3-laagse bescherming:
+  - Top-level boundary rond hele App (voorkomt white screen)
+  - ProtectedRoute-level voor alle authenticated pages
+  - Expliciete boundary rond LoginPage
+- Development mode toont error details + component stack
+- Production mode toont gebruiksvriendelijke fallback UI met herstel opties
+- Gebruik: `<ErrorBoundary fallback={<CustomFallback />}>{children}</ErrorBoundary>`
+- Voorkomt complete app crashes bij component-level errors
+
 ### Skeleton Loaders (v0.2.1)
 - Locatie: `src/components/Skeletons.tsx`
 - Types: PageSkeleton, TableSkeleton, ChartSkeleton, CardSkeleton, ListSkeleton, FormSkeleton, StatsSkeleton
@@ -391,6 +404,7 @@ npm run build
 - **README.md**: Project overview en setup instructies
 
 ### Versie overzicht
+- v0.3.1 (16 feb 2026): React Error Boundaries voor graceful error handling
 - v0.3.0 (16 feb 2026): Zod validation, Firebase Analytics, monitoring
 - v0.2.1 (16 feb 2026): Logger service, skeleton loaders, cleanup
 - v0.2.0 (16 feb 2026): Statistics charts fixes, 2D heatmap improvements
