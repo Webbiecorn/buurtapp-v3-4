@@ -158,9 +158,11 @@ Deze handleiding bundelt twee overzichten voor AI‑agents:
 ## Architectuur en omgeving
 - Frontend: React 18 + TypeScript, Vite, Tailwind (via config). Router v6.
 - Kaarten: Leaflet (dossieroverzicht), Google Maps via @vis.gl/react-google-maps (statistieken).
-- Charts: Recharts.
-- Backend: Firebase (Firestore, Storage), Cloud Functions (Express REST).
+- Charts: Apache ECharts (via echarts-for-react) voor moderne, geanimeerde data visualisaties incl. 3D charts.
+- Backend: Firebase (Firestore, Storage, Analytics), Cloud Functions (Express REST).
 - AI: Google Gemini (gemini‑1.5‑flash) voor samenvattingen (beheerderstools).
+- Validatie: Zod voor runtime input validation met Nederlandse error messages.
+- Monitoring: Logger service (src/services/logger.ts) + Firebase Analytics voor usage tracking.
 
 ## Routes en hoofdschermen
 - Login: /#/login
@@ -229,10 +231,58 @@ Deze handleiding bundelt twee overzichten voor AI‑agents:
 - Dossiers: getDossier, createNewDossier, addDossierNotitie, uploadDossierDocument, addDossierBewoner, updateDossierBewoner, removeDossierBewoner, addDossierAfspraak, removeDossierAfspraak, updateDossierStatus.
 - Meldingen: addMelding, updateMeldingStatus, addMeldingUpdate.
 - Projecten: add/update/join, addProjectContribution, uploadFile.
+- **Services & Utilities:**
+  - `src/services/logger.ts`: Centralized logging (info, warn, error, debug)
+  - `src/services/analytics.ts`: Firebase Analytics tracking functions
+  - `src/utils/validation.ts`: Zod validation schemas en helpers
+  - `src/components/Skeletons.tsx`: Loading state components
 
 ## Integraties
 - PDOK Locatieserver (BAG): adressuggesties en detailopvraging (centroide_ll → lon/lat) voor dossierverrijking.
 - Kaarten: Leaflet (dossieroverzicht), Google Maps (statistieken) via @vis.gl/react-google-maps.
+
+## Validatie & Monitoring (v0.3.0)
+
+### Zod Validatie
+- Locatie: `src/utils/validation.ts`
+- Schemas voor: user invite, melding aanmaken, project, dossier, urenregistratie
+- Gebruik: `validate(schema, data)` → `{ success: true, data } | { success: false, errors: string[] }`
+- Helper: `validateOrThrow(schema, data)` voor server-side validation
+- Error messages in Nederlands voor betere UX
+- Voorbeeldgebruik in: AdminPage (user invite), NieuweMeldingPage (melding aanmaken)
+
+### Firebase Analytics
+- Locatie: `src/services/analytics.ts`
+- Automatische page view tracking (App.tsx bij route changes)
+- Event tracking functies:
+  - `trackLogin(method)` - Login tracking
+  - `trackMeldingCreated(categorie)` - Melding aangemaakt
+  - `trackProjectCreated(status)` - Project aangemaakt
+  - `trackDossierCreated(woningType)` - Dossier aangemaakt
+  - `trackUserInvited(role)` - User uitgenodigd
+  - `trackUrenRegistered(hours, projectLinked)` - Uren geregistreerd
+  - `trackDocumentUploaded(fileType, sizeKB)` - Document upload
+  - `trackExport(exportType, dataType)` - Export gegenereerd
+  - `trackSearch(query, resultsCount)` - Zoek query
+  - `trackError(errorType, message, context)` - Error tracking
+- User properties: `setAnalyticsUserProperties({ role, theme })`
+- User ID: `setAnalyticsUserId(userId)` - geen PII, alleen Firebase UID
+- Alleen actief in productie (niet in dev/emulators)
+
+### Logger Service
+- Locatie: `src/services/logger.ts`
+- Vervanger voor console.log/error/warn
+- Levels: info, warn, error, debug
+- Performance timing: `logger.time(label)` + `logger.timeEnd(label)`
+- Context support: `logger.error('message', error, { userId, action })`
+- Console disabled in productie voor cleaner logs
+- Geïntegreerd met Analytics voor error tracking
+
+### Skeleton Loaders (v0.2.1)
+- Locatie: `src/components/Skeletons.tsx`
+- Types: PageSkeleton, TableSkeleton, ChartSkeleton, CardSkeleton, ListSkeleton, FormSkeleton, StatsSkeleton
+- Gebruik als Suspense fallback: `<Suspense fallback={<PageSkeleton />}>`
+- Animated pulse effects, dark mode support
 
 ## UI patronen (viewer/overlay, toetsen)
 - Thumbnails ⇒ klik opent overlay.
@@ -243,6 +293,9 @@ Deze handleiding bundelt twee overzichten voor AI‑agents:
 - Respecteer rolrechten (Viewer read‑only; Conciërge eigen items; Beheerder admin).
 - Geen secrets in code; gebruik import.meta.env en .env.local.
 - Strip undefined voor Firestore writes; gebruik arrayUnion/updateDoc.
+- **Gebruik Zod validatie** voor alle user input (formulieren, API calls).
+- **Privacy**: Geen PII in analytics (userId = Firebase UID, geen emails/namen).
+- **Error handling**: Gebruik logger service i.p.v. console, track errors via Analytics.
 
 ## Ontwikkelcommando’s en emulatorpoorten
 
@@ -272,8 +325,15 @@ npm run build
 - Gerichte codewijzigingen met kleine patches; uitleg en review.
 - Tests/validatie waar passend; run build om te checken.
 - Workspace search en kleine backend‑tweaks (Functions) indien nodig.
-- UI/UX‑verbeteringen (toasts, viewer, validatie, layout).
-
+- UI/UX‑verbeteringen (toasts, viewer, validatie, layout).- **Nieuwe features checklist:**
+  - ✅ Gebruik Zod validatie voor user input
+  - ✅ Voeg Analytics tracking toe voor belangrijke events
+  - ✅ Gebruik logger i.p.v. console.log/error
+  - ✅ Toast notifications bij succes/fout
+  - ✅ Skeleton loaders voor loading states
+  - ✅ Keyboard support (ESC, pijlen) waar relevant
+  - ✅ Dark mode support met theme-aware kleuren
+  - ✅ Accessibility (aria-labels, keyboard navigation)
 ## Don’ts
 - Geen secrets delen/toevoegen; geen PII‑herkenning; geen auteursrechtinbreuk.
 - Geen grote refactors zonder expliciete vraag.
@@ -311,7 +371,30 @@ npm run build
 ## Snelle referentie: paden en symbolen
 - Viewer helpers: getType, renderInline, previewItems + previewIndex, openPreview, closePreview.
 - Iconen voor navigatie: ChevronLeftIcon, ChevronRightIcon, XIcon, DownloadIcon.
+## Documentatie & Roadmaps
 
+### Belangrijke documenten
+- **CHANGELOG.md**: Versie geschiedenis met alle features en fixes
+- **IMPROVEMENT_ROADMAP.md**: Complete improvement roadmap met 20+ verbeteringen in 6 categorieën:
+  - Performance & Bundle (ECharts tree-shaking, PDF/Excel lazy loading, image optimization)
+  - Security (Zod validation ✅, Firebase Analytics ✅, TypeScript strict)
+  - UX (bulk actions, keyboard shortcuts, debounced search)
+  - Code Quality (error boundaries, performance monitoring)
+  - Testing (Unit tests, E2E tests met Playwright)
+  - PWA (offline support, touch gestures, notifications)
+- **TYPESCRIPT_CLEANUP_PLAN.md**: Gedetailleerde strategie voor TypeScript strict mode cleanup
+  - ~150 'any' types om te fixen
+  - Phase 1-5 implementatie plan
+  - ECharts types, Firestore document types, event handler types
+  - Geschatte tijd: 15-20 uur voor volledige cleanup
+- **SECURITY.md**: Security best practices en vulnerability reporting
+- **README.md**: Project overview en setup instructies
+
+### Versie overzicht
+- v0.3.0 (16 feb 2026): Zod validation, Firebase Analytics, monitoring
+- v0.2.1 (16 feb 2026): Logger service, skeleton loaders, cleanup
+- v0.2.0 (16 feb 2026): Statistics charts fixes, 2D heatmap improvements
+- v0.1.0 (10 aug 2025): Chat, admin tabs, statistics page
 ---
 
 Laat dit bestand up‑to‑date blijven bij nieuwe features (bijv. extra viewer‑types, nieuwe rollen of routes).
