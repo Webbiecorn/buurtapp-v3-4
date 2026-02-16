@@ -303,6 +303,25 @@ Deze handleiding bundelt twee overzichten voor AI‑agents:
 - Loading indicators: spinning icon tijdens debounce
 - Voorkomt onnodige filters/API calls bij snelle input
 
+### Keyboard Shortcuts (v0.3.3)
+- Locatie: `src/components/CommandPalette.tsx`, `src/components/KeyboardShortcutsHelp.tsx`, `src/hooks/useKeyboardShortcuts.ts`
+- **Command Palette** (Cmd/Ctrl+K):
+  - Fuzzy search door alle beschikbare pagina's en acties
+  - Automatische rolfiltering (alleen relevante acties)
+  - Pijltjestoetsen navigatie, Enter om te selecteren
+- **Globale shortcuts**:
+  - `Cmd/Ctrl+K`: Command Palette
+  - `?`: Help modal met shortcuts overzicht
+  - `H`: Dashboard
+  - `M`: Meldingen
+  - `P`: Projecten
+  - `D`: Dossiers (Beheerder/Conciërge/Viewer)
+  - `U`: Urenregistratie (Beheerder/Conciërge)
+  - `S`: Statistieken (Beheerder/Viewer)
+  - `A`: Admin (Beheerder)
+- Shortcuts werken niet in invoervelden (behalve Cmd+K)
+- Automatische logging van shortcut gebruik naar Analytics
+
 ### Skeleton Loaders (v0.2.1)
 - Locatie: `src/components/Skeletons.tsx`
 - Types: PageSkeleton, TableSkeleton, ChartSkeleton, CardSkeleton, ListSkeleton, FormSkeleton, StatsSkeleton
@@ -416,6 +435,7 @@ npm run build
 - **README.md**: Project overview en setup instructies
 
 ### Versie overzicht
+- v0.3.3 (16 feb 2026): Keyboard Shortcuts en Command Palette
 - v0.3.2 (16 feb 2026): Debounced Search met loading indicators
 - v0.3.1 (16 feb 2026): React Error Boundaries voor graceful error handling
 - v0.3.0 (16 feb 2026): Zod validation, Firebase Analytics, monitoring
