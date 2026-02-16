@@ -435,6 +435,7 @@ npm run build
 - **README.md**: Project overview en setup instructies
 
 ### Versie overzicht
+- v0.3.4 (16 feb 2026): Bulk Actions voor multi-select operaties in Meldingen
 - v0.3.3 (16 feb 2026): Keyboard Shortcuts en Command Palette
 - v0.3.2 (16 feb 2026): Debounced Search met loading indicators
 - v0.3.1 (16 feb 2026): React Error Boundaries voor graceful error handling

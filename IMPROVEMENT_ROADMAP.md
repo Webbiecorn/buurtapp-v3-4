@@ -167,11 +167,14 @@ const useRateLimit = (delay: number = 1000) => {
 
 ### Hoge Prioriteit
 
-#### 10. **Bulk Actions**
-- Checkbox selectie in lijsten
-- Bulk status update voor meldingen
-- Bulk toewijzen aan medewerker
-- Bulk export
+#### 10. **Bulk Actions** ✅ (v0.3.4)
+- ✅ Checkbox selectie in lijsten (Meldingen)
+- ✅ Bulk status update voor meldingen
+- ✅ BulkActionsToolbar met floating UI
+- ✅ "Selecteer alles" functionaliteit
+- ✅ Bulk verwijderen met confirmation
+- 🔄 TODO: Bulk toewijzen aan medewerker
+- 🔄 TODO: Bulk export
 
 #### 11. **Keyboard Shortcuts** ✅ (v0.3.3)
 ```typescript
@@ -435,7 +438,7 @@ useEffect(() => {
 | ECharts Tree-Shaking   | ⭐⭐⭐    | 🔨🔨     | Hoog         | 🔍 Explored      |
 | Lazy Loading Libraries | ⭐⭐⭐    | 🔨🔨     | Hoog         | ⏳ Planned       |
 | Input Validation       | ⭐⭐⭐    | 🔨🔨     | Hoog         | ✅ Done (v0.3.0) |
-| Bulk Actions           | ⭐⭐     | 🔨🔨🔨    | Medium       | ⏳ Planned       |
+| Bulk Actions           | ⭐⭐     | 🔨🔨🔨    | Medium       | ✅ Done (v0.3.4) |
 | Keyboard Shortcuts     | ⭐⭐     | 🔨      | Medium       | ✅ Done (v0.3.3) |
 | Analytics              | ⭐⭐⭐    | 🔨      | Zeer Hoog    | ✅ Done (v0.3.0) |
 | Testing                | ⭐⭐     | 🔨🔨🔨🔨   | Lang Termijn | ⏳ Planned       |
