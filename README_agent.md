@@ -291,6 +291,18 @@ Deze handleiding bundelt twee overzichten voor AI‑agents:
 - Gebruik: `<ErrorBoundary fallback={<CustomFallback />}>{children}</ErrorBoundary>`
 - Voorkomt complete app crashes bij component-level errors
 
+### Debounced Search (v0.3.2)
+- Locatie: `src/hooks/useDebounce.ts`
+- Hooks: `useDebounce<T>(value, delay)` en `useSearchDebounce(searchTerm)`
+- **useSearchDebounce** returns: `{ debouncedTerm, isSearching, hasMinLength }`
+- Configuratie: 300ms delay, minimum 3 karakters
+- Geïntegreerd in:
+  - AdminPage: gebruikers en projecten zoeken
+  - AchterpadenKaartOverzicht: straten en wijken zoeken
+  - UrenregistratiePage: activiteiten zoeken
+- Loading indicators: spinning icon tijdens debounce
+- Voorkomt onnodige filters/API calls bij snelle input
+
 ### Skeleton Loaders (v0.2.1)
 - Locatie: `src/components/Skeletons.tsx`
 - Types: PageSkeleton, TableSkeleton, ChartSkeleton, CardSkeleton, ListSkeleton, FormSkeleton, StatsSkeleton
@@ -404,6 +416,7 @@ npm run build
 - **README.md**: Project overview en setup instructies
 
 ### Versie overzicht
+- v0.3.2 (16 feb 2026): Debounced Search met loading indicators
 - v0.3.1 (16 feb 2026): React Error Boundaries voor graceful error handling
 - v0.3.0 (16 feb 2026): Zod validation, Firebase Analytics, monitoring
 - v0.2.1 (16 feb 2026): Logger service, skeleton loaders, cleanup
