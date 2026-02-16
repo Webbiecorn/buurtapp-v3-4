@@ -63,8 +63,11 @@ const exportToPDF = async () => {
 
 ### Gemiddelde Prioriteit
 
-#### 5. **Debounced Search**
+#### 5. **Debounced Search** ✅ (v0.3.2)
 ```typescript
+// COMPLETED - See src/hooks/useDebounce.ts
+// useDebounce<T>(value, delay)
+// useSearchDebounce(searchTerm) - returns { debouncedTerm, isSearching }
 import { debounce } from 'lodash-es';
 
 const debouncedSearch = useMemo(
@@ -170,9 +173,12 @@ const useRateLimit = (delay: number = 1000) => {
 - Bulk toewijzen aan medewerker
 - Bulk export
 
-#### 11. **Keyboard Shortcuts**
+#### 11. **Keyboard Shortcuts** ✅ (v0.3.3)
 ```typescript
-// Global keyboard handler
+// COMPLETED - See src/hooks/useKeyboardShortcuts.ts
+// Command Palette: Cmd/Ctrl+K
+// Navigation: H/M/P/D/U/S/A
+// Help: ?
 const useKeyboardShortcuts = () => {
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -242,8 +248,10 @@ Vervang alle `any` types:
 
 ### Gemiddelde Prioriteit
 
-#### 16. **Error Boundaries**
+#### 16. **Error Boundaries** ✅ (v0.3.1)
 ```typescript
+// COMPLETED - See src/components/ErrorBoundary.tsx
+// 3-layer protection: App-level, ProtectedRoute-level, LoginPage-level
 class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     logger.error('React Error Boundary', error, errorInfo);
@@ -422,15 +430,15 @@ useEffect(() => {
 
 ## 📈 Verwachte Impact
 
-| Verbetering            | Impact | Effort | ROI          |
-| ---------------------- | ------ | ------ | ------------ |
-| ECharts Tree-Shaking   | ⭐⭐⭐    | 🔨🔨     | Hoog         |
-| Lazy Loading Libraries | ⭐⭐⭐    | 🔨🔨     | Hoog         |
-| Input Validation       | ⭐⭐⭐    | 🔨🔨     | Hoog         |
-| Bulk Actions           | ⭐⭐     | 🔨🔨🔨    | Medium       |
-| Keyboard Shortcuts     | ⭐⭐     | 🔨      | Medium       |
-| Analytics              | ⭐⭐⭐    | 🔨      | Zeer Hoog    |
-| Testing                | ⭐⭐     | 🔨🔨🔨🔨   | Lang Termijn |
+| Verbetering            | Impact | Effort | ROI          | Status |
+| ---------------------- | ------ | ------ | ------------ | ------ |
+| ECharts Tree-Shaking   | ⭐⭐⭐    | 🔨🔨     | Hoog         | 🔍 Explored |
+| Lazy Loading Libraries | ⭐⭐⭐    | 🔨🔨     | Hoog         | ⏳ Planned |
+| Input Validation       | ⭐⭐⭐    | 🔨🔨     | Hoog         | ✅ Done (v0.3.0) |
+| Bulk Actions           | ⭐⭐     | 🔨🔨🔨    | Medium       | ⏳ Planned |
+| Keyboard Shortcuts     | ⭐⭐     | 🔨      | Medium       | ✅ Done (v0.3.3) |
+| Analytics              | ⭐⭐⭐    | 🔨      | Zeer Hoog    | ✅ Done (v0.3.0) |
+| Testing                | ⭐⭐     | 🔨🔨🔨🔨   | Lang Termijn | ⏳ Planned |
 
 ---
 
