@@ -5,6 +5,7 @@ import { AppShell } from './components/AppShell';
 import { UserRole } from './types';
 import { PageSkeleton } from './components/Skeletons';
 import { trackPageView } from './services/analytics';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Lazy load alle pagina's voor betere performance
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
@@ -45,7 +46,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: UserRole[] }
     return <ReactRouterDOM.Navigate to="/" replace />;
   }
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <ErrorBoundary>
+      <AppShell>{children}</AppShell>
+    </ErrorBoundary>
+  );
 };
 
 const AppRoutes: React.FC = () => {
@@ -62,7 +67,13 @@ const AppRoutes: React.FC = () => {
 
   return (
     <ReactRouterDOM.Routes>
-      <ReactRouterDOM.Route path="/login" element={<Suspense fallback={<PageLoader />}><LoginPage /></Suspense>} />
+      <ReactRouterDOM.Route path="/login" element={
+        <ErrorBoundary>
+          <Suspense fallback={<PageLoader />}>
+            <LoginPage />
+          </Suspense>
+        </ErrorBoundary>
+      } />
       <ReactRouterDOM.Route path="/" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><DashboardPage /></Suspense></ProtectedRoute>} />
       <ReactRouterDOM.Route path="/issues" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><IssuesPage /></Suspense></ProtectedRoute>} />
   <ReactRouterDOM.Route path="/issues/nieuw" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><NieuweMeldingPage /></Suspense></ProtectedRoute>} />
@@ -88,11 +99,13 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AppProvider>
-      <ReactRouterDOM.HashRouter>
-        <AppRoutes />
-      </ReactRouterDOM.HashRouter>
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <ReactRouterDOM.HashRouter>
+          <AppRoutes />
+        </ReactRouterDOM.HashRouter>
+      </AppProvider>
+    </ErrorBoundary>
   );
 };
 

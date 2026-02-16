@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2026-02-16
+### Added
+#### Error Handling
+- **React Error Boundaries** geïmplementeerd voor graceful error handling
+- `ErrorBoundary` component vangt component-level errors op en voorkomt white screen
+- Automatische error logging naar logger + Firebase Analytics
+- Gebruiksvriendelijke fallback UI met herstel opties
+- Development mode toont error details en component stack
+- 3-laagse bescherming:
+  - Top-level boundary rond hele App
+  - ProtectedRoute-level voor alle protected pages
+  - Expliciete boundary rond LoginPage
+
+### Fixed
+- App crasht niet meer bij component errors
+- Betere error isolation tussen verschillende delen van de app
+
 ## [0.3.0] - 2026-02-16
 ### Added
 #### Security & Validation
