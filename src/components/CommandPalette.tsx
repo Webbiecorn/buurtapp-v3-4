@@ -1,9 +1,9 @@
 /**
  * Command Palette Component
- * 
+ *
  * Snelle navigatie via keyboard (Cmd+K / Ctrl+K)
  * Fuzzy search door beschikbare acties en pagina's
- * 
+ *
  * Features:
  * - Cmd/Ctrl + K om te openen
  * - ESC om te sluiten
@@ -199,7 +199,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         cmd.description || '',
         ...(cmd.keywords || []),
       ].join(' ').toLowerCase();
-      
+
       return searchText.includes(lowerQuery);
     });
   }, [allCommands, query]);
@@ -249,7 +249,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
-      <div 
+      <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
@@ -296,7 +296,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                     {cmd.icon && (
                       <span className="text-2xl flex-shrink-0">{cmd.icon}</span>
                     )}
-                    
+
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-900 dark:text-dark-text-primary">

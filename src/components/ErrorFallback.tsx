@@ -1,6 +1,6 @@
 /**
  * Error Fallback Component
- * 
+ *
  * Herbruikbare fallback UI voor Error Boundaries.
  * Kan gebruikt worden als custom fallback prop.
  */

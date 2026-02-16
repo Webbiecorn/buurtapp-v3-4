@@ -1,18 +1,18 @@
 /**
  * useDebounce Hook
- * 
+ *
  * Debounce een waarde met configureerbare delay.
  * Voorkomt te veel API calls of expensive operations bij snelle input.
- * 
+ *
  * @param value - De waarde om te debounce
  * @param delay - Delay in milliseconden (default: 300ms)
  * @returns Debounced waarde
- * 
+ *
  * @example
  * ```tsx
  * const [searchTerm, setSearchTerm] = useState('');
  * const debouncedSearch = useDebounce(searchTerm, 300);
- * 
+ *
  * useEffect(() => {
  *   if (debouncedSearch.length >= 3) {
  *     performSearch(debouncedSearch);
@@ -43,20 +43,20 @@ export function useDebounce<T>(value: T, delay: number = 300): T {
 
 /**
  * useSearchDebounce Hook
- * 
+ *
  * Gespecialiseerde versie voor search queries.
  * - 300ms delay
  * - Min 3 karakters requirement
  * - Returns object met debounced value + isSearching state
- * 
+ *
  * @param searchTerm - De search term om te debounce
  * @returns Object met debouncedTerm en isSearching flag
- * 
+ *
  * @example
  * ```tsx
  * const [query, setQuery] = useState('');
  * const { debouncedTerm, isSearching } = useSearchDebounce(query);
- * 
+ *
  * useEffect(() => {
  *   if (debouncedTerm) {
  *     performSearch(debouncedTerm);

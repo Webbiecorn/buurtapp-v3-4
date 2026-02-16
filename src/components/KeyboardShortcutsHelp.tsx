@@ -1,6 +1,6 @@
 /**
  * KeyboardShortcutsHelp Component
- * 
+ *
  * Modal die alle beschikbare keyboard shortcuts toont
  * Geopend via ? toets of vanuit menu
  */
@@ -62,7 +62,7 @@ export const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({ is
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
-      <div 
+      <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />

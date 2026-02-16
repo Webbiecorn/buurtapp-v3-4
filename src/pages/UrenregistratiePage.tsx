@@ -15,9 +15,9 @@ const ACTIVITEITEN = ['Project', 'Wijkronde', 'Intern overleg', 'Extern overleg'
 
 const UrenregistratiePage: React.FC = () => {
   const { currentUser, urenregistraties, addUrenregistratie, projecten } = useAppContext();
-  
 
-  
+
+
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [activiteit, setActiviteit] = useState('');
@@ -45,7 +45,7 @@ const UrenregistratiePage: React.FC = () => {
       try {
         const parsedDraft = JSON.parse(savedDraft);
         setDraft(parsedDraft);
-        
+
         // Auto-fill form if user wants to restore
         if (parsedDraft.startTime) setStartTime(parsedDraft.startTime);
         if (parsedDraft.endTime) setEndTime(parsedDraft.endTime);
@@ -102,12 +102,12 @@ const UrenregistratiePage: React.FC = () => {
   const adjustDuration = useCallback((increment: number) => {
     const newDuration = Math.max(0.5, duration + increment);
     setDuration(newDuration);
-    
+
     // Auto-apply the new duration if we have a start time
     if (startTime) {
       const startDate = new Date(startTime);
       const endDate = new Date(startDate.getTime() + newDuration * 60 * 60 * 1000);
-      
+
       const formatDateTime = (date: Date) => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -116,7 +116,7 @@ const UrenregistratiePage: React.FC = () => {
         const minute = String(date.getMinutes()).padStart(2, '0');
         return `${year}-${month}-${day}T${hour}:${minute}`;
       };
-      
+
       setEndTime(formatDateTime(endDate));
     }
   }, [duration, startTime]);
@@ -129,7 +129,7 @@ const UrenregistratiePage: React.FC = () => {
     if (startTime && inputMode === 'quick') {
       const startDate = new Date(startTime);
       const endDate = new Date(startDate.getTime() + duration * 60 * 60 * 1000);
-      
+
       const formatDateTime = (date: Date) => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -138,7 +138,7 @@ const UrenregistratiePage: React.FC = () => {
         const minute = String(date.getMinutes()).padStart(2, '0');
         return `${year}-${month}-${day}T${hour}:${minute}`;
       };
-      
+
       setEndTime(formatDateTime(endDate));
     }
   }, [duration, startTime, inputMode]);
@@ -157,7 +157,7 @@ const UrenregistratiePage: React.FC = () => {
     const today = new Date();
     const hour = 9; // Default start at 9 AM
     today.setHours(hour, 0, 0, 0);
-    
+
     const formatDateTime = (date: Date) => {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -175,7 +175,7 @@ const UrenregistratiePage: React.FC = () => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     yesterday.setHours(9, 0, 0, 0);
-    
+
     const formatDateTime = (date: Date) => {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -192,61 +192,61 @@ const UrenregistratiePage: React.FC = () => {
   // Check for overlapping time registrations
   const checkForOverlap = useCallback((start: Date, end: Date) => {
     if (!currentUser) return null;
-    
+
     const overlapping = urenregistraties.filter(reg => {
       if (reg.gebruikerId !== currentUser.id) return false;
-      
+
       const regStart = toDate(reg.start);
       const regEnd = toDate(reg.eind);
-      
+
       if (!regStart || !regEnd) return false;
-      
+
       // Check if times overlap
       return (start < regEnd && end > regStart);
     });
-    
+
     return overlapping.length > 0 ? overlapping : null;
   }, [currentUser, urenregistraties, toDate]);
 
   // Real-time validation
   const validationMessage = useMemo(() => {
     if (!startTime || !endTime) return null;
-    
+
     const start = new Date(startTime);
     const end = new Date(endTime);
-    
+
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
-    
+
     if (start >= end) {
       return { type: 'error', message: 'Eindtijd moet na de starttijd liggen.' };
     }
-    
+
     const overlapping = checkForOverlap(start, end);
     if (overlapping) {
-      return { 
-        type: 'warning', 
-        message: `Let op: Deze tijd overlapt met ${overlapping.length} bestaande registratie(s).` 
+      return {
+        type: 'warning',
+        message: `Let op: Deze tijd overlapt met ${overlapping.length} bestaande registratie(s).`
       };
     }
-    
+
     const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
     if (duration > 12) {
-      return { 
-        type: 'warning', 
-        message: `Let op: Dit is een lange werkdag (${duration.toFixed(1)} uur).` 
+      return {
+        type: 'warning',
+        message: `Let op: Dit is een lange werkdag (${duration.toFixed(1)} uur).`
       };
     }
-    
+
     return { type: 'success', message: `Duur: ${duration.toFixed(1)} uur` };
   }, [startTime, endTime, checkForOverlap]);
 
   // Analytics calculations
   const analytics = useMemo(() => {
     if (!currentUser) return null;
-    
+
     const userRegistraties = urenregistraties.filter(u => u.gebruikerId === currentUser.id);
     const now = new Date();
-    
+
     // This week
     const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
@@ -254,15 +254,15 @@ const UrenregistratiePage: React.FC = () => {
       const start = toDate(u.start);
       return start && isWithinInterval(start, { start: weekStart, end: weekEnd });
     });
-    
-    // This month  
+
+    // This month
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
     const thisMonth = userRegistraties.filter(u => {
       const start = toDate(u.start);
       return start && isWithinInterval(start, { start: monthStart, end: monthEnd });
     });
-    
+
     // Last month
     const lastMonthStart = startOfMonth(subMonths(now, 1));
     const lastMonthEnd = endOfMonth(subMonths(now, 1));
@@ -270,7 +270,7 @@ const UrenregistratiePage: React.FC = () => {
       const start = toDate(u.start);
       return start && isWithinInterval(start, { start: lastMonthStart, end: lastMonthEnd });
     });
-    
+
     const calculateTotalHours = (registraties: any[]) => {
       return registraties.reduce((total, u) => {
         const start = toDate(u.start);
@@ -281,7 +281,7 @@ const UrenregistratiePage: React.FC = () => {
         return total;
       }, 0);
     };
-    
+
     return {
       thisWeekHours: calculateTotalHours(thisWeek),
       thisMonthHours: calculateTotalHours(thisMonth),
@@ -290,7 +290,7 @@ const UrenregistratiePage: React.FC = () => {
       averageHoursPerWeek: userRegistraties.length > 0 ? calculateTotalHours(userRegistraties) / Math.max(1, Math.ceil(userRegistraties.length / 7)) : 0
     };
   }, [currentUser, urenregistraties, toDate]);
-  
+
   const formatOmschrijving = useCallback((uur: Urenregistratie) => {
     switch (uur.activiteit) {
         case 'Project':
@@ -328,7 +328,7 @@ const UrenregistratiePage: React.FC = () => {
   const canEdit = useCallback((registratie: Urenregistratie) => {
     const start = toDate(registratie.start);
     if (!start) return false;
-    
+
     const now = new Date();
     const daysDiff = (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
     return daysDiff <= 14;
@@ -337,10 +337,10 @@ const UrenregistratiePage: React.FC = () => {
   // Start editing a registration
   const startEdit = useCallback((registratie: Urenregistratie) => {
     if (!canEdit(registratie)) return;
-    
+
     const start = toDate(registratie.start);
     const end = toDate(registratie.eind);
-    
+
     if (start && end) {
       const formatDateTime = (date: Date) => {
         const year = date.getFullYear();
@@ -362,7 +362,7 @@ const UrenregistratiePage: React.FC = () => {
       setIsEditing(true);
       setShowForm(true);
       setError('');
-      
+
       // Automatisch naar de top scrollen zodat het bewerkingsformulier in beeld komt
       setTimeout(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -463,7 +463,7 @@ const UrenregistratiePage: React.FC = () => {
           ...(registrationData.overlegPartner && { overlegPartner: registrationData.overlegPartner }),
           ...(registrationData.omschrijving && { omschrijving: registrationData.omschrijving }),
         };
-        
+
         await updateDoc(docRef, updateData);
         setIsEditing(false);
         setEditingId(null);
@@ -473,7 +473,7 @@ const UrenregistratiePage: React.FC = () => {
         await addUrenregistratie(registrationData);
         setSuccessMessage('Uren registratie is succesvol opgeslagen!');
       }
-      
+
       // Clear form and show success message
       setError('');
       setStartTime('');
@@ -486,7 +486,7 @@ const UrenregistratiePage: React.FC = () => {
       setInputMode('quick');
       setDuration(1);
       clearDraft();
-      
+
       // Auto-hide success message after 3 seconds
       setTimeout(() => {
         setSuccessMessage('');
@@ -508,7 +508,7 @@ const UrenregistratiePage: React.FC = () => {
   // Filtered data for table
   const filteredUren = useMemo(() => {
     let filtered = userUren;
-    
+
     // Search filter (debounced)
     if (debouncedSearch) {
       filtered = filtered.filter(uur => {
@@ -516,17 +516,17 @@ const UrenregistratiePage: React.FC = () => {
         return omschrijving.includes(debouncedSearch.toLowerCase());
       });
     }
-    
+
     // Activity filter
     if (filterActivity) {
       filtered = filtered.filter(uur => uur.activiteit === filterActivity);
     }
-    
+
     // Date range filter
     if (filterDateRange) {
       const now = new Date();
       let startDate: Date;
-      
+
       switch (filterDateRange) {
         case 'week':
           startDate = startOfWeek(now, { weekStartsOn: 1 });
@@ -540,27 +540,27 @@ const UrenregistratiePage: React.FC = () => {
         default:
           return filtered;
       }
-      
+
       filtered = filtered.filter(uur => {
         const start = toDate(uur.start);
         if (!start) return false;
-        
+
         if (filterDateRange === 'last-month') {
           const endDate = endOfMonth(subMonths(now, 1));
           return isWithinInterval(start, { start: startDate, end: endDate });
         }
-        
+
         return start >= startDate;
       });
     }
-    
+
     return filtered;
   }, [userUren, debouncedSearch, filterActivity, filterDateRange, formatOmschrijving, toDate]);
 
   // Export functionality
   const exportToCSV = useCallback((data: any[]) => {
     if (data.length === 0) return;
-    
+
     const headers = ['Datum', 'Starttijd', 'Eindtijd', 'Duur', 'Activiteit', 'Details'];
     const rows = data.map(uur => {
       const start = toDate(uur.start);
@@ -574,11 +574,11 @@ const UrenregistratiePage: React.FC = () => {
         formatOmschrijving(uur)
       ];
     });
-    
+
     const csvContent = [headers, ...rows]
       .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
       .join('\n');
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -593,17 +593,17 @@ const UrenregistratiePage: React.FC = () => {
         alert('Geen data om te exporteren.');
         return;
       }
-      
+
       const pdf = new jsPDF();
-      
+
       // Title
       pdf.setFontSize(18);
       pdf.text('Urenregistratie', 20, 20);
-      
+
       // Date range
       pdf.setFontSize(12);
       pdf.text(`Gegenereerd op: ${format(new Date(), 'dd-MM-yyyy HH:mm')}`, 20, 30);
-      
+
       // Table data
       const tableData = data.map(uur => {
         const start = toDate(uur.start);
@@ -617,7 +617,7 @@ const UrenregistratiePage: React.FC = () => {
           formatOmschrijving(uur) || ''
         ];
       });
-      
+
       // Check if autoTable is available
       if (typeof autoTable === 'function') {
         // Add table using autoTable
@@ -642,7 +642,7 @@ const UrenregistratiePage: React.FC = () => {
         pdf.setFontSize(10);
         pdf.text('Datum | Start | Eind | Duur | Activiteit | Details', 20, yPosition);
         yPosition += 10;
-        
+
         tableData.forEach((row) => {
           if (yPosition > 280) { // New page if needed
             pdf.addPage();
@@ -653,11 +653,11 @@ const UrenregistratiePage: React.FC = () => {
           yPosition += 8;
         });
       }
-      
+
       // Save the PDF
       const fileName = `urenregistratie-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
       pdf.save(fileName);
-      
+
     } catch (error) {
       console.error('Fout bij het genereren van PDF:', error);
       alert('Er is een fout opgetreden bij het genereren van de PDF. Probeer het opnieuw.');
@@ -747,7 +747,7 @@ const UrenregistratiePage: React.FC = () => {
                     <PlusIcon className="w-5 h-5" />
                     Nieuwe Uren Invoeren
                   </button>
-                  
+
                   <button
                     onClick={() => exportToPDF(userUren)}
                     className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-6 py-3 rounded-xl font-medium transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center justify-center gap-3"
@@ -755,7 +755,7 @@ const UrenregistratiePage: React.FC = () => {
                     <DownloadIcon className="w-5 h-5" />
                     Export PDF
                   </button>
-                  
+
                   <button
                     onClick={() => exportToCSV(userUren)}
                     className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-3 rounded-xl font-medium transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center justify-center gap-3"
@@ -889,7 +889,7 @@ const UrenregistratiePage: React.FC = () => {
               </div>
             </div>
           )}
-          
+
           {/* Input Mode Toggle - only when not editing */}
           {!isEditing && (
             <div className="space-y-4">
@@ -944,7 +944,7 @@ const UrenregistratiePage: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  
+
                   {/* Start Time Quick Input */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -958,7 +958,7 @@ const UrenregistratiePage: React.FC = () => {
                           const currentDate = new Date(startTime);
                           const [hours, minutes] = e.target.value.split(':');
                           currentDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-                          
+
                           const formatDateTime = (date: Date) => {
                             const year = date.getFullYear();
                             const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -967,14 +967,14 @@ const UrenregistratiePage: React.FC = () => {
                             const minute = String(date.getMinutes()).padStart(2, '0');
                             return `${year}-${month}-${day}T${hour}:${minute}`;
                           };
-                          
+
                           setStartTime(formatDateTime(currentDate));
                         } else if (e.target.value) {
                           // If no startTime set yet, create one based on today
                           const today = new Date();
                           const [hours, minutes] = e.target.value.split(':');
                           today.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-                          
+
                           const formatDateTime = (date: Date) => {
                             const year = date.getFullYear();
                             const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -983,7 +983,7 @@ const UrenregistratiePage: React.FC = () => {
                             const minute = String(date.getMinutes()).padStart(2, '0');
                             return `${year}-${month}-${day}T${hour}:${minute}`;
                           };
-                          
+
                           setStartTime(formatDateTime(today));
                         }
                       }}
@@ -991,10 +991,10 @@ const UrenregistratiePage: React.FC = () => {
                       required
                     />
                   </div>
-                  
+
                   <div>
                     <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Tijdsduur</h3>
-                    
+
                     {/* Duration Picker */}
                     <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-4">
                       <div className="flex items-center justify-center gap-4">
@@ -1007,7 +1007,7 @@ const UrenregistratiePage: React.FC = () => {
                         >
                           <MinusIcon className="w-6 h-6" />
                         </button>
-                        
+
                         <div className="text-center min-w-[100px] mx-4">
                           <div className={`text-4xl font-bold transition-colors ${startTime ? 'text-blue-600 dark:text-blue-400 animate-pulse' : 'text-gray-400 dark:text-gray-500'}`}>
                             {formatDuration(duration)}
@@ -1016,7 +1016,7 @@ const UrenregistratiePage: React.FC = () => {
                             totale tijd
                           </div>
                         </div>
-                        
+
                         <button
                           type="button"
                           onClick={increaseDuration}
@@ -1027,7 +1027,7 @@ const UrenregistratiePage: React.FC = () => {
                           <PlusIcon className="w-6 h-6" />
                         </button>
                       </div>
-                      
+
                       {/* Validation message when no start time is set */}
                       {!startTime && (
                         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
@@ -1036,7 +1036,7 @@ const UrenregistratiePage: React.FC = () => {
                           </p>
                         </div>
                       )}
-                      
+
                       {/* Status when time is set */}
                       {startTime && endTime && (
                         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
@@ -1055,7 +1055,7 @@ const UrenregistratiePage: React.FC = () => {
           {/* Show validation feedback */}
           {validationMessage && (
             <div className={`p-3 rounded-md text-sm ${
-              validationMessage.type === 'error' 
+              validationMessage.type === 'error'
                 ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
                 : validationMessage.type === 'warning'
                 ? 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300'
@@ -1064,30 +1064,30 @@ const UrenregistratiePage: React.FC = () => {
               {validationMessage.message}
             </div>
           )}
-          
+
           {/* Manual input or editing mode - always show datetime inputs when editing or in manual mode */}
           {(isEditing || inputMode === 'manual') && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="start-time" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Starttijd</label>
-                <input 
-                  type="datetime-local" 
-                  id="start-time" 
-                  value={startTime} 
-                  onChange={(e) => setStartTime(e.target.value)} 
-                  className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-base" 
-                  required 
+                <input
+                  type="datetime-local"
+                  id="start-time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-base"
+                  required
                 />
               </div>
               <div>
                 <label htmlFor="end-time" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Eindtijd</label>
-                <input 
-                  type="datetime-local" 
-                  id="end-time" 
-                  value={endTime} 
-                  onChange={(e) => setEndTime(e.target.value)} 
-                  className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-base" 
-                  required 
+                <input
+                  type="datetime-local"
+                  id="end-time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-base"
+                  required
                 />
               </div>
             </div>
@@ -1097,12 +1097,12 @@ const UrenregistratiePage: React.FC = () => {
           {!isEditing && inputMode === 'quick' && startTime && endTime && (
             <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
               <p className="text-sm text-blue-700 dark:text-blue-300">
-                <strong>Geselecteerd:</strong> {format(new Date(startTime), 'dd-MM-yyyy HH:mm')} tot {format(new Date(endTime), 'HH:mm')} 
+                <strong>Geselecteerd:</strong> {format(new Date(startTime), 'dd-MM-yyyy HH:mm')} tot {format(new Date(endTime), 'HH:mm')}
                 ({calculateDuration(new Date(startTime), new Date(endTime))})
               </p>
             </div>
           )}
-          
+
           {/* Form fields */}
           <div className="grid grid-cols-1 gap-4">
             <div>
@@ -1139,7 +1139,7 @@ const UrenregistratiePage: React.FC = () => {
               <input type="text" id="overlegPartner" value={overlegPartner} onChange={(e) => setOverlegPartner(e.target.value)} className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-base" placeholder="Naam/organisatie" required />
             </div>
           )}
-          
+
           {(activiteit === 'Overig' || activiteit === 'Intern overleg' || activiteit === 'Project' || activiteit === 'Wijkronde' || activiteit === 'Persoonlijke ontwikkeling') && (
             <div>
               <label htmlFor="omschrijving" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Omschrijving</label>
@@ -1177,7 +1177,7 @@ const UrenregistratiePage: React.FC = () => {
             </button>
           </div>
         </div>
-        
+
         {/* Filters */}
         <div className="mb-4 space-y-3">
           <div className="flex flex-col space-y-3">
@@ -1236,7 +1236,7 @@ const UrenregistratiePage: React.FC = () => {
             </div>
           )}
         </div>
-        
+
         <div className="overflow-x-auto -mx-6 sm:mx-0">
           <div className="inline-block min-w-full align-middle">
             <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">

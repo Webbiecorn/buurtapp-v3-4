@@ -1,8 +1,8 @@
 /**
  * useKeyboardShortcuts Hook
- * 
+ *
  * Globale keyboard shortcuts voor de hele applicatie
- * 
+ *
  * Shortcuts:
  * - Cmd/Ctrl + K: Command Palette
  * - M: Meldingen
@@ -12,7 +12,7 @@
  * - U: Urenregistratie
  * - A: Admin (alleen beheerders)
  * - ?: Help modal met shortcuts
- * 
+ *
  * Shortcuts werken alleen als geen input/textarea/select focus heeft.
  */
 
@@ -37,7 +37,7 @@ export function useKeyboardShortcuts({ onCommandPalette, onHelp }: UseKeyboardSh
       const target = e.target as HTMLElement;
       const isInputField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
       const isContentEditable = target.isContentEditable;
-      
+
       if (isInputField || isContentEditable) {
         // Allow Cmd/Ctrl+K even in input fields
         if ((e.metaKey || e.ctrlKey) && e.key === 'k') {

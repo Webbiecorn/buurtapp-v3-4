@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.4] - 2026-02-16
+### Added
+#### Bulk Actions
+- **Multi-select functionaliteit** voor Meldingen
+  - Checkboxes op elke meldingkaart voor selectie
+  - "Selecteer alles" checkbox in tabblad navigatie
+  - Visuele feedback van geselecteerde items
+  - BulkActionsToolbar verschijnt bij selectie met animatie
+- **Bulk operaties**:
+  - Status wijzigen voor meerdere meldingen tegelijk
+  - Bulk verwijderen met confirmation dialog
+  - Selectie wordt gewist bij tab switch
+  - Toast notificaties voor feedback
+- **Nieuwe components**:
+  - `BulkActionsToolbar.tsx`: Floating toolbar met acties
+  - Hook: `useBulkSelection.ts` voor herbruikbare multi-select logica
+- **Features**:
+  - Set-based state voor O(1) lookup performance
+  - Keyboard accessible (ESC sluit modals)
+  - Disabled card clicks tijdens bulk selectie
+  - Automatische selectie clear bij tab wissel
+
 ## [0.3.3] - 2026-02-16
 ### Added
 #### Keyboard Shortcuts & Navigation

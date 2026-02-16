@@ -430,15 +430,15 @@ useEffect(() => {
 
 ## 📈 Verwachte Impact
 
-| Verbetering            | Impact | Effort | ROI          | Status |
-| ---------------------- | ------ | ------ | ------------ | ------ |
-| ECharts Tree-Shaking   | ⭐⭐⭐    | 🔨🔨     | Hoog         | 🔍 Explored |
-| Lazy Loading Libraries | ⭐⭐⭐    | 🔨🔨     | Hoog         | ⏳ Planned |
+| Verbetering            | Impact | Effort | ROI          | Status          |
+| ---------------------- | ------ | ------ | ------------ | --------------- |
+| ECharts Tree-Shaking   | ⭐⭐⭐    | 🔨🔨     | Hoog         | 🔍 Explored      |
+| Lazy Loading Libraries | ⭐⭐⭐    | 🔨🔨     | Hoog         | ⏳ Planned       |
 | Input Validation       | ⭐⭐⭐    | 🔨🔨     | Hoog         | ✅ Done (v0.3.0) |
-| Bulk Actions           | ⭐⭐     | 🔨🔨🔨    | Medium       | ⏳ Planned |
+| Bulk Actions           | ⭐⭐     | 🔨🔨🔨    | Medium       | ⏳ Planned       |
 | Keyboard Shortcuts     | ⭐⭐     | 🔨      | Medium       | ✅ Done (v0.3.3) |
 | Analytics              | ⭐⭐⭐    | 🔨      | Zeer Hoog    | ✅ Done (v0.3.0) |
-| Testing                | ⭐⭐     | 🔨🔨🔨🔨   | Lang Termijn | ⏳ Planned |
+| Testing                | ⭐⭐     | 🔨🔨🔨🔨   | Lang Termijn | ⏳ Planned       |
 
 ---
 

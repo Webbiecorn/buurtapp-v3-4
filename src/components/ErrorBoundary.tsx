@@ -1,9 +1,9 @@
 /**
  * Error Boundary Component
- * 
+ *
  * React Error Boundary voor graceful error handling.
  * Vangt errors in child components op en voorkomt white screen.
- * 
+ *
  * Features:
  * - Automatische error logging naar logger + analytics
  * - Fallback UI met recovery opties
@@ -29,7 +29,7 @@ interface ErrorBoundaryState {
 
 /**
  * Error Boundary Component
- * 
+ *
  * Usage:
  * ```tsx
  * <ErrorBoundary fallback={<CustomErrorFallback />}>

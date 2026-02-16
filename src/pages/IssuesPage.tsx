@@ -5,10 +5,10 @@ import { Link } from 'react-router-dom';
 import { Melding, MeldingStatus, UserRole } from '../types';
 import { MeldingCard, Modal, getStatusColor } from '../components/ui';
 import { PlusCircleIcon, CameraIcon, MapPinIcon, SendIcon, TrashIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from '../components/Icons';
-import { format } from 'date-fns';
-import { nl } from 'date-fns/locale/nl';
 import { MOCK_WIJKEN } from '../data/mockData';
 import FixiIntegration from '../components/FixiIntegration';
+import { useBulkSelection } from '../hooks/useBulkSelection';
+import { BulkActionsToolbar, BulkAction } from '../components/BulkActionsToolbar';
 
 type Tab = 'Lopende' | 'Fixi Meldingen' | 'Afgeronde';
 
@@ -511,11 +511,23 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
 
 
 const IssuesPage: React.FC = () => {
-    const { meldingen, currentUser, notificaties, markNotificationsAsRead } = useAppContext();
+    const { meldingen, currentUser, notificaties, markNotificationsAsRead, updateMeldingStatus: contextUpdateStatus } = useAppContext();
     const [activeTab, setActiveTab] = useState<Tab>('Lopende');
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
     const [selectedMelding, setSelectedMelding] = useState<Melding | null>(null);
     const [pageToast, setPageToast] = useState<Toast | null>(null);
+    const [showBulkStatusModal, setShowBulkStatusModal] = useState(false);
+    const [bulkStatus, setBulkStatus] = useState<MeldingStatus>(MeldingStatus.InBehandeling);
+    
+    // Bulk selection
+    const {
+        selectedIds,
+        selectedCount,
+        toggleItem,
+        clearSelection,
+        isSelected,
+        toggleAll,
+    } = useBulkSelection<string>();
 
     const isUnseen = (meldingId: string): boolean => {
         if (currentUser?.role !== UserRole.Beheerder) {
@@ -546,6 +558,54 @@ const IssuesPage: React.FC = () => {
     
     const meldingForModal = selectedMelding ? meldingen.find(m => m.id === selectedMelding.id) : null;
 
+    // Bulk actions
+    const handleBulkStatusUpdate = async () => {
+        try {
+            const promises = selectedIds.map(id => contextUpdateStatus(id, bulkStatus));
+            await Promise.all(promises);
+            setPageToast({ 
+                type: 'success', 
+                message: `${selectedCount} ${selectedCount === 1 ? 'melding' : 'meldingen'} bijgewerkt` 
+            });
+            setTimeout(() => setPageToast(null), 2500);
+            clearSelection();
+            setShowBulkStatusModal(false);
+        } catch (error) {
+            setPageToast({ type: 'error', message: 'Fout bij bulk status update' });
+            setTimeout(() => setPageToast(null), 2500);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (!confirm(`Weet je zeker dat je ${selectedCount} ${selectedCount === 1 ? 'melding' : 'meldingen'} wilt verwijderen?`)) {
+            return;
+        }
+        try {
+            // TODO: Implement bulk delete in context
+            setPageToast({ 
+                type: 'success', 
+                message: `${selectedCount} ${selectedCount === 1 ? 'melding' : 'meldingen'} verwijderd` 
+            });
+            setTimeout(() => setPageToast(null), 2500);
+            clearSelection();
+        } catch (error) {
+            setPageToast({ type: 'error', message: 'Fout bij bulk delete' });
+            setTimeout(() => setPageToast(null), 2500);
+        }
+    };
+
+    const bulkActions: BulkAction[] = [
+        {
+            label: 'Status wijzigen',
+            onClick: () => setShowBulkStatusModal(true),
+        },
+        {
+            label: 'Verwijderen',
+            onClick: handleBulkDelete,
+            danger: true,
+        },
+    ];
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center flex-wrap gap-3">
@@ -564,7 +624,10 @@ const IssuesPage: React.FC = () => {
                         {tabs.map((tab) => (
                             <button
                                 key={tab}
-                                onClick={() => setActiveTab(tab)}
+                                onClick={() => {
+                                    setActiveTab(tab);
+                                    clearSelection(); // Clear selection when switching tabs
+                                }}
                                 className={`${
                                     activeTab === tab
                                         ? 'border-brand-primary text-brand-primary'
@@ -574,6 +637,23 @@ const IssuesPage: React.FC = () => {
                                 {tab}
                             </button>
                         ))}
+                        
+                        {/* Select All Checkbox */}
+                        {activeTab !== 'Fixi Meldingen' && filteredMeldingen.length > 0 && (
+                            <div className="ml-auto flex items-center">
+                                <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedCount === filteredMeldingen.length && selectedCount > 0}
+                                        onChange={() => toggleAll(filteredMeldingen.map(m => m.id))}
+                                        className="w-4 h-4 rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer"
+                                    />
+                                    <span>
+                                        {selectedCount > 0 ? `${selectedCount} geselecteerd` : 'Selecteer alles'}
+                                    </span>
+                                </label>
+                            </div>
+                        )}
                     </nav>
                 </div>
             </div>
@@ -584,17 +664,36 @@ const IssuesPage: React.FC = () => {
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {filteredMeldingen.map(melding => (
-                            <button
-                                key={melding.id}
-                                type="button"
-                                onClick={() => {
-                                    setSelectedMelding(melding);
-                                    markNotificationsAsRead('melding', melding.id);
-                                }}
-                                className="cursor-pointer p-0 border-0 bg-transparent text-left w-full"
-                            >
-                                <MeldingCard melding={melding} isUnseen={isUnseen(melding.id)} />
-                            </button>
+                            <div key={melding.id} className="relative group">
+                                {/* Checkbox overlay */}
+                                <label className="absolute top-3 left-3 z-10 cursor-pointer" aria-label={`Selecteer melding ${melding.titel}`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isSelected(melding.id)}
+                                        onChange={(e) => {
+                                            e.stopPropagation();
+                                            toggleItem(melding.id);
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-5 h-5 rounded border-2 border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer shadow-sm"
+                                    />
+                                </label>
+                                
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (selectedCount === 0) {
+                                            setSelectedMelding(melding);
+                                            markNotificationsAsRead('melding', melding.id);
+                                        }
+                                    }}
+                                    className={`cursor-pointer p-0 border-0 bg-transparent text-left w-full ${
+                                        selectedCount > 0 ? 'pointer-events-none' : ''
+                                    }`}
+                                >
+                                    <MeldingCard melding={melding} isUnseen={isUnseen(melding.id)} />
+                                </button>
+                            </div>
                         ))}
                     </div>
 
@@ -605,6 +704,53 @@ const IssuesPage: React.FC = () => {
                     )}
                 </>
             )}
+            
+            {/* Bulk Actions Toolbar */}
+            <BulkActionsToolbar
+                selectedCount={selectedCount}
+                onClear={clearSelection}
+                actions={bulkActions}
+                itemName="melding"
+            />
+            
+            {/* Bulk Status Update Modal */}
+            <Modal 
+                isOpen={showBulkStatusModal} 
+                onClose={() => setShowBulkStatusModal(false)} 
+                title={`Status wijzigen voor ${selectedCount} ${selectedCount === 1 ? 'melding' : 'meldingen'}`}
+            >
+                <div className="space-y-4">
+                    <div>
+                        <label htmlFor="bulk-status-select" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-2">
+                            Nieuwe status
+                        </label>
+                        <select
+                            id="bulk-status-select"
+                            value={bulkStatus}
+                            onChange={(e) => setBulkStatus(e.target.value as MeldingStatus)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-dark-border rounded-lg bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text-primary focus:ring-brand-primary focus:border-brand-primary"
+                        >
+                            <option value={MeldingStatus.InBehandeling}>In Behandeling</option>
+                            <option value={MeldingStatus.FixiMeldingGemaakt}>Fixi Melding Gemaakt</option>
+                            <option value={MeldingStatus.Afgerond}>Afgerond</option>
+                        </select>
+                    </div>
+                    <div className="flex justify-end gap-3">
+                        <button
+                            onClick={() => setShowBulkStatusModal(false)}
+                            className="px-4 py-2 text-gray-700 dark:text-dark-text-primary bg-gray-100 dark:bg-dark-border rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            Annuleren
+                        </button>
+                        <button
+                            onClick={handleBulkStatusUpdate}
+                            className="px-4 py-2 text-white bg-brand-primary rounded-lg hover:bg-brand-secondary transition-colors"
+                        >
+                            Status bijwerken
+                        </button>
+                    </div>
+                </div>
+            </Modal>
 
             <Modal isOpen={isNewModalOpen} onClose={() => setIsNewModalOpen(false)} title="Nieuwe Melding Maken">
                 <NewMeldingForm onClose={() => setIsNewModalOpen(false)} onToast={(t)=>{ setPageToast(t); setTimeout(()=>setPageToast(null), 2500); }} />

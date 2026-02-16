@@ -7,16 +7,16 @@ import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 
 // Polyline component voor routes op kaart
-const RoutePolyline: React.FC<{ 
-  start: { lat: number; lng: number }; 
-  end: { lat: number; lng: number }; 
-  color?: string 
+const RoutePolyline: React.FC<{
+  start: { lat: number; lng: number };
+  end: { lat: number; lng: number };
+  color?: string
 }> = ({ start, end, color = '#3B82F6' }) => {
   const map = useMap();
-  
+
   useEffect(() => {
     if (!map || !window.google) return;
-    
+
     const polyline = new window.google.maps.Polyline({
       path: [start, end],
       geodesic: true,
@@ -25,12 +25,12 @@ const RoutePolyline: React.FC<{
       strokeWeight: 3,
       map: map
     });
-    
+
     return () => {
       polyline.setMap(null);
     };
   }, [map, start, end, color]);
-  
+
   return null;
 };
 
@@ -38,23 +38,23 @@ const RoutePolyline: React.FC<{
 const getMarkerColor = (achterpad: any): string => {
   const veiligheidScore = achterpad.veiligheid?.score || 0;
   const urgentie = achterpad.onderhoud?.urgentie?.toLowerCase() || '';
-  
+
   // Prioriteit: urgentie en veiligheid samen
   // Spoed of zeer onveilig (score 1-2) = ROOD
   if (urgentie === 'spoed' || veiligheidScore <= 2) {
     return '#EF4444'; // 🔴 Rood
   }
-  
+
   // Hoog urgentie of matige veiligheid (score 3) = ORANJE
   if (urgentie === 'hoog' || veiligheidScore === 3) {
     return '#F59E0B'; // 🟠 Oranje
   }
-  
+
   // Normaal urgentie = GEEL
   if (urgentie === 'normaal') {
     return '#EAB308'; // 🟡 Geel
   }
-  
+
   // Laag/geen urgentie en goede veiligheid (score 4-5) = GROEN
   return '#10B981'; // 🟢 Groen
 };
@@ -84,19 +84,19 @@ const DetailModal: React.FC<{
 
   const allMedia = [
     ...(Array.isArray(achterpad.media) ? achterpad.media : []),
-    ...(achterpad.updates || []).flatMap((u: any) => 
+    ...(achterpad.updates || []).flatMap((u: any) =>
       Array.isArray(u.attachments) ? u.attachments : []
     )
-  ].filter((url: string, idx: number, self: string[]) => 
-    self.indexOf(url) === idx && 
-    (url.startsWith('https://') || url.startsWith('http://127.0.0.1:9201/')) && 
-    !url.includes('demo') && 
+  ].filter((url: string, idx: number, self: string[]) =>
+    self.indexOf(url) === idx &&
+    (url.startsWith('https://') || url.startsWith('http://127.0.0.1:9201/')) &&
+    !url.includes('demo') &&
     !url.includes('placeholder')
   );
 
   return (
     <>
-      <div 
+      <div
         className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 overflow-auto"
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
@@ -158,10 +158,10 @@ const DetailModal: React.FC<{
                         {/* Oude data format (begin/eind punt) */}
                         <Marker position={achterpad.gpsBeginpunt} title="Beginpunt" />
                         <Marker position={achterpad.gpsEindpunt} title="Eindpunt" />
-                        <RoutePolyline 
-                          start={achterpad.gpsBeginpunt} 
-                          end={achterpad.gpsEindpunt} 
-                          color={getMarkerColor(achterpad)} 
+                        <RoutePolyline
+                          start={achterpad.gpsBeginpunt}
+                          end={achterpad.gpsEindpunt}
+                          color={getMarkerColor(achterpad)}
                         />
                       </>
                     )}
@@ -236,9 +236,9 @@ const DetailModal: React.FC<{
                     </div>
                     <div className="flex justify-between">
                       <span>Urgentie:</span>
-                      <span 
+                      <span
                         className="font-bold px-2 py-0.5 rounded"
-                        style={{ 
+                        style={{
                           backgroundColor: getMarkerColor(achterpad),
                           color: 'white'
                         }}
@@ -292,8 +292,8 @@ const DetailModal: React.FC<{
                 <h3 className="text-lg font-semibold mb-3">Foto's & Media ({allMedia.length})</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {allMedia.map((url: string, idx: number) => {
-                    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url) || 
-                                   url.includes('alt=media') || 
+                    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url) ||
+                                   url.includes('alt=media') ||
                                    url.includes('/v0/b/');
                     return isImage ? (
                       <img
@@ -318,13 +318,13 @@ const DetailModal: React.FC<{
 
       {/* Image Preview */}
       {previewUrl && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4"
           onClick={() => setPreviewUrl(null)}
         >
-          <img 
-            src={previewUrl} 
-            alt="Preview" 
+          <img
+            src={previewUrl}
+            alt="Preview"
             className="max-w-full max-h-full object-contain"
             onClick={(e) => e.stopPropagation()}
           />
@@ -347,7 +347,7 @@ const AchterpadenKaartOverzicht: React.FC<{ onEditAchterpad?: (achterpad: any) =
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [selectedAchterpad, setSelectedAchterpad] = useState<any | null>(null);
-  
+
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const { debouncedTerm: debouncedSearch, isSearching } = useSearchDebounce(searchTerm);
@@ -396,7 +396,7 @@ const AchterpadenKaartOverzicht: React.FC<{ onEditAchterpad?: (achterpad: any) =
 
     // Urgentie filter
     if (urgentieFilter !== 'all') {
-      filtered = filtered.filter(r => 
+      filtered = filtered.filter(r =>
         r.onderhoud?.urgentie?.toLowerCase() === urgentieFilter.toLowerCase()
       );
     }
@@ -432,7 +432,7 @@ const AchterpadenKaartOverzicht: React.FC<{ onEditAchterpad?: (achterpad: any) =
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.text('Achterpaden Overzicht', 14, 20);
-    
+
     let y = 35;
     filteredData.forEach((a, idx) => {
       if (y > 270) {
@@ -485,7 +485,7 @@ const AchterpadenKaartOverzicht: React.FC<{ onEditAchterpad?: (achterpad: any) =
         <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary">
           Achterpaden Kaart
         </h1>
-        
+
         {/* View Toggle */}
         <div className="flex items-center gap-2 bg-gray-100 dark:bg-dark-border rounded-lg p-1">
           <button
@@ -623,7 +623,7 @@ const AchterpadenKaartOverzicht: React.FC<{ onEditAchterpad?: (achterpad: any) =
                     const markerColor = getMarkerColor(achterpad);
                     const firstPoint = achterpad.gpsRoute?.[0] || achterpad.gpsBeginpunt;
                     const lastPoint = achterpad.gpsRoute?.[achterpad.gpsRoute.length - 1] || achterpad.gpsEindpunt;
-                    
+
                     return (
                       <React.Fragment key={achterpad.id}>
                         {/* Eerste punt marker met kleur */}
@@ -640,7 +640,7 @@ const AchterpadenKaartOverzicht: React.FC<{ onEditAchterpad?: (achterpad: any) =
                             scale: 8,
                           }}
                         />
-                        
+
                         {/* Route lijn (indien beschikbaar) */}
                         {achterpad.gpsRoute?.length >= 2 ? (
                           achterpad.gpsRoute.map((point: any, idx: number) => {
@@ -666,7 +666,7 @@ const AchterpadenKaartOverzicht: React.FC<{ onEditAchterpad?: (achterpad: any) =
                   })}
               </Map>
             </APIProvider>
-            
+
             {/* Legenda overlay */}
             <div className="absolute bottom-6 left-6 bg-white dark:bg-dark-bg rounded-lg shadow-lg p-4 border border-gray-200 dark:border-dark-border">
               <h4 className="font-bold text-sm mb-2 text-gray-900 dark:text-dark-text-primary">Legenda</h4>
@@ -701,7 +701,7 @@ const AchterpadenKaartOverzicht: React.FC<{ onEditAchterpad?: (achterpad: any) =
                   const markerColor = getMarkerColor(achterpad);
                   const urgentie = achterpad.onderhoud?.urgentie || 'onbekend';
                   const veiligheidScore = achterpad.veiligheid?.score || 0;
-                  
+
                   return (
                     <div
                       key={achterpad.id}
