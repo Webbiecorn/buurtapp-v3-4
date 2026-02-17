@@ -252,7 +252,7 @@ const DailyUpdateCard: React.FC = () => {
 const DashboardPage: React.FC = () => {
   // Track component performance
   usePerformanceTrace('DashboardPage');
-  
+
   // Filter meldingen/uren/dossiers op geselecteerde gebruiker
   const { meldingen, urenregistraties, projecten, theme, users, currentUser } = useAppContext();
   const isConcierge = currentUser?.role === 'Concierge';
@@ -715,90 +715,151 @@ const DashboardPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* 3D Meldingen Chart */}
+        {/* Meldingen Staafdiagram */}
         <div className="lg:col-span-2 relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-slate-600 to-gray-600 rounded-lg blur opacity-15 group-hover:opacity-30 transition duration-1000 animate-glow"></div>
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-lg blur opacity-15 group-hover:opacity-30 transition duration-1000 animate-glow"></div>
           <div className="relative bg-white dark:bg-dark-surface p-6 rounded-lg shadow-xl">
-            <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-blue-600 to-slate-600 bg-clip-text text-transparent">🚀 Meldingsactiviteit 3D</h2>
+            <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">📊 Meldingsactiviteit</h2>
             {chartData.length > 0 ? (
               <ReactECharts
                 option={{
                   backgroundColor: 'transparent',
                   tooltip: {
                     trigger: 'axis',
-                    backgroundColor: isDark ? 'rgba(31, 41, 55, 0.9)' : 'rgba(255, 255, 255, 0.9)',
-                    borderColor: '#3b82f6',
+                    backgroundColor: isDark ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                    borderColor: '#8b5cf6',
                     borderWidth: 2,
-                    textStyle: { color: textColor },
-                    shadowBlur: 10,
-                    shadowColor: 'rgba(59, 130, 246, 0.5)'
-                  },
-                  xAxis3D: {
-                    type: 'category',
-                    data: chartData.map(d => d.name),
-                    axisLabel: { color: textColor, fontSize: 10 },
-                    axisLine: { lineStyle: { color: '#3b82f6' } }
-                  },
-                  yAxis3D: {
-                    type: 'value',
-                    axisLabel: { color: textColor },
-                    axisLine: { lineStyle: { color: '#3b82f6' } },
-                    splitLine: { show: true, lineStyle: { color: gridColor, opacity: 0.3 } }
-                  },
-                  zAxis3D: {
-                    type: 'value',
-                    axisLabel: { color: textColor }
-                  },
-                  grid3D: {
-                    boxWidth: 200,
-                    boxDepth: 80,
-                    viewControl: {
-                      autoRotate: true,
-                      autoRotateSpeed: 5,
-                      distance: 180
+                    textStyle: { 
+                      color: textColor,
+                      fontSize: 14,
+                      fontWeight: '600'
                     },
-                    light: {
-                      main: {
-                        intensity: 1.5,
-                        shadow: true
-                      },
-                      ambient: {
-                        intensity: 0.5
+                    shadowBlur: 15,
+                    shadowColor: 'rgba(139, 92, 246, 0.5)',
+                    axisPointer: {
+                      type: 'shadow',
+                      shadowStyle: {
+                        color: 'rgba(139, 92, 246, 0.1)'
                       }
                     },
-                    environment: isDark ? '#1f2937' : '#f3f4f6'
+                    formatter: (params: any) => {
+                      const data = params[0];
+                      return `
+                        <div style="padding: 8px;">
+                          <strong style="color: #8b5cf6; font-size: 16px;">${data.name}</strong><br/>
+                          <span style="font-size: 24px; font-weight: bold; color: ${isDark ? '#a78bfa' : '#7c3aed'};">${data.value}</span>
+                          <span style="color: ${isDark ? '#9ca3af' : '#6b7280'}; margin-left: 4px;">meldingen</span>
+                        </div>
+                      `;
+                    }
+                  },
+                  grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    top: '10%',
+                    containLabel: true
+                  },
+                  xAxis: {
+                    type: 'category',
+                    data: chartData.map(d => d.name),
+                    axisLabel: { 
+                      color: textColor,
+                      fontSize: 12,
+                      fontWeight: '600',
+                      interval: 0,
+                      rotate: chartData.length > 8 ? 45 : 0
+                    },
+                    axisLine: { 
+                      lineStyle: { 
+                        color: isDark ? '#4b5563' : '#d1d5db',
+                        width: 2
+                      } 
+                    },
+                    axisTick: {
+                      show: false
+                    }
+                  },
+                  yAxis: {
+                    type: 'value',
+                    axisLabel: { 
+                      color: textColor,
+                      fontSize: 12,
+                      fontWeight: '600'
+                    },
+                    axisLine: { 
+                      show: false
+                    },
+                    axisTick: {
+                      show: false
+                    },
+                    splitLine: { 
+                      show: true, 
+                      lineStyle: { 
+                        color: gridColor, 
+                        opacity: 0.2,
+                        type: 'dashed'
+                      } 
+                    }
                   },
                   series: [
                     {
-                      type: 'bar3D',
-                      data: chartData.map((d, idx) => [idx, d.count, 0]),
-                      shading: 'realistic',
+                      type: 'bar',
+                      data: chartData.map(d => d.count),
+                      barWidth: '45%',
                       itemStyle: {
-                        color: (params: any) => {
-                      const colors = ['#3b82f6', '#64748b', '#475569', '#1e40af', '#94a3b8'];
-                          return colors[params.dataIndex % colors.length];
+                        borderRadius: [8, 8, 0, 0],
+                        color: {
+                          type: 'linear',
+                          x: 0,
+                          y: 0,
+                          x2: 0,
+                          y2: 1,
+                          colorStops: [
+                            { offset: 0, color: '#8b5cf6' },
+                            { offset: 0.5, color: '#7c3aed' },
+                            { offset: 1, color: '#6366f1' }
+                          ]
                         },
-                        opacity: 0.9
+                        shadowColor: 'rgba(139, 92, 246, 0.4)',
+                        shadowBlur: 10,
+                        shadowOffsetY: 4
                       },
                       emphasis: {
                         itemStyle: {
-                          color: '#60a5fa'
-                        },
-                        label: {
-                          show: true,
-                          color: '#fff',
-                          fontSize: 14,
-                          fontWeight: 'bold'
+                          color: {
+                            type: 'linear',
+                            x: 0,
+                            y: 0,
+                            x2: 0,
+                            y2: 1,
+                            colorStops: [
+                              { offset: 0, color: '#a78bfa' },
+                              { offset: 0.5, color: '#8b5cf6' },
+                              { offset: 1, color: '#7c3aed' }
+                            ]
+                          },
+                          shadowColor: 'rgba(139, 92, 246, 0.6)',
+                          shadowBlur: 15
                         }
                       },
-                      animation: true,
-                      animationDuration: 1500,
-                      animationEasing: 'elasticOut'
+                      label: {
+                        show: true,
+                        position: 'top',
+                        color: textColor,
+                        fontSize: 13,
+                        fontWeight: 'bold',
+                        formatter: '{c}',
+                        distance: 5
+                      },
+                      animationDuration: 1000,
+                      animationEasing: 'cubicOut',
+                      animationDelay: (idx: number) => idx * 100
                     }
                   ]
                 }}
                 style={{ height: '400px' }}
-                opts={{ renderer: 'canvas' }}
+                opts={{ renderer: 'svg' }}
               />
             ) : (
               <div className="flex items-center justify-center h-[300px] text-gray-500 dark:text-dark-text-secondary">
