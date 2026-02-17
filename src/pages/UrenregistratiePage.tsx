@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Urenregistratie, Project, ProjectStatus } from '../types';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, subMonths } from 'date-fns';
-
+import { useSearchDebounce } from '../hooks/useDebounce';
 import { CalendarIcon, DownloadIcon, FolderIcon, TrendingUpIcon, XIcon, SaveIcon, SearchIcon, EditIcon, PlusIcon, MinusIcon } from '../components/Icons';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { toDate } from '../utils/dateHelpers';
