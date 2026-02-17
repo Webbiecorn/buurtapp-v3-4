@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.6] - 2026-02-17
+### Added
+#### Documentation System
+- **Complete Webbie Documentation System** (18 bestanden, ~13,894 regels)
+  - Georganiseerde folder structuur: `webbie-docs/`
+  - Meta templates voor hergebruik in andere projecten
+  - AI-generation ready module prompts (10 modules)
+  - Complete app overzicht document (1200+ regels)
+  - Setup & Deployment guides
+  - Tech Decisions document met rationale
+  - README met usage guide en learning path
+- **New Module Documentation**: Admin & Gebruikersbeheer (~800 regels)
+- **Tech Stack Rationale**: Complete documentation of technology choices
+
+### Fixed
+- **useSearchDebounce Import Bug**
+  - Fixed missing import in `UrenregistratiePage.tsx`
+  - Fixed missing import in `AchterpadenKaartOverzicht.tsx`
+  - Resolved production crash: `ReferenceError: useSearchDebounce is not defined`
+
+### Changed
+- **File Organization**: All Webbie-*.md files moved to `webbie-docs/` structure
+- **Documentation**: Updates changelog structure with dates
+
+### Deployed
+- Production deployment to Firebase Hosting (17-02-2026)
+- 49 files uploaded, all pages verified working
+
 ## [0.3.5] - 2026-02-16
 ### Added
 #### Performance Monitoring

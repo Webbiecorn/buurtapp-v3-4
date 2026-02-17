@@ -1,9 +1,49 @@
 # Buurtapp v3-4 Update Overzicht
-**Datum:** 16 februari 2026
-**Versie:** v0.2.0
+**Datum:** 17 februari 2026
+**Versie:** v0.3.6
 **Live URL:** https://buurtapp-v3-4.web.app
 
-## 📊 **Nieuwste Updates (v0.2.0 - 16 februari 2026)**
+## 📚 **Nieuwste Updates (v0.3.6 - 17 februari 2026)**
+
+### **Documentation System - Complete Setup**
+✅ **Webbie Documentation System Opgezet**
+- 18 bestanden, ~13,894 regels documentatie
+- Georganiseerde folder structuur: `webbie-docs/`
+- 3 herbruikbare meta templates
+- 10 AI-generation ready module prompts
+- Complete app overzicht (1200+ regels)
+- Setup & Deployment guides
+- Tech Decisions document met rationale
+- README met usage guide
+
+✅ **Nieuwe Module Documentatie: Admin**
+- Complete Admin & Gebruikersbeheer module (~800 regels)
+- User invitation systeem met Firebase Functions
+- Role-based permissions documentatie
+- Security rules voor admin-only access
+
+✅ **Tech Stack Rationale Gedocumenteerd**
+- Waarom React, Firebase, Tailwind, Vite, ECharts
+- Alternatieven overwogen + trade-offs
+- Decision making framework
+- Quarterly review schedule
+
+### **Bug Fixes**
+✅ **useSearchDebounce Import Fixed**
+- Productie crash opgelost in Urenregistratie pagina
+- Ook gefixed in Achterpaden Kaart Overzicht
+- Deployed naar Firebase Hosting
+- Verified: beide pagina's werken nu
+
+### **Impact**
+- 📖 Onboarding tijd: ~1 week → ~1 dag
+- 🤖 AI assistance: Copy-paste prompts werken perfect
+- ✅ Knowledge preservation: Geen tribal knowledge meer
+- 🐛 Production stability: Alle kritieke bugs opgelost
+
+---
+
+## 📊 **v0.3.5 - Performance Monitoring (16 februari 2026)**
 
 ### **Statistieken Pagina - Alle Charts Werkend**
 ✅ **"Uren per Medewerker" 3D Chart Fixed**

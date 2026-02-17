@@ -73,7 +73,7 @@ cp webbie-docs/00-Meta-Templates/Webbie-Uitleg-CoPilot-Prompt-Maken-Modules.md \
 
 **Stap 3:** Vraag GitHub Copilot:
 ```
-Maak documentatie voor dit project volgens 
+Maak documentatie voor dit project volgens
 Webbie-Uitleg-CoPilot-Prompt-Maken-Modules.md
 
 Genereer:
@@ -250,47 +250,47 @@ cp -r webbie-docs/00-Meta-Templates/* /path/to/new-project/docs/
 
 ### BuurtApp Documentatie Status
 
-| Type | Aantal | Totaal Regels* |
-|------|--------|----------------|
-| **Meta Templates** | 3 | ~2400 |
-| **App Overzicht** | 1 | ~1200 |
-| **Module Prompts** | 10 | ~6000 |
-| **Setup/Deployment** | 2 | ~1000 |
-| **Tech Decisions** | 1 | ~600 |
-| **Updates** | 1 | ~400 |
-| **TOTAAL** | **18** | **~11,600** |
+| Type                 | Aantal | Totaal Regels* |
+| -------------------- | ------ | -------------- |
+| **Meta Templates**   | 3      | ~2400          |
+| **App Overzicht**    | 1      | ~1200          |
+| **Module Prompts**   | 10     | ~6000          |
+| **Setup/Deployment** | 2      | ~1000          |
+| **Tech Decisions**   | 1      | ~600           |
+| **Updates**          | 1      | ~400           |
+| **TOTAAL**           | **18** | **~11,600**    |
 
 *Geschat
 
 ### Coverage
 
-✅ **100% Module Coverage** - Alle 10 hoofdfeatures gedocumenteerd  
-✅ **Complete Lifecycle** - Van setup tot deployment  
-✅ **AI-Ready** - Elke module direct genereerbaar met AI  
-✅ **Multi-Platform** - GitHub Copilot + ChatGPT + Claude compatible  
+✅ **100% Module Coverage** - Alle 10 hoofdfeatures gedocumenteerd
+✅ **Complete Lifecycle** - Van setup tot deployment
+✅ **AI-Ready** - Elke module direct genereerbaar met AI
+✅ **Multi-Platform** - GitHub Copilot + ChatGPT + Claude compatible
 
 ---
 
 ## 🤖 AI Compatibility
 
 ### GitHub Copilot
-**Toegang:** Automatisch (files in workspace)  
-**Gebruik:** Context-aware suggestions tijdens development  
+**Toegang:** Automatisch (files in workspace)
+**Gebruik:** Context-aware suggestions tijdens development
 **Prompt:** "Follow patterns from webbie-docs/..."
 
 ### ChatGPT
-**Toegang:** File upload (Knowledge base) of copy-paste  
-**Gebruik:** Generate complete modules  
+**Toegang:** File upload (Knowledge base) of copy-paste
+**Gebruik:** Generate complete modules
 **Prompt:** Copy module prompt → "Generate this module"
 
 ### Claude
-**Toegang:** File upload (Projects) of copy-paste  
-**Gebruik:** Generate + explain modules  
+**Toegang:** File upload (Projects) of copy-paste
+**Gebruik:** Generate + explain modules
 **Prompt:** Copy module prompt → "Build this following all requirements"
 
 ### Cursor IDE
-**Toegang:** Via `.cursorrules` of `@docs`  
-**Gebruik:** Code generation met full context  
+**Toegang:** Via `.cursorrules` of `@docs`
+**Gebruik:** Code generation met full context
 **Prompt:** "@docs generate [module] following webbie patterns"
 
 ---
@@ -364,27 +364,27 @@ Voor nieuwe developers of AI assistants:
 
 Deze documentatie is succesvol als:
 
-✅ Nieuwe developer kan binnen 1 dag productief zijn  
-✅ AI kan complete module genereren uit prompt  
-✅ Geen vragen over "waarom gebruiken we X"  
-✅ Deployment werkt first-time zonder issues  
-✅ Code quality blijft consistent  
-✅ Onboarding tijd < 1 week  
+✅ Nieuwe developer kan binnen 1 dag productief zijn
+✅ AI kan complete module genereren uit prompt
+✅ Geen vragen over "waarom gebruiken we X"
+✅ Deployment werkt first-time zonder issues
+✅ Code quality blijft consistent
+✅ Onboarding tijd < 1 week
 
 ---
 
 ## 🆘 Support
 
-**Vragen over documentatie systeem?**  
+**Vragen over documentatie systeem?**
 → Lees: `00-Meta-Templates/Webbie-Uitleg-CoPilot-Prompt-Maken-Modules.md`
 
-**Vragen over BuurtApp specifiek?**  
+**Vragen over BuurtApp specifiek?**
 → Start met: `01-BuurtApp/Webbie--Buurtapp-Overzicht-Modules-*.md`
 
-**Setup problemen?**  
+**Setup problemen?**
 → Check: `01-BuurtApp/Webbie-BuurtApp-Setup-Getting-Started.md` troubleshooting sectie
 
-**Deployment issues?**  
+**Deployment issues?**
 → Check: `01-BuurtApp/Webbie-BuurtApp-Deployment-Guide.md` troubleshooting
 
 ---
@@ -411,6 +411,6 @@ Deze documentatie is succesvol als:
 
 **Gemaakt met ❤️ voor Webbie Development Team**
 
-**Versie:** 1.0  
-**Datum:** 17 februari 2026  
+**Versie:** 1.0
+**Datum:** 17 februari 2026
 **Maintainer:** Webbie Documentation System
