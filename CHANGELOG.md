@@ -16,18 +16,30 @@ All notable changes to this project will be documented in this file.
 - **New Module Documentation**: Admin & Gebruikersbeheer (~800 regels)
 - **Tech Stack Rationale**: Complete documentation of technology choices
 
+### Changed
+#### Dashboard Charts
+- **Meldingsactiviteit Visualization Improved**
+  - Replaced 3D rotating chart with modern 2D vertical bar chart
+  - Purple-blue gradient colors for modern aesthetic
+  - Enhanced tooltips with large numbers and better formatting
+  - Bar labels on top for quick value reading
+  - Smooth staggered animations (100ms delay per bar)
+  - Better hover effects with enhanced shadows
+  - SVG renderer for crisp rendering (was Canvas GL)
+  - Auto-rotating x-axis labels for long category names
+  - Dashed grid lines for cleaner look
+  - Performance: Lighter than 3D (no GL engine needed)
+  - UX: Exact values readable at a glance
+
 ### Fixed
 - **useSearchDebounce Import Bug**
   - Fixed missing import in `UrenregistratiePage.tsx`
   - Fixed missing import in `AchterpadenKaartOverzicht.tsx`
   - Resolved production crash: `ReferenceError: useSearchDebounce is not defined`
 
-### Changed
-- **File Organization**: All Webbie-*.md files moved to `webbie-docs/` structure
-- **Documentation**: Updates changelog structure with dates
-
 ### Deployed
-- Production deployment to Firebase Hosting (17-02-2026)
+- Chart improvements deployed to Firebase Hosting (17-02-2026)
+- Production deployment verified
 - 49 files uploaded, all pages verified working
 
 ## [0.3.5] - 2026-02-16
