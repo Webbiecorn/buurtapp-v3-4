@@ -33,9 +33,60 @@ const UpdatesPage = React.lazy(() => import('./pages/UpdatesPage'));
 // Loading component voor Suspense fallback
 const PageLoader = () => <PageSkeleton />;
 
+// Helper: map route paths naar module keys
+const routeToModuleKey: { [key: string]: string } = {
+  '/': 'dashboard',
+  '/issues': 'meldingen',
+  '/issues/nieuw': 'meldingen',
+  '/projects': 'projecten',
+  '/dossiers': 'dossiers',
+  '/dossier': 'dossiers',
+  '/time-tracking': 'urenregistratie',
+  '/statistics': 'statistieken',
+  '/reports': 'rapportages',
+  '/contacten': 'contacten',
+  '/admin': 'admin',
+  '/achterpaden': 'achterpaden',
+  '/updates': 'updates',
+};
 
-const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: UserRole[] }> = ({ children, roles }) => {
+// Helper: check of user toegang heeft tot een module
+const userHasModuleAccess = (user: any, moduleKey: string): boolean => {
+  // Geen restrictie = volledige toegang
+  if (!user.allowedModules || user.allowedModules.length === 0) {
+    return true;
+  }
+  return user.allowedModules.includes(moduleKey);
+};
+
+// Helper: bepaal eerste toegankelijke route voor user
+const getDefaultRouteForUser = (user: any): string => {
+  if (!user.allowedModules || user.allowedModules.length === 0) {
+    return '/';
+  }
+
+  // Return eerste toegestane module
+  const moduleRouteMap: { [key: string]: string } = {
+    'dashboard': '/',
+    'meldingen': '/issues',
+    'projecten': '/projects',
+    'dossiers': '/dossiers',
+    'urenregistratie': '/time-tracking',
+    'statistieken': '/statistics',
+    'rapportages': '/reports',
+    'contacten': '/contacten',
+    'admin': '/admin',
+    'achterpaden': '/achterpaden',
+    'updates': '/updates',
+  };
+
+  return moduleRouteMap[user.allowedModules[0]] || '/';
+};
+
+
+const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: UserRole[]; moduleKey?: string }> = ({ children, roles, moduleKey }) => {
   const { currentUser, isInitialLoading } = useAppContext();
+  const location = ReactRouterDOM.useLocation();
 
   // Wacht tot auth + profiel geladen zijn om heen-en-weer navigeren te voorkomen
   if (isInitialLoading) {
@@ -45,8 +96,16 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: UserRole[] }
     return <ReactRouterDOM.Navigate to="/login" replace />;
   }
 
+  // Check rol
   if(roles && !roles.includes(currentUser.role)) {
     return <ReactRouterDOM.Navigate to="/" replace />;
+  }
+
+  // Check module toegang
+  if (moduleKey && !userHasModuleAccess(currentUser, moduleKey)) {
+    // Redirect naar eerste toegestane module
+    const defaultRoute = getDefaultRouteForUser(currentUser);
+    return <ReactRouterDOM.Navigate to={defaultRoute} replace />;
   }
 
   return (
@@ -99,24 +158,24 @@ const AppRoutes: React.FC = () => {
             </Suspense>
           </ErrorBoundary>
         } />
-        <ReactRouterDOM.Route path="/" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><DashboardPage /></Suspense></ProtectedRoute>} />
-      <ReactRouterDOM.Route path="/issues" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><IssuesPage /></Suspense></ProtectedRoute>} />
-  <ReactRouterDOM.Route path="/issues/nieuw" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><NieuweMeldingPage /></Suspense></ProtectedRoute>} />
-      <ReactRouterDOM.Route path="/projects" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ProjectsPage /></Suspense></ProtectedRoute>} />
-      <ReactRouterDOM.Route path="/dossiers" element={<ProtectedRoute roles={[UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer]}><Suspense fallback={<PageLoader />}><DossierPage /></Suspense></ProtectedRoute>} />
-      <ReactRouterDOM.Route path="/dossier/:adres" element={<ProtectedRoute roles={[UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer]}><Suspense fallback={<PageLoader />}><DossierDetailPage /></Suspense></ProtectedRoute>} />
+        <ReactRouterDOM.Route path="/" element={<ProtectedRoute moduleKey="dashboard"><Suspense fallback={<PageLoader />}><DashboardPage /></Suspense></ProtectedRoute>} />
+      <ReactRouterDOM.Route path="/issues" element={<ProtectedRoute moduleKey="meldingen"><Suspense fallback={<PageLoader />}><IssuesPage /></Suspense></ProtectedRoute>} />
+  <ReactRouterDOM.Route path="/issues/nieuw" element={<ProtectedRoute moduleKey="meldingen"><Suspense fallback={<PageLoader />}><NieuweMeldingPage /></Suspense></ProtectedRoute>} />
+      <ReactRouterDOM.Route path="/projects" element={<ProtectedRoute moduleKey="projecten"><Suspense fallback={<PageLoader />}><ProjectsPage /></Suspense></ProtectedRoute>} />
+      <ReactRouterDOM.Route path="/dossiers" element={<ProtectedRoute roles={[UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer]} moduleKey="dossiers"><Suspense fallback={<PageLoader />}><DossierPage /></Suspense></ProtectedRoute>} />
+      <ReactRouterDOM.Route path="/dossier/:adres" element={<ProtectedRoute roles={[UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer]} moduleKey="dossiers"><Suspense fallback={<PageLoader />}><DossierDetailPage /></Suspense></ProtectedRoute>} />
       <ReactRouterDOM.Route path="/notifications" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><NotificationsPage /></Suspense></ProtectedRoute>} />
       <ReactRouterDOM.Route path="/invitation/:invitationId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ProjectInvitationDetailPage /></Suspense></ProtectedRoute>} />
       <ReactRouterDOM.Route path="/chat/:conversationId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ChatPage /></Suspense></ProtectedRoute>} />
       <ReactRouterDOM.Route path="/profile" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ProfilePage /></Suspense></ProtectedRoute>} />
-      <ReactRouterDOM.Route path="/time-tracking" element={<ProtectedRoute roles={[UserRole.Concierge, UserRole.Beheerder]}><Suspense fallback={<PageLoader />}><UrenregistratiePage /></Suspense></ProtectedRoute>} />
-      <ReactRouterDOM.Route path="/statistics" element={<ProtectedRoute roles={[UserRole.Beheerder, UserRole.Viewer]}><Suspense fallback={<PageLoader />}><StatisticsPage /></Suspense></ProtectedRoute>} />
-      <ReactRouterDOM.Route path="/achterpaden" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><AchterpadenPage /></Suspense></ProtectedRoute>} />
-      <ReactRouterDOM.Route path="/admin" element={<ProtectedRoute roles={[UserRole.Beheerder]}><Suspense fallback={<PageLoader />}><AdminPage /></Suspense></ProtectedRoute>} />
-      <ReactRouterDOM.Route path="/reports" element={<ProtectedRoute roles={[UserRole.Beheerder]}><Suspense fallback={<PageLoader />}><ReportsPage /></Suspense></ProtectedRoute>} />
-      <ReactRouterDOM.Route path="/contacten" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ContactenPage /></Suspense></ProtectedRoute>} />
-      <ReactRouterDOM.Route path="/updates" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><UpdatesPage /></Suspense></ProtectedRoute>} />
-        <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to={currentUser ? "/" : "/login"} replace />} />
+      <ReactRouterDOM.Route path="/time-tracking" element={<ProtectedRoute roles={[UserRole.Concierge, UserRole.Beheerder]} moduleKey="urenregistratie"><Suspense fallback={<PageLoader />}><UrenregistratiePage /></Suspense></ProtectedRoute>} />
+      <ReactRouterDOM.Route path="/statistics" element={<ProtectedRoute roles={[UserRole.Beheerder, UserRole.Viewer]} moduleKey="statistieken"><Suspense fallback={<PageLoader />}><StatisticsPage /></Suspense></ProtectedRoute>} />
+      <ReactRouterDOM.Route path="/achterpaden" element={<ProtectedRoute moduleKey="achterpaden"><Suspense fallback={<PageLoader />}><AchterpadenPage /></Suspense></ProtectedRoute>} />
+      <ReactRouterDOM.Route path="/admin" element={<ProtectedRoute roles={[UserRole.Beheerder]} moduleKey="admin"><Suspense fallback={<PageLoader />}><AdminPage /></Suspense></ProtectedRoute>} />
+      <ReactRouterDOM.Route path="/reports" element={<ProtectedRoute roles={[UserRole.Beheerder]} moduleKey="rapportages"><Suspense fallback={<PageLoader />}><ReportsPage /></Suspense></ProtectedRoute>} />
+      <ReactRouterDOM.Route path="/contacten" element={<ProtectedRoute moduleKey="contacten"><Suspense fallback={<PageLoader />}><ContactenPage /></Suspense></ProtectedRoute>} />
+      <ReactRouterDOM.Route path="/updates" element={<ProtectedRoute moduleKey="updates"><Suspense fallback={<PageLoader />}><UpdatesPage /></Suspense></ProtectedRoute>} />
+        <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to={currentUser ? getDefaultRouteForUser(currentUser) : "/login"} replace />} />
       </ReactRouterDOM.Routes>
     </>
   );

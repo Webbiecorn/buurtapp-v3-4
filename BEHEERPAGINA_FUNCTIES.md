@@ -1,5 +1,5 @@
 # Beheerpagina Update Overzicht - Nieuwe Functies
-**Datum:** 18 september 2025  
+**Datum:** 23 februari 2026  
 **Live URL:** https://buurtapp-v3-4.web.app
 
 ## Overzicht Nieuwe Functies Beheerpagina
@@ -11,6 +11,7 @@ De beheerpagina heeft nu 3 hoofdtabs:
    - Gebruikersbeheer functionaliteiten
    - Rol toewijzing en wijziging
    - Gebruikers toevoegen/verwijderen
+   - **NIEUW:** Module-restrictie voor gebruikers
 
 2. **Team Urenregistratie Tab**
    - Overzicht van alle urenregistraties
@@ -172,6 +173,69 @@ Geavanceerd team management systeem:
 - **Hover Effects:** Visual feedback bij mouse-over
 - **Keyboard Navigation:** Volledige toetsenbord ondersteuning
 - **Shortcuts:** Sneltoetsen voor veelgebruikte acties
+
+---
+
+## Module-Restrictie Functionaliteit (NIEUW - februari 2026)
+
+### Overzicht
+Beheerders kunnen nu specifieke gebruikers beperken tot bepaalde modules in de applicatie. Dit is ideaal voor externe partners of gespecialiseerde rollen die alleen toegang nodig hebben tot een deel van de functionaliteit.
+
+### Gebruik
+Bij het uitnodigen van een nieuwe gebruiker:
+
+1. **Uitnodiging Aanmaken**
+   - Vul naam, email en rol in (bijv. Viewer voor read-only toegang)
+   - Vink "Beperk toegang tot specifieke modules" aan
+
+2. **Modules Selecteren**
+   - Kies uit 11 beschikbare modules:
+     - Dashboard
+     - Meldingen
+     - Projecten
+     - Woningdossiers
+     - Urenregistratie
+     - Statistieken
+     - Rapportages
+     - Contacten
+     - Achterpaden
+     - Updates
+     - Beheer (alleen voor admins)
+
+3. **Validatie**
+   - Minimaal 1 module moet geselecteerd zijn
+   - Visuele feedback toont aantal geselecteerde modules
+
+### Gebruikerservaring
+
+**Voor Restricted Users:**
+- Zien alleen geselecteerde modules in het navigatiemenu
+- Worden automatisch naar hun eerste toegestane module geleid bij login
+- Kunnen niet naar andere routes navigeren (automatische redirect)
+- Profiel toont hun toegewezen rol (bijv. Viewer)
+
+**Voor Beheerders:**
+- Kunnen module-toegang per gebruiker configureren
+- Zien in gebruikerslijst welke gebruikers restricted zijn
+- Kunnen toegang later wijzigen door gebruiker te bewerken
+
+### Use Cases
+
+**Voorbeeld: Centrada Partner**
+- Rol: Viewer (alleen lezen)
+- Toegang: Alleen Achterpaden module
+- Resultaat: Kan Achterpaden data bekijken zonder toegang tot andere gevoelige informatie
+
+**Voorbeeld: Externe Rapporteur**
+- Rol: Viewer
+- Toegang: Statistieken + Rapportages
+- Resultaat: Kan data analyseren zonder editrechten
+
+### Technische Implementatie
+- Opgeslagen in `allowedModules` array in user profiel (Firestore)
+- Client-side enforcement via route guards en menu filtering
+- Server-side validatie via Firebase Functions
+- Backwards compatible: bestaande users zonder `allowedModules` krijgen volledige toegang
 
 ---
 

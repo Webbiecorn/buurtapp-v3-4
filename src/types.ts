@@ -100,6 +100,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  allowedModules?: string[]; // undefined of [] = volledige toegang, anders beperkt tot opgegeven modules
   avatarUrl: string;
   phone?: string;
 }

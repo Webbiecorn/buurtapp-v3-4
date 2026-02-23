@@ -5,12 +5,12 @@ import { db, auth as adminAuth, serverTimestamp } from "./firebase-admin-init";
 
 /**
  * Cloud Function om nieuwe gebruikers uit te nodigen voor de Buurtapp
- * 
+ *
  * BELANGRIJK: Voor email functionaliteit moet je Firebase Email Templates configureren:
  * 1. Ga naar Firebase Console > Authentication > Templates
  * 2. Configureer het "Password reset" email template
  * 3. Pas het design/bericht aan naar wens
- * 
+ *
  * De generatePasswordResetLink() triggert automatisch het versturen van de email
  * via Firebase's ingebouwde email systeem (geen extra email service nodig).
  */
@@ -39,7 +39,12 @@ export const inviteUser = onCall(async (request: CallableRequest<any>) => {
   }
 
   // 2. Input Validatie
-  const { email, name, role } = (data || {}) as { email?: string; name?: string; role?: UserRole };
+  const { email, name, role, allowedModules } = (data || {}) as {
+    email?: string;
+    name?: string;
+    role?: UserRole;
+    allowedModules?: string[];
+  };
   if (!email || !name || !role) {
     throw new HttpsError(
       "invalid-argument",
@@ -66,7 +71,7 @@ export const inviteUser = onCall(async (request: CallableRequest<any>) => {
     });
 
     // 4. Gebruikersprofiel aanmaken in Firestore
-    const newUserProfile = {
+    const newUserProfile: any = {
       name,
       email,
       role,
@@ -77,13 +82,18 @@ export const inviteUser = onCall(async (request: CallableRequest<any>) => {
       welcomeEmailSent: false,
       invitedBy: requesterUid,
       invitedAt: serverTimestamp(),
-    } as const;
+    };
+
+    // Voeg allowedModules toe als het is opgegeven (undefined of lege array = volledige toegang)
+    if (allowedModules !== undefined) {
+      newUserProfile.allowedModules = allowedModules;
+    }
 
     await db.collection("users").doc(userRecord.uid).set(newUserProfile);
 
     // 5. Wachtwoord-reset-e-mail link genereren
     let passwordResetLink = "";
-    
+
     if (!isAuthEmulator) {
       try {
         // Genereer de password reset link
@@ -95,13 +105,13 @@ export const inviteUser = onCall(async (request: CallableRequest<any>) => {
         passwordResetLink = await adminAuth.generatePasswordResetLink(email, {
           url: `${request.rawRequest.headers.origin || 'https://buurtapp-v3-4.web.app'}/login`,
         });
-        
+
         logger.info(`✅ Wachtwoord reset link gegenereerd voor ${email}`);
         logger.info(`🔗 Link: ${passwordResetLink}`);
-        
+
         // TODO: Implementeer email verzending hier via SendGrid/Nodemailer
         // Voor nu sturen we de link terug naar de client die de email zal versturen
-        
+
       } catch (linkErr: any) {
         logger.warn(`⚠️ Kon geen reset-link genereren voor ${email}:`, linkErr);
       }
@@ -111,7 +121,7 @@ export const inviteUser = onCall(async (request: CallableRequest<any>) => {
 
     return {
       success: true,
-      message: isAuthEmulator 
+      message: isAuthEmulator
         ? `Gebruiker ${name} aangemaakt in emulator. Standaard wachtwoord: Welkom01 (wijziging vereist bij eerste login).`
         : `Gebruiker ${name} aangemaakt. De gebruiker ontvangt nu een email met instructies om een wachtwoord in te stellen.`,
       uid: userRecord.uid,

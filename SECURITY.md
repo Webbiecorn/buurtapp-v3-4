@@ -164,6 +164,108 @@ service cloud.firestore {
 
 ---
 
+## � Role-Based Access Control (RBAC)
+
+### Gebruikersrollen
+
+De applicatie kent drie hoofdrollen:
+
+1. **Beheerder** - Volledige toegang tot alle functionaliteit
+   - Kan gebruikers uitnodigen en beheren
+   - Kan alle data bekijken en wijzigen
+   - Heeft toegang tot Admin pagina
+   - Kan module-restricties instellen
+
+2. **Conciërge** - Operationele rol
+   - Kan eigen data creëren en bewerken
+   - Kan meldingen, projecten en dossiers beheren
+   - Kan deelnemen aan projecten
+   - Kan urenregistratie bijhouden
+
+3. **Viewer** - Alleen lezen
+   - Kan data bekijken maar niet wijzigen
+   - Geen toegang tot urenregistratie
+   - Geen toegang tot beheerfuncties
+
+### Module-Restrictie (Nieuw - februari 2026)
+
+Voor nog granulairdere toegangscontrole kunnen Beheerders per gebruiker specifieke modules toewijzen:
+
+**Beschikbare Modules:**
+- Dashboard
+- Meldingen
+- Projecten
+- Woningdossiers
+- Urenregistratie
+- Statistieken
+- Rapportages
+- Contacten
+- Achterpaden
+- Updates
+- Beheer (alleen Beheerders)
+
+**Implementatie:**
+- Opgeslagen in `users/{uid}/allowedModules: string[]`
+- Client-side enforcement via route guards
+- Automatische redirect bij ongeautoriseerde toegang
+- Backwards compatible: users zonder `allowedModules` krijgen volledige toegang
+
+**Use Case - Externe Partners:**
+```typescript
+{
+  name: "Centrada Medewerker",
+  email: "partner@centrada.nl",
+  role: "Viewer",  // Read-only
+  allowedModules: ["achterpaden"]  // Alleen Achterpaden module
+}
+```
+
+### Client-Side Access Control
+
+**Route Protection** (in `App.tsx`):
+```typescript
+<ProtectedRoute 
+  roles={[UserRole.Beheerder, UserRole.Concierge]} 
+  moduleKey="meldingen"
+>
+  <IssuesPage />
+</ProtectedRoute>
+```
+
+**Menu Filtering** (in `AppShell.tsx`):
+```typescript
+// Filter nav items op rol én module toegang
+const filteredNavItems = navItems.filter(item => {
+  if (!currentUser) return false;
+  if (!item.roles.includes(currentUser.role)) return false;
+  
+  // Check module toegang
+  if (currentUser.allowedModules && currentUser.allowedModules.length > 0) {
+    return currentUser.allowedModules.includes(item.moduleKey);
+  }
+  
+  return true;
+});
+```
+
+### Security Best Practices
+
+✅ **DO:**
+- Implementeer rol checks op zowel client als server
+- Gebruik Firebase Security Rules voor database toegang
+- Valideer gebruikersinput altijd server-side
+- Log toegang tot gevoelige functies
+- Implementeer rate limiting voor API calls
+
+❌ **DON'T:**
+- Vertrouw alleen op client-side beveiliging
+- Hardcode rollen of permissions in code
+- Geef te veel toegang "voor het gemak"
+- Vergeet audit logs voor admin acties
+- Sla gevoelige data onversleuteld op
+
+---
+
 ## 📞 Contact
 
 Bij beveiligingsvragen of incidents:
@@ -172,5 +274,5 @@ Bij beveiligingsvragen of incidents:
 
 ---
 
-**Laatste update:** 17 november 2025  
-**Status:** ⚠️ ACTIE VEREIST - Reset Google Maps API key
+**Laatste update:** 23 februari 2026  
+**Status:** ✅ Module-restrictie functionaliteit geïmplementeerd

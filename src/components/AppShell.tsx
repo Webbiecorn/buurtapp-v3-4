@@ -12,21 +12,22 @@ type NavItem = {
   name: string;
   icon: ReactNode;
   roles: UserRole[];
+  moduleKey: string; // Voor allowedModules filtering
 };
 
 const navItems: NavItem[] = [
-  { path: '/', name: 'Dashboard', icon: <HomeIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
-  { path: '/issues', name: 'Meldingen', icon: <AlertTriangleIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
-  { path: '/projects', name: 'Projecten', icon: <BriefcaseIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
-  { path: '/dossiers', name: 'Woningdossiers', icon: <FolderIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
+  { path: '/', name: 'Dashboard', icon: <HomeIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer], moduleKey: 'dashboard' },
+  { path: '/issues', name: 'Meldingen', icon: <AlertTriangleIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer], moduleKey: 'meldingen' },
+  { path: '/projects', name: 'Projecten', icon: <BriefcaseIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer], moduleKey: 'projecten' },
+  { path: '/dossiers', name: 'Woningdossiers', icon: <FolderIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer], moduleKey: 'dossiers' },
   // { path: '/map', name: 'Kaart', icon: <MapIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
-  { path: '/time-tracking', name: 'Urenregistratie', icon: <ClockIcon className="h-5 w-5" />, roles: [UserRole.Concierge, UserRole.Beheerder] },
-  { path: '/statistics', name: 'Statistieken', icon: <BarChartIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Viewer] },
-  { path: '/reports', name: 'Rapportages', icon: <DownloadIcon className="h-5 w-5" />, roles: [UserRole.Beheerder] },
-  { path: '/contacten', name: 'Contacten', icon: <UsersIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
-  { path: '/admin', name: 'Beheer', icon: <SettingsIcon className="h-5 w-5" />, roles: [UserRole.Beheerder] },
-  { path: '/achterpaden', name: 'Achterpaden', icon: <FolderIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
-  { path: '/updates', name: 'Updates', icon: <span className="text-lg">📋</span>, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] },
+  { path: '/time-tracking', name: 'Urenregistratie', icon: <ClockIcon className="h-5 w-5" />, roles: [UserRole.Concierge, UserRole.Beheerder], moduleKey: 'urenregistratie' },
+  { path: '/statistics', name: 'Statistieken', icon: <BarChartIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Viewer], moduleKey: 'statistieken' },
+  { path: '/reports', name: 'Rapportages', icon: <DownloadIcon className="h-5 w-5" />, roles: [UserRole.Beheerder], moduleKey: 'rapportages' },
+  { path: '/contacten', name: 'Contacten', icon: <UsersIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer], moduleKey: 'contacten' },
+  { path: '/admin', name: 'Beheer', icon: <SettingsIcon className="h-5 w-5" />, roles: [UserRole.Beheerder], moduleKey: 'admin' },
+  { path: '/achterpaden', name: 'Achterpaden', icon: <FolderIcon className="h-5 w-5" />, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer], moduleKey: 'achterpaden' },
+  { path: '/updates', name: 'Updates', icon: <span className="text-lg">📋</span>, roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer], moduleKey: 'updates' },
 ];
 
 const NavLinkItem: React.FC<{ item: NavItem, hasUnread?: boolean }> = ({ item, hasUnread }) => (
@@ -49,7 +50,20 @@ const NavLinkItem: React.FC<{ item: NavItem, hasUnread?: boolean }> = ({ item, h
 const Sidebar: React.FC<{ isOpen: boolean; setIsOpen: (isOpen: boolean) => void }> = ({ isOpen, setIsOpen }) => {
   const { currentUser, notificaties } = useAppContext();
 
-  const filteredNavItems = navItems.filter(item => currentUser && item.roles.includes(currentUser.role));
+  // Filter op rol én module toegang
+  const filteredNavItems = navItems.filter(item => {
+    if (!currentUser) return false;
+
+    // Check rol
+    if (!item.roles.includes(currentUser.role)) return false;
+
+    // Check module toegang (undefined of lege array = volledige toegang)
+    if (currentUser.allowedModules && currentUser.allowedModules.length > 0) {
+      return currentUser.allowedModules.includes(item.moduleKey);
+    }
+
+    return true;
+  });
 
   const hasUnreadIssues = currentUser?.role === UserRole.Beheerder && notificaties.some(n =>
       n.userId === currentUser.id && !n.isRead && n.targetType === 'melding'
@@ -75,7 +89,7 @@ const Sidebar: React.FC<{ isOpen: boolean; setIsOpen: (isOpen: boolean) => void 
           </button>
         </div>
         <nav className="flex-grow p-4 space-y-2">
-          {filteredNavItems.map(item => 
+          {filteredNavItems.map(item =>
             <div key={item.path} onClick={() => setIsOpen(false)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsOpen(false); }}>
               <NavLinkItem item={item} hasUnread={getUnreadStatus(item.path)} />
             </div>

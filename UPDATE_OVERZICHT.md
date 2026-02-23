@@ -1,9 +1,51 @@
 # Buurtapp v3-4 Update Overzicht
-**Datum:** 17 februari 2026
-**Versie:** v0.3.6
+**Datum:** 23 februari 2026
+**Versie:** v0.3.7
 **Live URL:** https://buurtapp-v3-4.web.app
 
-## 📚 **Nieuwste Updates (v0.3.6 - 17 februari 2026)**
+## 📚 **Nieuwste Updates (v0.3.7 - 23 februari 2026)**
+
+### **Module-Restrictie Functionaliteit**
+✅ **Granular Access Control voor Gebruikers**
+- Beheerders kunnen nu per gebruiker specifieke modules toewijzen
+- 11 modules beschikbaar: Dashboard, Meldingen, Projecten, Dossiers, Urenregistratie, Statistieken, Rapportages, Contacten, Achterpaden, Updates, Beheer
+- Checkbox in gebruikersuitnodiging modal: "Beperk toegang tot specifieke modules"
+- Multi-select interface voor module selectie
+- Validatie: minimaal 1 module vereist bij restrictie
+
+✅ **User Experience Implementatie**
+- Restricted users zien alleen toegestane modules in sidebar
+- Automatische redirect naar eerste toegestane module bij login
+- Route guards blokkeren toegang tot niet-toegestane routes
+- Backwards compatible: bestaande users zonder restrictie krijgen volledige toegang
+
+✅ **Type System Updates**
+- `User` interface uitgebreid met `allowedModules?: string[]`
+- `NavItem` interface uitgebreid met `moduleKey: string`
+- Zod validation schema bijgewerkt voor `inviteUserSchema`
+- TypeScript strict mode compliance
+
+✅ **Technical Implementation**
+- Helper functies: `userHasModuleAccess()`, `getDefaultRouteForUser()`
+- Route protection via `moduleKey` parameter in `ProtectedRoute`
+- Menu filtering in `AppShell.tsx` op basis van `allowedModules`
+- Firebase Function `inviteUser` accepteert `allowedModules` parameter
+- Firestore storage: `users/{uid}/allowedModules: string[]`
+
+### **Use Cases**
+- 🤝 **Externe Partners** (bijv. Centrada): Alleen Achterpaden module
+- 📊 **Rapporteurs**: Alleen Statistieken + Rapportages
+- 👁️ **Read-only stakeholders**: Viewer rol met beperkte modules
+
+### **Impact**
+- 🔒 Verbeterde security via least-privilege principle
+- 🤝 Mogelijkheid voor externe partnerships
+- 📉 Verminderde complexiteit voor gespecialiseerde rollen
+- ✅ Flexibele toegangscontrole zonder nieuwe rollen
+
+---
+
+## 📚 **v0.3.6 - Documentation System (17 februari 2026)**
 
 ### **Documentation System - Complete Setup**
 ✅ **Webbie Documentation System Opgezet**

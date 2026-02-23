@@ -28,12 +28,13 @@ export const nameSchema = z.string()
 
 // ============ User ============
 
-export const userRoleSchema = z.enum(['beheerder', 'conciërge', 'viewer']);
+export const userRoleSchema = z.enum(['Beheerder', 'Concierge', 'Viewer']);
 
 export const inviteUserSchema = z.object({
   email: emailSchema,
   name: nameSchema,
   role: userRoleSchema,
+  allowedModules: z.array(z.string()).optional(),
 });
 
 export const updateUserSchema = z.object({

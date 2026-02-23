@@ -33,9 +33,33 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [role, setRole] = useState<UserRole>(UserRole.Concierge);
+    const [restrictModules, setRestrictModules] = useState(false);
+    const [selectedModules, setSelectedModules] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+
+    const availableModules = [
+        { key: 'dashboard', label: 'Dashboard' },
+        { key: 'meldingen', label: 'Meldingen' },
+        { key: 'projecten', label: 'Projecten' },
+        { key: 'dossiers', label: 'Woningdossiers' },
+        { key: 'urenregistratie', label: 'Urenregistratie' },
+        { key: 'statistieken', label: 'Statistieken' },
+        { key: 'rapportages', label: 'Rapportages' },
+        { key: 'contacten', label: 'Contacten' },
+        { key: 'achterpaden', label: 'Achterpaden' },
+        { key: 'updates', label: 'Updates' },
+        { key: 'admin', label: 'Beheer' },
+    ];
+
+    const toggleModule = (moduleKey: string) => {
+        setSelectedModules(prev =>
+            prev.includes(moduleKey)
+                ? prev.filter(m => m !== moduleKey)
+                : [...prev, moduleKey]
+        );
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -44,16 +68,33 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         setSuccess(null);
 
         // Zod validatie
-        const validation = validate(inviteUserSchema, { name, email, role });
+        const validation = validate(inviteUserSchema, {
+            name,
+            email,
+            role,
+            allowedModules: restrictModules ? selectedModules : undefined
+        });
         if (!validation.success) {
             setError(validation.errors.join(', '));
             setLoading(false);
             return;
         }
 
+        // Validatie: als module-restrictie aan staat, moet er minimaal 1 module geselecteerd zijn
+        if (restrictModules && selectedModules.length === 0) {
+            setError('Selecteer minimaal één module voor deze gebruiker.');
+            setLoading(false);
+            return;
+        }
+
         try {
             const inviteUser = httpsCallable(functions, 'inviteUser');
-            const result = await inviteUser({ name, email, role });
+            const result = await inviteUser({
+                name,
+                email,
+                role,
+                allowedModules: restrictModules ? selectedModules : undefined
+            });
 
             const data = result.data as InviteUserResult;
             if (data.success) {
@@ -86,6 +127,8 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 setName('');
                 setEmail('');
                 setRole(UserRole.Concierge);
+                setRestrictModules(false);
+                setSelectedModules([]);
             } else {
                  throw new Error(data.message || 'Er is een onbekende fout opgetreden.');
             }
@@ -134,6 +177,51 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                             <option key={roleValue} value={roleValue} className="bg-white dark:bg-dark-surface">{roleValue}</option>
                         ))}
                     </select>
+                </div>
+
+                {/* Module-toegang sectie */}
+                <div className="border-t border-gray-200 dark:border-dark-border pt-4 mt-4">
+                    <div className="flex items-center mb-3">
+                        <input
+                            type="checkbox"
+                            id="restrict-modules"
+                            checked={restrictModules}
+                            onChange={(e) => {
+                                setRestrictModules(e.target.checked);
+                                if (!e.target.checked) setSelectedModules([]);
+                            }}
+                            className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300 rounded"
+                        />
+                        <label htmlFor="restrict-modules" className="ml-2 text-sm font-medium text-gray-700 dark:text-dark-text-secondary">
+                            Beperk toegang tot specifieke modules
+                        </label>
+                    </div>
+
+                    {restrictModules && (
+                        <div className="mt-3 bg-gray-50 dark:bg-dark-bg p-3 rounded-md border border-gray-200 dark:border-dark-border">
+                            <p className="text-xs text-gray-600 dark:text-dark-text-secondary mb-2">
+                                Selecteer de modules waartoe deze gebruiker toegang heeft:
+                            </p>
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                                {availableModules.map(module => (
+                                    <label key={module.key} className="flex items-center space-x-2 text-sm text-gray-700 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-border p-2 rounded cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedModules.includes(module.key)}
+                                            onChange={() => toggleModule(module.key)}
+                                            className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300 rounded"
+                                        />
+                                        <span>{module.label}</span>
+                                    </label>
+                                ))}
+                            </div>
+                            {restrictModules && selectedModules.length > 0 && (
+                                <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                                    ✓ {selectedModules.length} module(s) geselecteerd
+                                </p>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {error && <p className="text-red-500 text-sm">{error}</p>}

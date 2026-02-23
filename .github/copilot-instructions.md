@@ -16,6 +16,7 @@ Dit is een React + TypeScript buurtbeheer applicatie voor het melden, plannen en
 - **Beheerder**: volledige admin rechten
 - **Conciërge**: kan eigen data bewerken
 - **Viewer**: alleen lezen
+- **Module-restrictie**: Optionele beperking tot specifieke modules per gebruiker (bijv. alleen Achterpaden)
 
 ## Code Conventies
 
@@ -203,6 +204,28 @@ npm run lint
 - Gebruik Firebase Security Rules (firestore.rules, storage.rules)
 - Geen PII in logs of errors
 - Gebruik secure defaults
+
+### Module-Restrictie (Nieuw)
+- Users kunnen beperkt worden tot specifieke modules via `allowedModules: string[]`
+- Implementeer altijd route guards met `moduleKey` parameter
+- Filter menu items op basis van `user.allowedModules`
+- Backwards compatible: undefined/lege array = volledige toegang
+
+**Voorbeeld:**
+```typescript
+// In ProtectedRoute
+<ProtectedRoute moduleKey="achterpaden">
+  <AchterpadenPage />
+</ProtectedRoute>
+
+// In NavItem
+{ 
+  path: '/achterpaden', 
+  name: 'Achterpaden', 
+  moduleKey: 'achterpaden',
+  roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] 
+}
+```
 
 ## Performance
 
