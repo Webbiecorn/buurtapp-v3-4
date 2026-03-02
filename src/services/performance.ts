@@ -1,6 +1,6 @@
 /**
  * Performance Monitoring Service
- * 
+ *
  * Biedt Firebase Performance Monitoring integratie voor:
  * - Custom traces voor belangrijke operaties
  * - Slow query detection voor Firestore
@@ -111,7 +111,7 @@ export async function trackFirestoreQuery<T>(
  */
 export function trackComponentRender(componentName: string): () => void {
   const trace = startTrace(`component_${componentName}`);
-  
+
   return () => {
     stopTrace(trace, { component: componentName });
   };

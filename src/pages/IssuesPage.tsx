@@ -513,7 +513,7 @@ const MeldingDetailModal: React.FC<{ melding: Melding; onClose: () => void }> = 
 
 const IssuesPage: React.FC = () => {
     usePerformanceTrace('IssuesPage');
-    
+
     const { meldingen, currentUser, notificaties, markNotificationsAsRead, updateMeldingStatus: contextUpdateStatus } = useAppContext();
     const [activeTab, setActiveTab] = useState<Tab>('Lopende');
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
-import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import { db, storage } from '../firebase';
+import { collection, getDocs, doc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -27,6 +28,12 @@ const AchterpadenBeheer: React.FC = () => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingText, setEditingText] = useState('');
 
+  // Foto upload modal
+  const [fotoModal, setFotoModal] = useState<{ id: string; straat: string } | null>(null);
+  const [fotoFiles, setFotoFiles] = useState<File[]>([]);
+  const [fotoUploading, setFotoUploading] = useState(false);
+  const fotoInputRef = React.useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -37,7 +44,7 @@ const AchterpadenBeheer: React.FC = () => {
       const snapshot = await getDocs(collection(db, 'achterpaden'));
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setRegistraties(data);
-      
+
       // Load enquete vragen from Firestore if exists
       const configSnapshot = await getDocs(collection(db, 'config'));
       const enqueteConfig = configSnapshot.docs.find(d => d.id === 'enqueteVragen');
@@ -107,9 +114,39 @@ const AchterpadenBeheer: React.FC = () => {
     setEnqueteVragen(updated);
   };
 
+  const handleFotoUpload = async () => {
+    if (!fotoModal || fotoFiles.length === 0) return;
+    setFotoUploading(true);
+    try {
+      const urls: string[] = [];
+      for (const file of fotoFiles) {
+        const fileRef = storageRef(storage, `achterpaden/${fotoModal.id}/${Date.now()}_${file.name}`);
+        await uploadBytes(fileRef, file);
+        const url = await getDownloadURL(fileRef);
+        urls.push(url);
+      }
+      await updateDoc(doc(db, 'achterpaden', fotoModal.id), {
+        media: arrayUnion(...urls),
+        fotoOntbreekt: false,
+      });
+      setRegistraties(prev => prev.map(r =>
+        r.id === fotoModal.id
+          ? { ...r, media: [...(r.media || []), ...urls], fotoOntbreekt: false }
+          : r
+      ));
+      setFotoModal(null);
+      setFotoFiles([]);
+      alert("Foto's succesvol toegevoegd!");
+    } catch (error) {
+      console.error('Fout bij uploaden foto:', error);
+      alert("Fout bij uploaden foto's. Probeer opnieuw.");
+    }
+    setFotoUploading(false);
+  };
+
   // Filter registraties
-  const filtered = selectedWijk === 'alle' 
-    ? registraties 
+  const filtered = selectedWijk === 'alle'
+    ? registraties
     : registraties.filter(r => r.wijk === selectedWijk);
 
   // Get available wijken
@@ -119,7 +156,7 @@ const AchterpadenBeheer: React.FC = () => {
     setExporting(true);
     try {
       const doc = new jsPDF();
-      
+
       // Header
       doc.setFontSize(18);
       doc.text('Achterpaden Rapport', 14, 20);
@@ -133,7 +170,7 @@ const AchterpadenBeheer: React.FC = () => {
         const veiligheidScore = r.veiligheid?.score ? '⭐'.repeat(r.veiligheid.score) : r.staat || '-';
         const urgentie = r.onderhoud?.urgentie || '-';
         const medewerker = r.registeredBy?.userName || r.registeredBy?.userRole || '-';
-        const datum = r.createdAt?.seconds 
+        const datum = r.createdAt?.seconds
           ? new Date(r.createdAt.seconds * 1000).toLocaleDateString('nl-NL')
           : '-';
 
@@ -171,7 +208,7 @@ const AchterpadenBeheer: React.FC = () => {
         const veiligheidScore = r.veiligheid?.score || '';
         const urgentie = r.onderhoud?.urgentie || '';
         const medewerker = r.registeredBy?.userName || r.registeredBy?.userRole || '';
-        const datum = r.createdAt?.seconds 
+        const datum = r.createdAt?.seconds
           ? new Date(r.createdAt.seconds * 1000).toLocaleDateString('nl-NL')
           : '';
 
@@ -197,7 +234,7 @@ const AchterpadenBeheer: React.FC = () => {
       const worksheet = XLSX.utils.json_to_sheet(excelData);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Achterpaden');
-      
+
       // Auto-width columns
       const maxWidth = 50;
       const colWidths = Object.keys(excelData[0] || {}).map(key => {
@@ -239,7 +276,7 @@ const AchterpadenBeheer: React.FC = () => {
           {enqueteVragen.map((vraag, index) => (
             <div key={index} className="flex items-center gap-2 bg-gray-50 dark:bg-dark-bg p-3 rounded">
               <span className="text-sm font-medium text-gray-500 dark:text-gray-400 w-8">{index + 1}.</span>
-              
+
               {editingIndex === index ? (
                 <input
                   type="text"
@@ -397,7 +434,7 @@ const AchterpadenBeheer: React.FC = () => {
           <span>👁️</span>
           <span>Preview Geselecteerde Data</span>
         </h2>
-        
+
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="border-b border-gray-200 dark:border-dark-border">
@@ -408,11 +445,12 @@ const AchterpadenBeheer: React.FC = () => {
                 <th className="text-left p-2">Veiligheid</th>
                 <th className="text-left p-2">Urgentie</th>
                 <th className="text-left p-2">Lengte</th>
+                <th className="text-left p-2">Foto's</th>
               </tr>
             </thead>
             <tbody>
               {filtered.slice(0, 10).map((r, index) => {
-                const datum = r.createdAt?.seconds 
+                const datum = r.createdAt?.seconds
                   ? new Date(r.createdAt.seconds * 1000).toLocaleDateString('nl-NL')
                   : '-';
                 const veiligheidScore = r.veiligheid?.score ? '⭐'.repeat(r.veiligheid.score) : r.staat || '-';
@@ -436,6 +474,20 @@ const AchterpadenBeheer: React.FC = () => {
                       </span>
                     </td>
                     <td className="p-2">{r.lengte ? `${Math.round(r.lengte)}m` : '-'}</td>
+                    <td className="p-2">
+                      {r.fotoOntbreekt ? (
+                        <button
+                          onClick={() => setFotoModal({ id: r.id, straat: r.straat || 'Onbekend' })}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 hover:bg-orange-200 transition"
+                        >
+                          📸 Toevoegen
+                        </button>
+                      ) : (
+                        <span className="text-xs text-green-600 dark:text-green-400">
+                          ✅ {r.media?.length || 0}
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -448,6 +500,75 @@ const AchterpadenBeheer: React.FC = () => {
           )}
         </div>
       </div>
+      {/* Foto Upload Modal */}
+      {fotoModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold mb-1 text-gray-900 dark:text-dark-text-primary">📸 Foto's toevoegen</h3>
+            <p className="text-sm text-gray-600 dark:text-dark-text-secondary mb-4">
+              Achterpad: <strong>{fotoModal.straat}</strong>
+            </p>
+            <input
+              ref={fotoInputRef}
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  setFotoFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                  e.target.value = '';
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fotoInputRef.current?.click()}
+              className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-dark-border rounded-lg text-gray-600 dark:text-dark-text-secondary hover:border-blue-400 hover:text-blue-500 transition mb-4"
+            >
+              📷 Foto's kiezen
+            </button>
+            {fotoFiles.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {fotoFiles.map((file, idx) => (
+                  <div key={idx} className="relative group">
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt={file.name}
+                      className="w-full h-20 object-cover rounded border-2 border-gray-200 dark:border-dark-border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFotoFiles(prev => prev.filter((_, i) => i !== idx))}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => { setFotoModal(null); setFotoFiles([]); }}
+                disabled={fotoUploading}
+                className="px-4 py-2 bg-gray-200 dark:bg-dark-border text-gray-700 dark:text-dark-text-primary rounded-lg hover:bg-gray-300 transition"
+              >
+                Annuleren
+              </button>
+              <button
+                type="button"
+                onClick={handleFotoUpload}
+                disabled={fotoFiles.length === 0 || fotoUploading}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                {fotoUploading ? '⏳ Uploaden...' : `✅ Uploaden (${fotoFiles.length})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

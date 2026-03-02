@@ -1,5 +1,5 @@
 # Beheerpagina Update Overzicht - Nieuwe Functies
-**Datum:** 23 februari 2026  
+**Datum:** 23 februari 2026
 **Live URL:** https://buurtapp-v3-4.web.app
 
 ## Overzicht Nieuwe Functies Beheerpagina
@@ -257,6 +257,6 @@ Alle nieuwe functionaliteiten ondersteunen dark mode:
 
 ---
 
-**Status:** Alle functionaliteiten zijn live en volledig operationeel  
-**Toegang:** Via Admin pagina → Projecten tab  
+**Status:** Alle functionaliteiten zijn live en volledig operationeel
+**Toegang:** Via Admin pagina → Projecten tab
 **Ondersteuning:** Desktop en mobiele apparaten

@@ -36,7 +36,7 @@ De volgende bestanden bevatten **gevoelige informatie** en mogen **NOOIT** naar 
 1. **Google Maps API Key**
    - Locatie: Was hardcoded in `MapPage.tsx` (nu gefixed)
    - Value: `AIzaSyD9BrD8NTc5cynkTNL9PPfcp-A76Kb8o3Q`
-   - **ACTIE:** 
+   - **ACTIE:**
      1. Ga naar [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
      2. Delete de oude key
      3. Maak een NIEUWE key aan met restricties
@@ -151,11 +151,11 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if request.auth != null;
     }
-    
+
     // Specifieke collections met rol-based access
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId 
+      allow write: if request.auth.uid == userId
                    || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Beheerder';
     }
   }
@@ -224,8 +224,8 @@ Voor nog granulairdere toegangscontrole kunnen Beheerders per gebruiker specifie
 
 **Route Protection** (in `App.tsx`):
 ```typescript
-<ProtectedRoute 
-  roles={[UserRole.Beheerder, UserRole.Concierge]} 
+<ProtectedRoute
+  roles={[UserRole.Beheerder, UserRole.Concierge]}
   moduleKey="meldingen"
 >
   <IssuesPage />
@@ -238,12 +238,12 @@ Voor nog granulairdere toegangscontrole kunnen Beheerders per gebruiker specifie
 const filteredNavItems = navItems.filter(item => {
   if (!currentUser) return false;
   if (!item.roles.includes(currentUser.role)) return false;
-  
+
   // Check module toegang
   if (currentUser.allowedModules && currentUser.allowedModules.length > 0) {
     return currentUser.allowedModules.includes(item.moduleKey);
   }
-  
+
   return true;
 });
 ```
@@ -274,5 +274,5 @@ Bij beveiligingsvragen of incidents:
 
 ---
 
-**Laatste update:** 23 februari 2026  
+**Laatste update:** 23 februari 2026
 **Status:** ✅ Module-restrictie functionaliteit geïmplementeerd

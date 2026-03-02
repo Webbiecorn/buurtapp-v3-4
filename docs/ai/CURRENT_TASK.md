@@ -5,6 +5,32 @@
 
 ---
 
+## ✅ VOLTOOID: Bugfix foto-upload + feature "foto later toevoegen" achterpaden (2 maart 2026)
+
+### Bugfix — AchterpadenRegistratie.tsx
+- `e.target.value = ''` na elke bestandsselectie → `onChange` vuurde niet opnieuw als hetzelfde bestand of na verwijdering werd geselecteerd
+- Functionele state-update: `prev => [...prev, ...newFiles]` → race condition fix
+- **Aanleiding**: medewerker kon pad niet opslaan omdat foto verplicht was + upload faalde door dit bug
+
+### Nieuwe feature — Foto optioneel bij registratie + herinnering
+**AchterpadenRegistratie.tsx:**
+- Foto niet meer verplicht om op te slaan
+- Gele waarschuwing getoond in formulier als geen foto geselecteerd is
+- Firestore: `fotoOntbreekt: true` veld opgeslagen bij registratie zonder foto
+- Notificatie verstuurd naar medewerker zelf én alle beheerders bij ontbrekende foto
+- Notificatietekst medewerker: `"⚠️ Foto ontbreekt: achterpad [straat] — voeg een foto toe via Beheer"`
+- Notificatietekst beheerders: `"⚠️ Foto ontbreekt: achterpad [straat] door [naam]"`
+
+**AchterpadenBeheer.tsx:**
+- Kolom "Foto's" toegevoegd aan overzichtstabel
+- Oranje knop "📸 Toevoegen" zichtbaar voor entries met `fotoOntbreekt: true`
+- Upload modal: foto kiezen, preview tonen, uploaden naar Firebase Storage
+- Na succesvolle upload: badge verdwijnt, toont ✅ X
+- Build: ✅ geslaagd
+- ⚠️ **Nog niet getest door Kevin** — functionele test volgt
+
+---
+
 ## ✅ VOLTOOID: SSOT-audit en consolidatie (2 maart 2026)
 
 - [x] Projectaudit uitgevoerd (code, docs, types, services, routes)

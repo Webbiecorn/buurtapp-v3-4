@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { db, storage } from "../firebase";
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { collection, addDoc, Timestamp, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { APIProvider, Map, Marker, useMap } from '@vis.gl/react-google-maps';
 import { useAppContext } from '../context/AppContext';
+import { UserRole } from '../types';
 
 type Props = { onSuccess?: () => void };
 
@@ -14,7 +15,7 @@ interface GPSCoord {
 }
 
 const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
-  const { currentUser } = useAppContext();
+  const { currentUser, users } = useAppContext();
 
   // Auto-detected fields
   const [autoDetected, setAutoDetected] = useState({
@@ -277,11 +278,16 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
   const openGallery = () => galleryInputRef.current?.click();
 
   const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) setMedia([...media, ...Array.from(e.target.files)]);
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      setMedia(prev => [...prev, ...newFiles]);
+      // Reset input zodat dezelfde foto opnieuw geselecteerd kan worden
+      e.target.value = '';
+    }
   };
 
   const removeMedia = (index: number) => {
-    setMedia(media.filter((_, i) => i !== index));
+    setMedia(prev => prev.filter((_, i) => i !== index));
   };
 
   const addBewonerEnquete = () => {
@@ -317,17 +323,8 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
       return;
     }
 
-    if (media.length === 0) {
-      alert('Minimaal 1 foto is verplicht voor registratie.');
-      return;
-    }
-
     if (!onderhoud.urgentie) {
       alert('Selecteer een urgentie niveau.');
-      return;
-    }
-    if (media.length === 0) {
-      alert('Voeg minimaal 1 foto toe');
       return;
     }
     if (!veiligheid.verlichting || !veiligheid.zichtbaarheid || veiligheid.score === 0) {
@@ -344,6 +341,7 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
 
     try {
       // Upload media
+      const fotoOntbreekt = media.length === 0;
       const mediaUrls: string[] = [];
       for (const file of media) {
         const fileRef = ref(storage, `achterpaden/${Date.now()}_${file.name}`);
@@ -353,7 +351,7 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
       }
 
       // Save to Firestore
-      await addDoc(collection(db, "achterpaden"), {
+      const docRef = await addDoc(collection(db, "achterpaden"), {
         // Auto-detected
         straat: autoDetected.straat,
         wijk: autoDetected.wijk,
@@ -380,6 +378,7 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
 
         // Extra info
         beschrijving: beschrijving,
+        fotoOntbreekt,
         media: mediaUrls,
         bewonerEnquetes: bewonerEnquete ? enquetes : [],
 
@@ -392,6 +391,32 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
 
         createdAt: Timestamp.now(),
       });
+
+      // Stuur herinneringsnotificaties als foto ontbreekt
+      if (fotoOntbreekt && currentUser) {
+        const straatnaam = autoDetected.straat || 'onbekende straat';
+        const notifBase = {
+          link: '/achterpaden',
+          isRead: false,
+          timestamp: serverTimestamp(),
+          targetId: docRef.id,
+          targetType: 'melding' as const,
+        };
+        // Notificatie voor de medewerker zelf
+        await addDoc(collection(db, 'notificaties'), {
+          ...notifBase,
+          userId: currentUser.id,
+          message: `⚠️ Foto ontbreekt: achterpad ${straatnaam} — voeg zo snel mogelijk foto's toe via Achterpaden > Beheer.`,
+        });
+        // Notificatie voor alle beheerders
+        for (const user of users.filter(u => u.role === UserRole.Beheerder && u.id !== currentUser.id)) {
+          await addDoc(collection(db, 'notificaties'), {
+            ...notifBase,
+            userId: user.id,
+            message: `⚠️ Foto ontbreekt: achterpad ${straatnaam} geregistreerd door ${currentUser.name} — foto moet nog worden toegevoegd.`,
+          });
+        }
+      }
 
       setUploading(false);
       setSuccess(true);
@@ -839,7 +864,7 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
             {/* Foto Upload */}
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-dark-text-secondary">
-                Foto's * (minimaal 1 verplicht)
+                Foto's <span className="font-normal text-gray-400">(optioneel — voeg toe voor of na registratie)</span>
               </label>
 
               <input
@@ -876,6 +901,13 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
                   🖼️ Bestanden kiezen
                 </button>
               </div>
+
+              {media.length === 0 && (
+                <div className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 mt-3">
+                  <span>⚠️</span>
+                  <span>Geen foto's geselecteerd. Je kunt het pad nu registreren en de foto's later toevoegen via Achterpaden &gt; Beheer. Je ontvangt een herinnering.</span>
+                </div>
+              )}
 
               {media.length > 0 && (
                 <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">

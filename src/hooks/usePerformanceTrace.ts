@@ -8,7 +8,7 @@ import type { PerformanceTrace } from 'firebase/performance';
 
 /**
  * Hook to track component mount/render performance
- * 
+ *
  * @example
  * ```tsx
  * function MyComponent() {
@@ -34,7 +34,7 @@ export function usePerformanceTrace(componentName: string): void {
 /**
  * Hook to track render performance (development only)
  * Logs to console when component renders
- * 
+ *
  * @example
  * ```tsx
  * function MyComponent() {
@@ -62,11 +62,11 @@ export function useRenderTracking(componentName: string, metadata?: Record<strin
 
 /**
  * Hook to measure async operation performance
- * 
+ *
  * @example
  * ```tsx
  * const { measure } = useAsyncPerformance();
- * 
+ *
  * const loadData = async () => {
  *   await measure('loadData', async () => {
  *     const data = await fetchData();
@@ -124,12 +124,12 @@ export function useSlowRenderDetection(componentName: string, threshold = 16): v
   useEffect(() => {
     if (import.meta.env.DEV) {
       const duration = performance.now() - renderStart.current;
-      
+
       if (duration > threshold) {
         console.warn(`⚠️ Slow render detected in ${componentName}: ${duration.toFixed(2)}ms (threshold: ${threshold}ms)`);
       }
     }
-    
+
     // Update for next render
     renderStart.current = performance.now();
   });

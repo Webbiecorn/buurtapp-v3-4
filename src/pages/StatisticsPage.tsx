@@ -23,7 +23,7 @@ import { nl } from 'date-fns/locale';
 
 const StatisticsPage: React.FC = () => {
   usePerformanceTrace('StatisticsPage');
-  
+
   const { meldingen, projecten, urenregistraties, users, theme } = useAppContext();
   const [monthsBack, setMonthsBack] = useState(5);
   const [projectStatusFilter, setProjectStatusFilter] = useState<'alle' | 'Lopend' | 'Afgerond'>('alle');

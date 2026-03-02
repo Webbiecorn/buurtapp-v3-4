@@ -729,7 +729,7 @@ const DashboardPage: React.FC = () => {
                     backgroundColor: isDark ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
                     borderColor: '#8b5cf6',
                     borderWidth: 2,
-                    textStyle: { 
+                    textStyle: {
                       color: textColor,
                       fontSize: 14,
                       fontWeight: '600'
@@ -763,18 +763,18 @@ const DashboardPage: React.FC = () => {
                   xAxis: {
                     type: 'category',
                     data: chartData.map(d => d.name),
-                    axisLabel: { 
+                    axisLabel: {
                       color: textColor,
                       fontSize: 12,
                       fontWeight: '600',
                       interval: 0,
                       rotate: chartData.length > 8 ? 45 : 0
                     },
-                    axisLine: { 
-                      lineStyle: { 
+                    axisLine: {
+                      lineStyle: {
                         color: isDark ? '#4b5563' : '#d1d5db',
                         width: 2
-                      } 
+                      }
                     },
                     axisTick: {
                       show: false
@@ -782,24 +782,24 @@ const DashboardPage: React.FC = () => {
                   },
                   yAxis: {
                     type: 'value',
-                    axisLabel: { 
+                    axisLabel: {
                       color: textColor,
                       fontSize: 12,
                       fontWeight: '600'
                     },
-                    axisLine: { 
+                    axisLine: {
                       show: false
                     },
                     axisTick: {
                       show: false
                     },
-                    splitLine: { 
-                      show: true, 
-                      lineStyle: { 
-                        color: gridColor, 
+                    splitLine: {
+                      show: true,
+                      lineStyle: {
+                        color: gridColor,
                         opacity: 0.2,
                         type: 'dashed'
-                      } 
+                      }
                     }
                   },
                   series: [

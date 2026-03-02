@@ -2,10 +2,10 @@
 
 /**
  * Bundle Size Tracker
- * 
+ *
  * Analyzes Vite build output and tracks bundle size metrics.
  * Run after: npm run build
- * 
+ *
  * Features:
  * - Parses dist/ folder for bundle sizes
  * - Compares with previous build (if exists)
@@ -58,9 +58,9 @@ function analyzeBundle() {
     const filePath = path.join(ASSETS_DIR, file);
     const size = getFileSize(filePath);
     const ext = path.extname(file);
-    
+
     totalSize += size;
-    
+
     assets.push({
       name: file,
       size,
@@ -112,16 +112,16 @@ function saveStats(stats) {
 function printReport(stats, previousStats) {
   console.log('\n📦 Bundle Size Analysis\n');
   console.log(`Total Size: ${stats.totalSizeFormatted} (${stats.assetCount} assets)`);
-  
+
   // Compare with previous build
   if (previousStats) {
     const sizeDiff = stats.totalSize - previousStats.totalSize;
     const percentChange = ((sizeDiff / previousStats.totalSize) * 100).toFixed(2);
     const arrow = sizeDiff > 0 ? '📈' : sizeDiff < 0 ? '📉' : '➡️';
     const sign = sizeDiff > 0 ? '+' : '';
-    
+
     console.log(`Change: ${arrow} ${sign}${formatBytes(sizeDiff)} (${sign}${percentChange}%)`);
-    
+
     if (Math.abs(parseFloat(percentChange)) > SIZE_INCREASE_THRESHOLD) {
       console.warn(`⚠️  Bundle size changed by more than ${SIZE_INCREASE_THRESHOLD}%!`);
     }
