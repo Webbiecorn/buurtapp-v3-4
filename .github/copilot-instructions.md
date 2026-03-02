@@ -1,5 +1,15 @@
 # GitHub Copilot Instructies - Buurtconciërge App
 
+## SSOT Referenties
+
+Lees altijd eerst deze bestanden voordat je begint:
+- `~/Webbiecorn-bedrijf/WEBBIECORN-SSOT/buurtapp-v3-4/AI_CONTEXT.md` — projectoverzicht, tech-stack, Firestore collections
+- `~/Webbiecorn-bedrijf/WEBBIECORN-SSOT/_shared/docs/WEBBIECORN_STANDARDS.md` — Webbiecorn standaarden
+- `docs/ai/CURRENT_TASK.md` — huidige taak + voortgang
+- `docs/ai/PROJECT_HANDOFF.md` — architectuur + beslissingen
+
+---
+
 ## Project Overzicht
 
 Dit is een React + TypeScript buurtbeheer applicatie voor het melden, plannen en rapporteren van wijkwerk, met dossiers per adres.
@@ -52,7 +62,8 @@ src/
 ### Firebase
 - Gebruik altijd de Context API functies voor Firebase operaties
 - Geen directe Firestore calls buiten services/
-- Emulator poorten: Firestore 8081, Storage 9199, Functions 5001, Auth 9099
+- Emulator poorten: Firestore **8083**, Storage **9201**, Auth **9100**, Functions **5101**
+- Activeer emulators: `VITE_USE_EMULATORS=true` in `.env.local`
 - Test wijzigingen met emulators: `firebase emulators:start`
 
 ### Component Patterns
@@ -219,11 +230,11 @@ npm run lint
 </ProtectedRoute>
 
 // In NavItem
-{ 
-  path: '/achterpaden', 
-  name: 'Achterpaden', 
+{
+  path: '/achterpaden',
+  name: 'Achterpaden',
   moduleKey: 'achterpaden',
-  roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer] 
+  roles: [UserRole.Beheerder, UserRole.Concierge, UserRole.Viewer]
 }
 ```
 
@@ -237,4 +248,16 @@ npm run lint
 
 ---
 
-**Laatst bijgewerkt**: februari 2026
+**Laatst bijgewerkt**: 2 maart 2026
+
+## Wijken (Lelystad)
+Atol, Boswijk, Jol, Waterwijk, Zuiderzeewijk — altijd exact deze namen gebruiken in code.
+
+## Module Keys (route → moduleKey)
+```
+/ → dashboard | /issues → meldingen | /projects → projecten
+/dossiers → dossiers | /time-tracking → urenregistratie
+/statistics → statistieken | /reports → rapportages
+/contacten → contacten | /admin → admin
+/achterpaden → achterpaden | /updates → updates
+```
