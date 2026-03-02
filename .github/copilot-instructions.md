@@ -261,3 +261,20 @@ Atol, Boswijk, Jol, Waterwijk, Zuiderzeewijk — altijd exact deze namen gebruik
 /contacten → contacten | /admin → admin
 /achterpaden → achterpaden | /updates → updates
 ```
+
+---
+
+## 🔁 Auto-commit — VERPLICHT na elke wijziging
+
+Na elke afgeronde taak, docs-update, overleg of planning **altijd**:
+
+```bash
+git add -A
+git commit -m "[type]: [beschrijving in het Nederlands]"
+git push
+```
+
+**Types:** `feat` / `fix` / `docs` / `refactor` / `chore`
+
+Dit geldt ook voor updates van `CURRENT_TASK.md`, `PROJECT_HANDOFF.md` en `copilot-instructions.md`.
+❌ Nooit de sessie afsluiten zonder `git push`.
