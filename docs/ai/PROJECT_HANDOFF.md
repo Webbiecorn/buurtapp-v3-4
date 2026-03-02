@@ -143,6 +143,14 @@ Data-visualisaties met ECharts. Kaart met Google Maps + heatmaps. Filters (categ
 ### Achterpaden (`/achterpaden`)
 Aparte module voor registratie en beheer van achterpaden in de wijken. Eigen subpagina's: overzicht, kaartoverzicht, registratie, statistieken, beheer.
 
+**Recente wijzigingen (3 maart 2026):**
+- Foto is niet meer verplicht bij registratie. Gele waarschuwing getoond als geen foto.
+- Firestore: `fotoOntbreekt: true` veld opgeslagen bij registratie zonder foto.
+- Notificaties naar medewerker + alle beheerders als foto ontbreekt.
+- `AchterpadenBeheer.tsx`: oranje 📸 Toevoegen knop + upload modal; na upload verdwijnt badge.
+- **Bugfix**: `e.target.value = ''` na bestandsselectie (onChange reset) + functionele state-update.
+- ⚠️ Nog niet volledig getest door Kevin.
+
 ### Admin (`/admin`)
 Gebruikersbeheer (aanmaken/bewerken/verwijderen), rolbeheer, module-restrictie instellen.
 
@@ -214,6 +222,15 @@ Zie ook: `src/types.ts` voor volledige TypeScript interfaces.
   wijk?: 'Atol' | 'Boswijk' | 'Jol' | 'Waterwijk' | 'Zuiderzeewijk';
   start, eind: Date;
   projectId?, overlegPartner?, omschrijving?: string;
+}
+```
+
+### AchterpadenRegistratie (nieuw veld, 3 maart 2026)
+```typescript
+{
+  // ...bestaande velden (straat, wijk, foto-URL, locatie, etc.)...
+  fotoOntbreekt?: true;  // aanwezig als registratie is opgeslagen zonder foto
+                         // AchterpadenBeheer toont oranje badge; veld verwijderd na upload
 }
 ```
 
