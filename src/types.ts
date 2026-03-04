@@ -94,15 +94,24 @@ export enum ProjectStatus {
   Afgerond = 'Afgerond',
 }
 
+// Schrijfrechten per module (voor viewers die ook mogen bewerken)
+export interface ModulePermission {
+  canEdit: boolean;
+}
+
 // Data Models
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  allowedModules?: string[]; // undefined of [] = volledige toegang, anders beperkt tot opgegeven modules
+  organisatie?: string;          // Bedrijf/instelling (bijv. voor viewers van externe partijen)
+  allowedModules?: string[];     // undefined of [] = volledige toegang, anders beperkt tot opgegeven modules
+  modulePermissions?: { [moduleKey: string]: ModulePermission }; // Schrijfrechten per module
   avatarUrl: string;
   phone?: string;
+  lastSeen?: Date;               // Laatste keer app geopend
+  sessionCount?: number;         // Totaal aantal app-sessies
 }
 
 export interface Locatie {
@@ -303,6 +312,9 @@ export interface AppContextType {
   getOrCreateConversation: (participants: string[], title?: string) => Promise<any>;
   sendChatMessage: (conversationId: string, input: { text?: string; files?: File[] }) => Promise<void>;
   markConversationSeen: (conversationId: string) => Promise<void>;
+
+  // Permissies
+  canEditModule: (moduleKey: string) => boolean;
 }
 
 export interface AppProviderProps {

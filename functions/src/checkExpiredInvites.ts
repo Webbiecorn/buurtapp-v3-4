@@ -2,6 +2,8 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { logger } from "firebase-functions";
 import { db } from "./firebase-admin-init";
 import { Timestamp } from "firebase-admin/firestore";
+// emailTemplates imported via commented nodemailer block — activate when SMTP is configured:
+// import { buildReminderEmailHtml, buildReminderEmailSubject } from "./emailTemplates";
 
 /**
  * Geplande Cloud Function — draait elke dag om 08:00 Amsterdam-tijd.
@@ -99,11 +101,27 @@ export const checkExpiredInvites = onSchedule(
     //   },
     // });
     //
-    // Stuur mail bij verlopen uitnodiging:
+    // A) Stuur herinnering bij reminderDue (gebruik buildReminderEmailHtml):
+    // const daysLeft = 7 - Math.floor((Date.now() - invite.invitedAt.toMillis()) / (1000 * 60 * 60 * 24));
+    // const freshResetLink = "https://buurtapp-v3-4.web.app/#/set-password";
+    // await transporter.sendMail({
+    //   from: `"Buurtconciërge App" <${process.env.GMAIL_USER}>`,
+    //   to: invite.email,
+    //   subject: buildReminderEmailSubject(),
+    //   html: buildReminderEmailHtml({
+    //     name: invite.name,
+    //     email: invite.email,
+    //     role: invite.role,
+    //     freshPasswordResetLink: freshResetLink,
+    //     daysLeft: Math.max(0, daysLeft),
+    //   }),
+    // });
+    //
+    // B) Stuur mail bij verlopen uitnodiging:
     // await transporter.sendMail({
     //   from: `"Buurtconciërge App" <${process.env.GMAIL_USER}>`,
     //   to: invite.invitedByEmail,
-    //   subject: "Uitnodiging verlopen",
+    //   subject: "Uitnodiging verlopen — ${invite.name}",
     //   html: `<p>De uitnodiging voor <strong>${invite.name}</strong> (${invite.email}) is verlopen.</p>
     //          <p><a href="https://buurtapp-v3-4.web.app/#/admin?tab=users">Stuur een nieuwe uitnodiging →</a></p>`,
     // });

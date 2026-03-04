@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { User, UserRole, AppContextType, Melding, MeldingStatus, Project, Urenregistratie, Taak, Notificatie, ProjectContribution, MeldingUpdate, WoningDossier, DossierNotitie, DossierDocument, DossierBewoner, DossierHistorieItem, DossierReactie, DossierStatus, DossierAfspraak, ProjectInvitation } from '../types';
 import { db, storage, auth } from '../firebase';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, Timestamp, arrayUnion, query, where, getDocs, getDoc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, Timestamp, arrayUnion, query, where, getDocs, getDoc, setDoc, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { ExternalContact } from '../types';
 import { logger } from '../services/logger';
@@ -83,21 +83,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // 1. Haal gebruikersprofiel op
         const userDocRef = doc(db, 'users', authUser.uid);
         let inviteAcceptanceChecked = false; // Slechts één keer per auth-sessie uitvoeren
-        const unsubscribeProfile = onSnapshot(userDocRef, (userDocSnap) => {
-          if (userDocSnap.exists()) {
-            const userProfile = { id: userDocSnap.id, ...convertTimestamps(userDocSnap.data()) } as User;
-            setCurrentUser(userProfile);
+            let lastSeenTracked = false; // Slechts één keer per auth-sessie bijhouden
+            const unsubscribeProfile = onSnapshot(userDocRef, (userDocSnap) => {
+              if (userDocSnap.exists()) {
+                const userProfile = { id: userDocSnap.id, ...convertTimestamps(userDocSnap.data()) } as User;
+                setCurrentUser(userProfile);
 
-            // Markeer uitnodiging als geaccepteerd bij eerste inlog (één keer per sessie)
-            if (!inviteAcceptanceChecked) {
-              inviteAcceptanceChecked = true;
-              const inviteRef = doc(db, 'invites', authUser.uid);
-              getDoc(inviteRef).then(inviteSnap => {
-                if (inviteSnap.exists() && ['pending', 'reminded'].includes(inviteSnap.data().status)) {
-                  updateDoc(inviteRef, { status: 'accepted', acceptedAt: new Date() }).catch(() => {});
+                // Markeer uitnodiging als geaccepteerd bij eerste inlog (één keer per sessie)
+                if (!inviteAcceptanceChecked) {
+                  inviteAcceptanceChecked = true;
+                  const inviteRef = doc(db, 'invites', authUser.uid);
+                  getDoc(inviteRef).then(inviteSnap => {
+                    if (inviteSnap.exists() && ['pending', 'reminded'].includes(inviteSnap.data().status)) {
+                      updateDoc(inviteRef, { status: 'accepted', acceptedAt: new Date() }).catch(() => {});
+                    }
+                  }).catch(() => {}); // Stille fout: gebruiker kan geen oudere invite hebben
                 }
-              }).catch(() => {}); // Stille fout: gebruiker kan geen oudere invite hebben
-            }
+
+                // Track lastSeen + sessionCount (één keer per auth-sessie)
+                if (!lastSeenTracked) {
+                  lastSeenTracked = true;
+                  updateDoc(userDocRef, {
+                    lastSeen: new Date(),
+                    sessionCount: increment(1),
+                  }).catch(() => {});
+                }
 
             // 2. Zodra profiel is geladen, start alle data listeners.
             // Deze worden alleen gestart als de gebruiker is ingelogd en een profiel heeft.
@@ -947,6 +957,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [currentUser]);
 
+  // canEditModule: check of current user een module mag bewerken
+  // - Beheerder/Concierge: altijd ja
+  // - Viewer: alleen als modulePermissions[moduleKey]?.canEdit === true
+  const canEditModule = useCallback((moduleKey: string): boolean => {
+    if (!currentUser) return false;
+    if (currentUser.role === UserRole.Beheerder || currentUser.role === UserRole.Concierge) return true;
+    return currentUser.modulePermissions?.[moduleKey]?.canEdit === true;
+  }, [currentUser]);
+
   const value: AppContextType = {
     isInitialLoading,
     theme,
@@ -1002,6 +1021,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     getOrCreateConversation,
     sendChatMessage,
     markConversationSeen,
+    // Permissies
+    canEditModule,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

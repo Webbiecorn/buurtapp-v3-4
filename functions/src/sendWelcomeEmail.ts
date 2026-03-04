@@ -1,10 +1,17 @@
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { logger } from "firebase-functions";
 import { auth as adminAuth } from "./firebase-admin-init";
+import { buildInviteEmailHtml, buildInviteEmailSubject } from "./emailTemplates";
 
 /**
  * Cloud Function die triggert wanneer een nieuw gebruikersdocument wordt aangemaakt in Firestore.
- * Stuurt automatisch een wachtwoord reset email naar de nieuwe gebruiker.
+ * Genereert een uitnodigingsmail (HTML + tekst) en slaat deze op in het gebruikersdocument.
+ *
+ * EMAIL VERZENDING — ACTIVEREN:
+ * 1. firebase functions:secrets:set GMAIL_USER
+ * 2. firebase functions:secrets:set GMAIL_APP_PASSWORD
+ * 3. cd functions && npm install nodemailer @types/nodemailer
+ * 4. Uncomment het nodemailer blok hieronder
  */
 export const sendWelcomeEmail = onDocumentCreated(
   "users/{userId}",
@@ -18,56 +25,62 @@ export const sendWelcomeEmail = onDocumentCreated(
     const userData = snapshot.data();
     const userId = event.params.userId;
 
-    // Check of dit een nieuwe gebruiker is die een welkomst email moet krijgen
     if (!userData.email) {
       logger.warn(`Gebruiker ${userId} heeft geen email adres`);
       return;
     }
 
-    // Check of de gebruiker al een email heeft ontvangen (om dubbele emails te voorkomen)
     if (userData.welcomeEmailSent) {
       logger.info(`Welkomst email al verzonden naar ${userData.email}`);
       return;
     }
 
     try {
-      // Gebruik Firebase's ingebouwde password reset email
-      // Dit werkt alleen als de Firebase Authentication Email Templates zijn ingeschakeld
       const resetLink = await adminAuth.generatePasswordResetLink(userData.email, {
-        url: `https://${process.env.GCLOUD_PROJECT}.web.app/login`, // Redirect URL na reset
+        url: `https://${process.env.GCLOUD_PROJECT}.web.app/#/login`,
       });
 
-      logger.info(`Password reset link gegenereerd voor ${userData.email}`);
-      logger.info(`Link: ${resetLink}`);
+      // Bouw HTML-email op via template
+      const emailHtml = buildInviteEmailHtml({
+        name: userData.name || userData.email,
+        email: userData.email,
+        role: userData.role || 'Viewer',
+        organisatie: userData.organisatie,
+        allowedModules: userData.allowedModules,
+        invitedByName: userData.invitedByName || 'een beheerder',
+        passwordResetLink: resetLink,
+      });
+      const emailSubject = buildInviteEmailSubject();
 
-      // BELANGRIJK: Firebase Admin SDK kan geen emails versturen
-      // Je hebt 3 opties:
-      // 1. Firebase Authentication Email Templates gebruiken (standaard, gratis)
-      //    - Ga naar Firebase Console > Authentication > Templates
-      //    - Configureer de "Password reset" template
-      //    - De gebruiker moet sendPasswordResetEmail() aanroepen vanuit de client
-      //
-      // 2. Nodemailer gebruiken met een SMTP server (Gmail, SendGrid, etc.)
-      //    - Vereist extra configuratie en mogelijk kosten
-      //
-      // 3. Een email service API gebruiken (SendGrid, Mailgun, etc.)
-      //    - Vereist API keys en mogelijk kosten
-
-      // Voor nu markeren we dat de functie is aangeroepen
+      // Sla de HTML op in het document (voor preview/debug; verwijder in productie als je wil)
       await snapshot.ref.update({
         welcomeEmailSent: true,
-        passwordResetLinkGenerated: true,
-        passwordResetLink: resetLink, // Alleen voor development/testing
+        passwordResetLink: resetLink,
+        inviteEmailHtml: emailHtml,  // Handig als je de mail wil bekijken / handmatig sturen
+        inviteEmailSubject: emailSubject,
       });
 
-      logger.info(
-        `✅ Welkomst email proces voltooid voor ${userData.email}`
-      );
-      logger.info(
-        `📧 ACTIE VEREIST: De gebruiker moet zelf een wachtwoord reset aanvragen op de login pagina`
-      );
-      logger.info(`   Email: ${userData.email}`);
-      logger.info(`   Of gebruik deze link: ${resetLink}`);
+      // ── NODEMAILER (activeren zodra GMAIL_USER + GMAIL_APP_PASSWORD beschikbaar zijn) ──
+      // const nodemailer = require('nodemailer');
+      // const transporter = nodemailer.createTransport({
+      //   service: 'gmail',
+      //   auth: {
+      //     user: process.env.GMAIL_USER,
+      //     pass: process.env.GMAIL_APP_PASSWORD,
+      //   },
+      // });
+      // await transporter.sendMail({
+      //   from: `"${APP_NAME}" <${process.env.GMAIL_USER}>`,
+      //   to: userData.email,
+      //   subject: emailSubject,
+      //   text: emailText,
+      //   html: emailHtml,
+      // });
+      // logger.info(`✅ Uitnodigingsmail verzonden naar ${userData.email}`);
+
+      logger.info(`✅ Uitnodigings-HTML gegenereerd voor ${userData.email}`);
+      logger.info(`🔗 Reset-link: ${resetLink}`);
+      logger.info(`📧 Activeer nodemailer om emails te versturen (zie TODO in sendWelcomeEmail.ts)`);
 
       return { success: true };
     } catch (error) {
@@ -79,3 +92,4 @@ export const sendWelcomeEmail = onDocumentCreated(
     }
   }
 );
+

@@ -46,11 +46,13 @@ export const inviteUser = onCall(async (request: CallableRequest<any>) => {
   const requesterName: string = userData.name || "Beheerder";
 
   // 2. Input Validatie
-  const { email, name, role, allowedModules } = (data || {}) as {
+  const { email, name, role, allowedModules, organisatie, modulePermissions } = (data || {}) as {
     email?: string;
     name?: string;
     role?: UserRole;
+    organisatie?: string;
     allowedModules?: string[];
+    modulePermissions?: { [moduleKey: string]: { canEdit: boolean } };
   };
   if (!email || !name || !role) {
     throw new HttpsError(
@@ -82,7 +84,7 @@ export const inviteUser = onCall(async (request: CallableRequest<any>) => {
       name,
       email,
       role,
-      avatarUrl: `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(name)}`,
+      avatarUrl: `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(name!)}`,
       phone: '',
       createdAt: serverTimestamp(),
       // Email status tracking
@@ -91,9 +93,15 @@ export const inviteUser = onCall(async (request: CallableRequest<any>) => {
       invitedAt: serverTimestamp(),
     };
 
-    // Voeg allowedModules toe als het is opgegeven (undefined of lege array = volledige toegang)
+    // Optionele velden alleen opslaan als opgegeven
+    if (organisatie) {
+      newUserProfile.organisatie = organisatie;
+    }
     if (allowedModules !== undefined) {
       newUserProfile.allowedModules = allowedModules;
+    }
+    if (modulePermissions && Object.keys(modulePermissions).length > 0) {
+      newUserProfile.modulePermissions = modulePermissions;
     }
 
     await db.collection("users").doc(userRecord.uid).set(newUserProfile);
@@ -107,6 +115,7 @@ export const inviteUser = onCall(async (request: CallableRequest<any>) => {
       email,
       name,
       role,
+      organisatie: organisatie || null,
       invitedBy: requesterUid,
       invitedByEmail: requesterEmail,
       invitedByName: requesterName,

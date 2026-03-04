@@ -355,17 +355,19 @@ Bij elke nieuwe feature verplicht:
 
 ## Versie-overzicht
 
-| Versie | Datum       | Highlights                                                      |
-|--------|-------------|------------------------------------------------------------------|
-| v0.3.5 | 16 feb 2026 | Firebase Performance Monitoring, bundle analyse                  |
-| v0.3.4 | 16 feb 2026 | Bulk Actions (multi-select) in Meldingen                        |
-| v0.3.3 | 16 feb 2026 | Keyboard Shortcuts + Command Palette                            |
-| v0.3.2 | 16 feb 2026 | Debounced Search met loading indicators                         |
-| v0.3.1 | 16 feb 2026 | React Error Boundaries                                          |
-| v0.3.0 | 16 feb 2026 | Zod validatie, Firebase Analytics, monitoring                   |
-| v0.2.1 | 16 feb 2026 | Logger service, skeleton loaders, cleanup                       |
-| v0.2.0 | 16 feb 2026 | Statistics charts fixes, 2D heatmap improvements               |
-| v0.1.0 | 10 aug 2025 | Chat, admin tabs, statistieken pagina                           |
+| Versie | Datum       | Highlights                                       |
+| ------ | ----------- | ------------------------------------------------ |
+| v0.4.1 | 5 mrt 2026  | lastSeen, sessionCount, organisatie, modulePermissions Viewer, HTML email templates |
+| v0.4.0 | 4 mrt 2026  | Uitnodigingssysteem (invites, checkExpiredInvites, sendInviteReminder) |
+| v0.3.5 | 16 feb 2026 | Firebase Performance Monitoring, bundle analyse  |
+| v0.3.4 | 16 feb 2026 | Bulk Actions (multi-select) in Meldingen         |
+| v0.3.3 | 16 feb 2026 | Keyboard Shortcuts + Command Palette             |
+| v0.3.2 | 16 feb 2026 | Debounced Search met loading indicators          |
+| v0.3.1 | 16 feb 2026 | React Error Boundaries                           |
+| v0.3.0 | 16 feb 2026 | Zod validatie, Firebase Analytics, monitoring    |
+| v0.2.1 | 16 feb 2026 | Logger service, skeleton loaders, cleanup        |
+| v0.2.0 | 16 feb 2026 | Statistics charts fixes, 2D heatmap improvements |
+| v0.1.0 | 10 aug 2025 | Chat, admin tabs, statistieken pagina            |
 
 ---
 
@@ -438,6 +440,23 @@ git push
   - Gmail SMTP structuur voorbereid in `checkExpiredInvites.ts` (TODO-commentaar, klaar voor DNS + App Password)
 - Deploy: Firebase Hosting + Functions + Firestore Rules → https://buurtapp-v3-4.web.app
 
+### 5 maart 2026
+- **lastSeen tracking + sessionCount**: AppContext schrijft `lastSeen: Date` en incrementeert `sessionCount` bij elke nieuwe auth-sessie (Firestore `increment()`). Vlag `lastSeenTracked` voorkomt dubbele writes per sessie.
+- **Organisatie veld op User**: `User.organisatie?: string` toegevoegd. Admin-invite-formulier bevat nu optioneel "Organisatie / instelling" veld. Wordt opgeslagen in zowel `users/` als `invites/` Firestore collection.
+- **modulePermissions systeem voor Viewers**: Nieuw `ModulePermission { canEdit: boolean }` interface. `User.modulePermissions?: { [moduleKey: string]: ModulePermission }` sla je per module rechten op. `canEditModule(moduleKey)` functie in AppContext: Beheerder/Concierge altijd `true`, Viewer controleert `modulePermissions[key]?.canEdit`.
+  - AddUserModal: per geselecteerde module verschijnt een "Mag bewerken" checkbox (alleen zichtbaar voor Viewer-rol).
+  - `inviteUser` Cloud Function doorstuurt `organisatie` + `modulePermissions` naar Firestore profiel.
+- **Admin gebruikstabel uitgebreid**: Nieuwe kolommen: Organisatie, Laatste activiteit (`formatDistanceToNow`), Sessies. Actief/Inactief badge (grens: 14 dagen inactief = rood). Werkt op zowel desktop-tabel als mobile-card view.
+- **HTML email templates** (`functions/src/emailTemplates.ts` — nieuw bestand):
+  - `buildInviteEmailHtml(data)` — volledig HTML uitnodigingsmail met accountinfo, CTA-knop, modules-overzicht
+  - `buildInviteEmailText(data)` — plain-text variant
+  - `buildInviteEmailSubject()` — onderwerpregel
+  - `buildReminderEmailHtml(data)` — herinnerings-email met verse reset-link en resterende dagen
+  - `buildReminderEmailSubject()` — onderwerpregel herinnering
+  - `export { APP_URL }` beschikbaar voor toekomstig SMTP-gebruik
+- **sendWelcomeEmail.ts herschreven**: Genereert nu HTML via `buildInviteEmailHtml`, slaat `inviteEmailHtml` + `inviteEmailSubject` op in Firestore voor preview/debug. Nodemailer blok uitgecommentarieerd (klaar voor activeren zodra GMAIL_USER + GMAIL_APP_PASSWORD secrets beschikbaar zijn).
+- **checkExpiredInvites.ts bijgewerkt**: TODO-blok verwijst nu naar `buildReminderEmailHtml` (commented import klaar). Reminder-mail voorbeeld toont `daysLeft` + `freshPasswordResetLink` patroon.
+
 ### 2 maart 2026
 - SSOT-audit uitgevoerd door GitHub Copilot
 - AI_CONTEXT.md aangemaakt in `~/Webbiecorn-bedrijf/WEBBIECORN-SSOT/buurtapp-v3-4/`
@@ -448,4 +467,4 @@ git push
 
 ---
 
-*Bijgehouden door: Kevin (Webbiecorn) + GitHub Copilot | Laatst bijgewerkt: 4 maart 2026 — geconsolideerde SSOT (absorbeert .ai/project-context.md, README_agent.md, webbie-docs/Tech-Decisions)*
+*Bijgehouden door: Kevin (Webbiecorn) + GitHub Copilot | Laatst bijgewerkt: 5 maart 2026 — lastSeen tracking, organisatie veld, modulePermissions, HTML email templates*

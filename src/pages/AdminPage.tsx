@@ -33,8 +33,10 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [role, setRole] = useState<UserRole>(UserRole.Concierge);
+    const [organisatie, setOrganisatie] = useState('');
     const [restrictModules, setRestrictModules] = useState(false);
     const [selectedModules, setSelectedModules] = useState<string[]>([]);
+    const [moduleCanEdit, setModuleCanEdit] = useState<{ [key: string]: boolean }>({});
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
@@ -59,6 +61,14 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 ? prev.filter(m => m !== moduleKey)
                 : [...prev, moduleKey]
         );
+        // Reset canEdit voor verwijderde module
+        if (selectedModules.includes(moduleKey)) {
+            setModuleCanEdit(prev => { const next = { ...prev }; delete next[moduleKey]; return next; });
+        }
+    };
+
+    const toggleModuleCanEdit = (moduleKey: string) => {
+        setModuleCanEdit(prev => ({ ...prev, [moduleKey]: !prev[moduleKey] }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -72,7 +82,11 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             name,
             email,
             role,
-            allowedModules: restrictModules ? selectedModules : undefined
+            organisatie: organisatie || undefined,
+            allowedModules: restrictModules ? selectedModules : undefined,
+            modulePermissions: (role === UserRole.Viewer && restrictModules && Object.keys(moduleCanEdit).length > 0)
+                ? Object.fromEntries(Object.entries(moduleCanEdit).filter(([k]) => selectedModules.includes(k)).map(([k, v]) => [k, { canEdit: v }]))
+                : undefined,
         });
         if (!validation.success) {
             setError(validation.errors.join(', '));
@@ -93,7 +107,11 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 name,
                 email,
                 role,
-                allowedModules: restrictModules ? selectedModules : undefined
+                organisatie: organisatie || undefined,
+                allowedModules: restrictModules ? selectedModules : undefined,
+                modulePermissions: (role === UserRole.Viewer && restrictModules && Object.keys(moduleCanEdit).length > 0)
+                    ? Object.fromEntries(Object.entries(moduleCanEdit).filter(([k]) => selectedModules.includes(k)).map(([k, v]) => [k, { canEdit: v }]))
+                    : undefined,
             });
 
             const data = result.data as InviteUserResult;
@@ -127,8 +145,10 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 setName('');
                 setEmail('');
                 setRole(UserRole.Concierge);
+                setOrganisatie('');
                 setRestrictModules(false);
                 setSelectedModules([]);
+                setModuleCanEdit({});
             } else {
                  throw new Error(data.message || 'Er is een onbekende fout opgetreden.');
             }
@@ -162,6 +182,17 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         value={email}
                         onChange={e => setEmail(e.target.value)}
                         required
+                        className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
+                    />
+                </div>
+                <div>
+                    <label htmlFor="user-organisatie" className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Organisatie / instelling <span className="text-gray-400 font-normal">(optioneel)</span></label>
+                    <input
+                        type="text"
+                        id="user-organisatie"
+                        value={organisatie}
+                        onChange={e => setOrganisatie(e.target.value)}
+                        placeholder="bijv. Centrada, Gemeente Lelystad, Politie"
                         className="mt-1 block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
                     />
                 </div>
@@ -204,15 +235,29 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                             </p>
                             <div className="grid grid-cols-2 gap-2 mt-2">
                                 {availableModules.map(module => (
-                                    <label key={module.key} className="flex items-center space-x-2 text-sm text-gray-700 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-border p-2 rounded cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedModules.includes(module.key)}
-                                            onChange={() => toggleModule(module.key)}
-                                            className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300 rounded"
-                                        />
-                                        <span>{module.label}</span>
-                                    </label>
+                                    <div key={module.key} className="space-y-1">
+                                        <label className="flex items-center space-x-2 text-sm text-gray-700 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-border p-2 rounded cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedModules.includes(module.key)}
+                                                onChange={() => toggleModule(module.key)}
+                                                className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300 rounded"
+                                            />
+                                            <span>{module.label}</span>
+                                        </label>
+                                        {/* canEdit toggle: alleen tonen voor Viewer + module geselecteerd */}
+                                        {role === UserRole.Viewer && selectedModules.includes(module.key) && (
+                                            <label className="flex items-center space-x-2 text-xs text-blue-600 dark:text-blue-400 pl-8 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!moduleCanEdit[module.key]}
+                                                    onChange={() => toggleModuleCanEdit(module.key)}
+                                                    className="h-3 w-3 text-blue-500 focus:ring-blue-500 border-gray-300 rounded"
+                                                />
+                                                <span>Mag bewerken</span>
+                                            </label>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
                             {restrictModules && selectedModules.length > 0 && (
@@ -1744,18 +1789,31 @@ const AdminPage: React.FC = () => {
                                         <tr>
                                             <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Naam</th>
                                             <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Email</th>
+                                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Organisatie</th>
                                             <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Rol</th>
+                                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Laatste activiteit</th>
+                                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary text-center">Sessies</th>
                                             <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary text-right">Acties</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {filteredUsers.map(user => (
+                                        {filteredUsers.map(user => {
+                                            const lastSeen = user.lastSeen ? new Date(user.lastSeen as any) : null;
+                                            const daysSinceLastSeen = lastSeen ? Math.floor((Date.now() - lastSeen.getTime()) / (1000 * 60 * 60 * 24)) : null;
+                                            const isInactive = daysSinceLastSeen !== null && daysSinceLastSeen > 14;
+                                            return (
                                             <tr key={user.id} className="border-b border-gray-200 dark:border-dark-border last:border-0 hover:bg-gray-50 dark:hover:bg-dark-bg">
                                                 <td className="p-3 text-gray-800 dark:text-dark-text-primary flex items-center">
                                                     <img src={user.avatarUrl} alt={user.name} className="h-8 w-8 rounded-full mr-3" />
-                                                    {user.name}
+                                                    <div>
+                                                        <div>{user.name}</div>
+                                                        {user.allowedModules && user.allowedModules.length > 0 && (
+                                                            <div className="text-xs text-gray-400 dark:text-dark-text-secondary">{user.allowedModules.length} module{user.allowedModules.length !== 1 ? 's' : ''}</div>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="p-3 text-gray-800 dark:text-dark-text-primary">{user.email}</td>
+                                                <td className="p-3 text-gray-600 dark:text-dark-text-secondary text-sm">{user.organisatie || <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
                                                 <td className="p-3">
                                                     <select
                                                         value={user.role}
@@ -1767,28 +1825,64 @@ const AdminPage: React.FC = () => {
                                                         ))}
                                                     </select>
                                                 </td>
+                                                <td className="p-3">
+                                                    <div className="flex items-center gap-2">
+                                                        {lastSeen ? (
+                                                            <span className="text-sm text-gray-600 dark:text-dark-text-secondary" title={lastSeen.toLocaleString('nl-NL')}>
+                                                                {formatDistanceToNow(lastSeen, { addSuffix: true, locale: nl })}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400 dark:text-gray-600">Nooit</span>
+                                                        )}
+                                                        {isInactive && (
+                                                            <span className="px-1.5 py-0.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 text-xs rounded-full font-medium">Inactief</span>
+                                                        )}
+                                                        {lastSeen && !isInactive && (
+                                                            <span className="px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 text-xs rounded-full font-medium">Actief</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="p-3 text-center">
+                                                    <span className="text-sm font-medium text-gray-700 dark:text-dark-text-primary">{user.sessionCount ?? 0}</span>
+                                                </td>
                                                 <td className="p-3 text-right">
                                                     <button onClick={() => handleRemoveUser(user.id)} className="text-red-500 hover:text-red-400 font-semibold text-sm">
                                                         Verwijderen
                                                     </button>
                                                 </td>
                                             </tr>
-                                        ))}
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
 
                             {/* Mobile Card View */}
                             <div className="md:hidden space-y-3">
-                                {filteredUsers.map(user => (
+                                {filteredUsers.map(user => {
+                                    const lastSeen = user.lastSeen ? new Date(user.lastSeen as any) : null;
+                                    const daysSinceLastSeen = lastSeen ? Math.floor((Date.now() - lastSeen.getTime()) / (1000 * 60 * 60 * 24)) : null;
+                                    const isInactive = daysSinceLastSeen !== null && daysSinceLastSeen > 14;
+                                    return (
                                     <div key={user.id} className="bg-gray-50 dark:bg-dark-bg rounded-lg p-4 space-y-3">
                                         <div className="flex items-center space-x-3">
                                             <img src={user.avatarUrl} alt={user.name} className="h-10 w-10 rounded-full" />
                                             <div className="flex-1 min-w-0">
                                                 <h3 className="font-semibold text-gray-900 dark:text-dark-text-primary truncate">{user.name}</h3>
                                                 <p className="text-sm text-gray-600 dark:text-dark-text-secondary truncate">{user.email}</p>
+                                                {user.organisatie && <p className="text-xs text-gray-400 dark:text-gray-500">{user.organisatie}</p>}
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1">
+                                                {isInactive && <span className="px-1.5 py-0.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 text-xs rounded-full">Inactief</span>}
+                                                {lastSeen && !isInactive && <span className="px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 text-xs rounded-full">Actief</span>}
+                                                <span className="text-xs text-gray-400">{user.sessionCount ?? 0} sessies</span>
                                             </div>
                                         </div>
+                                        {lastSeen && (
+                                            <p className="text-xs text-gray-500 dark:text-dark-text-secondary">
+                                                Laatste activiteit: {formatDistanceToNow(lastSeen, { addSuffix: true, locale: nl })}
+                                            </p>
+                                        )}
                                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
                                             <div className="flex-1">
                                                 <label className="block text-xs font-medium text-gray-500 dark:text-dark-text-secondary mb-1">Rol</label>
@@ -1810,7 +1904,8 @@ const AdminPage: React.FC = () => {
                                             </button>
                                         </div>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
 
                             {/* ── Openstaande uitnodigingen ───────────────────── */}

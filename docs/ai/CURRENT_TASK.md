@@ -5,6 +5,38 @@
 
 ---
 
+## ✅ VOLTOOID: Gebruikersinfo & Viewer-rechten uitgebreid (5 maart 2026)
+
+### Scope
+Vijf nieuwe features op verzoek van Kevin:
+
+1. **lastSeen + sessionCount tracking** — AppContext schrijft bij elke nieuwe auth-sessie `lastSeen: Date` en incrementeert `sessionCount` (Firestore `increment()`). Vlag `lastSeenTracked` voorkomt dubbele writes per sessie.
+2. **Organisatie veld** — `User.organisatie?: string`. Optioneel invulveld in AddUserModal, opgeslagen in `users/` en `invites/` Firestore collections.
+3. **modulePermissions voor Viewers** — `User.modulePermissions?: { [moduleKey]: { canEdit: boolean } }`. Per module een "Mag bewerken" checkbox in AddUserModal (alleen zichtbaar bij Viewer rol). `canEditModule(moduleKey)` functie beschikbaar via `useAppContext()`.
+4. **Admin gebruikstabel** — Nieuwe kolommen: Organisatie, Laatste activiteit (relatief, bijv. "3 dagen geleden"), Actief/Inactief badge (grens: 14 dagen), Sessies. Desktop-tabel én mobile-card view.
+5. **HTML email templates** — `functions/src/emailTemplates.ts` (nieuw bestand): invite-mail + reminder-mail als responsive HTML. `sendWelcomeEmail.ts` herschreven met templates + nodemailer stub.
+
+### Nieuwe bestanden
+- `functions/src/emailTemplates.ts` — HTML email templates (invite + reminder)
+
+### Gewijzigde bestanden
+- `src/types.ts` — `ModulePermission`, `User`, `AppContextType`
+- `src/utils/validation.ts` — `inviteUserSchema` uitgebreid
+- `src/context/AppContext.tsx` — lastSeen/sessionCount tracking, `canEditModule`
+- `src/pages/AdminPage.tsx` — AddUserModal volledig + gebruikerstabel 3 nieuwe kolommen
+- `functions/src/inviteUser.ts` — organisatie + modulePermissions doorsluizen
+- `functions/src/sendWelcomeEmail.ts` — herschreven met HTML templates
+- `functions/src/checkExpiredInvites.ts` — template import klaar (commented), TODO-blok bijgewerkt
+
+### Volgende stap: Gmail SMTP activeren
+Zodra DNS-records + App Password beschikbaar:
+1. `firebase functions:secrets:set GMAIL_USER`
+2. `firebase functions:secrets:set GMAIL_APP_PASSWORD`
+3. `cd functions && npm install nodemailer @types/nodemailer`
+4. Uncomment nodemailer blok in `sendWelcomeEmail.ts` + `checkExpiredInvites.ts`
+
+---
+
 ## ✅ VOLTOOID: Uitnodigingssysteem uitgebreid (4 maart 2026)
 
 ### Scope
