@@ -1020,7 +1020,7 @@ const DailyUpdateCard: React.FC = () => {
 
 // Hoofdcomponent voor de Beheerpagina
 const AdminPage: React.FC = () => {
-    const { users, updateUserRole, removeUser, urenregistraties, projecten } = useAppContext();
+    const { users, updateUserRole, removeUser, urenregistraties, projecten, currentUser } = useAppContext();
     const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
     const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
     const [isProjectEditModalOpen, setIsProjectEditModalOpen] = useState(false);
