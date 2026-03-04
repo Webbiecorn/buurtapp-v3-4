@@ -867,14 +867,15 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
                 Foto's <span className="font-normal text-gray-400">(optioneel — voeg toe voor of na registratie)</span>
               </label>
 
+              {/* capture + multiple tegelijk veroorzaakt problemen op iOS/Android — multiple weggelaten van camera-input */}
+              {/* Gebruik absolute positionering i.p.v. display:none — sommige mobiele browsers openen de camera niet via display:none inputs */}
               <input
                 ref={cameraInputRef}
                 type="file"
-                accept="image/*,video/*"
+                accept="image/*"
                 capture="environment"
                 onChange={handleMediaChange}
-                className="hidden"
-                multiple
+                style={{ position: 'absolute', width: 0, height: 0, opacity: 0, overflow: 'hidden', pointerEvents: 'none' }}
               />
               <input
                 ref={galleryInputRef}
@@ -885,7 +886,7 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
                 multiple
               />
 
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={openCamera}
@@ -898,9 +899,14 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
                   onClick={openGallery}
                   className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-dark-border hover:bg-gray-300 text-gray-700 dark:text-dark-text-primary rounded-lg font-medium transition"
                 >
-                  🖼️ Bestanden kiezen
+                  🖼️ Uit galerij kiezen
                 </button>
               </div>
+              {media.length === 0 && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Meerdere foto's maken? Klik de "Foto maken" knop meerdere keren.
+                </p>
+              )}
 
               {media.length === 0 && (
                 <div className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 mt-3">
