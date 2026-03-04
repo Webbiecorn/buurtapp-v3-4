@@ -65,8 +65,7 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
   const [success, setSuccess] = useState(false);
 
   // Refs voor camera/gallery inputs
-  const cameraInputRef = React.useRef<HTMLInputElement>(null);
-  const galleryInputRef = React.useRef<HTMLInputElement>(null);
+
 
   // Wijk mapping voor Lelystad
   const getWijkFromPostcode = (postcode: string): string | null => {
@@ -273,9 +272,6 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
       }
     };
   }, []);
-
-  const openCamera = () => cameraInputRef.current?.click();
-  const openGallery = () => galleryInputRef.current?.click();
 
   const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -867,40 +863,37 @@ const AchterpadenRegistratie: React.FC<Props> = ({ onSuccess }) => {
                 Foto's <span className="font-normal text-gray-400">(optioneel — voeg toe voor of na registratie)</span>
               </label>
 
-              {/* capture + multiple tegelijk veroorzaakt problemen op iOS/Android — multiple weggelaten van camera-input */}
-              {/* Gebruik absolute positionering i.p.v. display:none — sommige mobiele browsers openen de camera niet via display:none inputs */}
+              {/* Camera input: direct via label — betrouwbaarder dan JS .click() voor camera-toegang op mobiel */}
               <input
-                ref={cameraInputRef}
+                id="camera-capture-input"
                 type="file"
                 accept="image/*"
                 capture="environment"
                 onChange={handleMediaChange}
-                style={{ position: 'absolute', width: 0, height: 0, opacity: 0, overflow: 'hidden', pointerEvents: 'none' }}
+                className="sr-only"
               />
               <input
-                ref={galleryInputRef}
+                id="gallery-input"
                 type="file"
                 accept="image/*,video/*"
                 onChange={handleMediaChange}
-                className="hidden"
+                className="sr-only"
                 multiple
               />
 
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={openCamera}
-                  className="flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg font-medium transition"
+                <label
+                  htmlFor="camera-capture-input"
+                  className="cursor-pointer flex items-center gap-2 px-4 py-2 bg-brand-primary hover:bg-blue-900 active:bg-blue-950 text-white rounded-lg font-medium transition select-none"
                 >
                   📷 Foto maken
-                </button>
-                <button
-                  type="button"
-                  onClick={openGallery}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-dark-border hover:bg-gray-300 text-gray-700 dark:text-dark-text-primary rounded-lg font-medium transition"
+                </label>
+                <label
+                  htmlFor="gallery-input"
+                  className="cursor-pointer flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-dark-border hover:bg-gray-300 dark:hover:bg-gray-600 active:bg-gray-400 text-gray-700 dark:text-dark-text-primary rounded-lg font-medium transition select-none"
                 >
                   🖼️ Uit galerij kiezen
-                </button>
+                </label>
               </div>
               {media.length === 0 && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
