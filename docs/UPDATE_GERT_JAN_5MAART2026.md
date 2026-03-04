@@ -60,7 +60,41 @@ Bij het uitnodigen van een nieuwe Viewer-gebruiker werkt de module-selectie nu a
 
 ---
 
-## 4. Verbeterde uitnodigingsmails (voorbereid)
+## 4. Uitnodigingen nu 7 dagen geldig (was: 1 uur)
+
+### Wat was het probleem?
+Voordat deze update werd doorgevoerd, was een uitnodigingslink maar **1 uur geldig**. Als een nieuwe gebruiker de mail niet snel genoeg opende, was de link al verlopen en moest de beheerder een nieuwe uitnodiging sturen — zonder dat iemand wist dat dit nodig was.
+
+### Wat is er veranderd?
+Het uitnodigingssysteem is volledig vernieuwd:
+
+- Uitnodigingen zijn nu **7 dagen geldig**
+- De status van elke uitnodiging is zichtbaar in **Beheer → Gebruikers → Openstaande uitnodigingen**
+- Zodra een uitgenodigde gebruiker voor het eerst inlogt, wordt de uitnodiging automatisch als **geaccepteerd** gemarkeerd
+
+### Automatische herinneringen
+
+Het systeem controleert elke dag automatisch openstaande uitnodigingen:
+
+| Wanneer | Wat gebeurt er |
+|---|---|
+| **Na 3 dagen** | Je ontvangt een melding in de app dat de uitnodiging nog niet is geaccepteerd. Je kunt dan via de knop **"Stuur herinnering"** een verse link sturen. |
+| **Na 7 dagen** | De uitnodiging verloopt automatisch. Je ontvangt een melding in de app. Je kunt dan een nieuwe uitnodiging sturen. |
+
+### Statusoverzicht in de app
+
+In **Beheer → Gebruikers** zie je onder de gebruikerstabel een sectie **"Openstaande uitnodigingen"** met de volgende statussen:
+
+| Status | Betekenis |
+|---|---|
+| ⏳ In afwachting | Uitnodiging verstuurd, nog niet geaccepteerd |
+| 📧 Herinnerd | Er is een herinnering verstuurd |
+| ✅ Geaccepteerd | Gebruiker heeft ingelogd en is actief |
+| ❌ Verlopen | Uitnodiging niet op tijd geaccepteerd — stuur een nieuwe |
+
+---
+
+## 5. Verbeterde uitnodigingsmails (voorbereid)
 
 ### Wat is er veranderd?
 De uitnodigingsmail die nieuwe gebruikers ontvangen is volledig opnieuw opgebouwd. De nieuwe mail bevat:
@@ -79,14 +113,18 @@ De herinneringsmail (die verstuurd wordt als iemand de uitnodiging nog niet heef
 
 ## Samenvatting nieuw in één oogopslag
 
-| #   | Nieuwe functie                               | Waar te vinden                                    |
-| --- | -------------------------------------------- | ------------------------------------------------- |
-| 1   | Laatste activiteit per gebruiker             | Beheer → Gebruikers (kolom "Laatste activiteit")  |
-| 2   | Sessieteller per gebruiker                   | Beheer → Gebruikers (kolom "Sessies")             |
-| 3   | Actief/Inactief badge                        | Beheer → Gebruikers (naast de naam)               |
-| 4   | Organisatieveld bij gebruiker                | Beheer → Gebruikers → Nieuwe gebruiker uitnodigen |
-| 5   | Bewerktoegang per module voor Viewers        | Beheer → Gebruikers → Nieuwe gebruiker uitnodigen |
-| 6   | Verbeterde uitnodigings- en herinneringsmail | Automatisch (zodra e-mail actief is)              |
+| #   | Nieuwe functie                                 | Werkt nu? | Waar te vinden                                          |
+| --- | ---------------------------------------------- | --------- | ------------------------------------------------------- |
+| 1   | Uitnodigingen 7 dagen geldig (was: 1 uur)      | ✅ Ja     | Automatisch                                             |
+| 2   | Automatische herinnering na 3 dagen            | ✅ Ja     | Beheer → Gebruikers → Openstaande uitnodigingen         |
+| 3   | Uitnodiging verloopt na 7 dagen met melding    | ✅ Ja     | Beheer → Gebruikers → Openstaande uitnodigingen         |
+| 4   | Statusoverzicht openstaande uitnodigingen      | ✅ Ja     | Beheer → Gebruikers (sectie onderaan)                   |
+| 5   | Laatste activiteit per gebruiker               | ✅ Ja     | Beheer → Gebruikers (kolom "Laatste activiteit")        |
+| 6   | Sessieteller per gebruiker                     | ✅ Ja     | Beheer → Gebruikers (kolom "Sessies")                   |
+| 7   | Actief/Inactief badge                          | ✅ Ja     | Beheer → Gebruikers (naast de naam)                     |
+| 8   | Organisatieveld bij gebruiker                  | ✅ Ja     | Beheer → Gebruikers → Nieuwe gebruiker uitnodigen       |
+| 9   | Bewerktoegang per module voor Viewers          | ✅ Ja     | Beheer → Gebruikers → Nieuwe gebruiker uitnodigen       |
+| 10  | Verbeterde uitnodigings- en herinneringsmail   | ⏳ Binnenkort | Automatisch (zodra e-mailkoppeling actief is)       |
 
 ---
 
