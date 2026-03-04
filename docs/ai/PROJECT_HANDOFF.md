@@ -234,6 +234,14 @@ Zie ook: `src/types.ts` voor volledige TypeScript interfaces.
 }
 ```
 
+### Firebase Storage structuur
+```
+/dossiers/{adres}/{filename}    ← documenten, afbeeldingen, video's per dossier
+/meldingen/{id}/{filename}      ← bijlagen bij meldingen
+/projecten/{id}/{filename}      ← media bij projectbijdragen
+/achterpaden/{id}/{filename}    ← foto's bij achterpad-registraties
+```
+
 ---
 
 ## Externe koppelingen / APIs
@@ -249,6 +257,74 @@ Zie ook: `src/types.ts` voor volledige TypeScript interfaces.
 
 ---
 
+## Services & Utilities
+
+### Logger (`src/services/logger.ts`)
+Centrale logging service — vervangt `console.log`. Levels: `info`, `warn`, `error`, `debug`.
+```typescript
+logger.info('Dossier geladen', { adres });
+logger.error('Upload mislukt', error, { userId, action: 'uploadDossierDocument' });
+logger.time('fetch-dossiers'); // ... logger.timeEnd('fetch-dossiers');
+```
+Console uitgeschakeld in productie. Errors worden ook naar Firebase Analytics gestuurd.
+
+### Analytics (`src/services/analytics.ts`)
+Firebase Analytics tracking. **Alleen actief in productie** (niet in emulators/dev).
+Functies: `trackLogin`, `trackMeldingCreated`, `trackDossierCreated`, `trackUserInvited`, `trackDocumentUploaded`, `trackExport`, `trackSearch`, `trackError`.
+Privacy: gebruik alleen Firebase UID, **geen** emails/namen in events.
+
+### Zod Validatie (`src/utils/validation.ts`)
+Runtime input validatie voor alle formulieren en API-calls. Error messages in Nederlands.
+```typescript
+const result = validate(schema, data);
+if (!result.success) return toast.error(result.errors.join(', '));
+// Of voor server-side:
+const data = validateOrThrow(schema, input);
+```
+Schemas voor: user invite, melding aanmaken, project, dossier, urenregistratie.
+
+### Error Boundaries (`src/components/ErrorBoundary.tsx`)
+3-laagse bescherming voorkomt white screen of death:
+1. Top-level rond hele App
+2. ProtectedRoute-level voor alle auth-pagina's
+3. Expliciete boundary rond LoginPage
+
+Dev: toont error details + component stack. Productie: gebruiksvriendelijke fallback met herstel-opties.
+
+### Keyboard Shortcuts (`src/hooks/useKeyboardShortcuts.ts`)
+- `Ctrl/Cmd+K` — Command Palette (fuzzy search, rol-gefilterd)
+- `?` — Help modal met shortcuts overzicht
+- `H / M / P / D / U / S / A` — Navigatie naar pagina's (werkt niet in invoervelden)
+
+### Debounced Search (`src/hooks/useDebounce.ts`)
+```typescript
+const { debouncedTerm, isSearching, hasMinLength } = useSearchDebounce(searchTerm);
+// 300ms delay, minimaal 3 karakters
+```
+Geïntegreerd in: AdminPage, AchterpadenKaartOverzicht, UrenregistratiePage.
+
+### Skeleton Loaders (`src/components/Skeletons.tsx`)
+Types: `PageSkeleton`, `TableSkeleton`, `ChartSkeleton`, `CardSkeleton`, `ListSkeleton`, `FormSkeleton`, `StatsSkeleton`.
+Gebruik als Suspense fallback: `<Suspense fallback={<PageSkeleton />}>`.
+
+---
+
+## Checklist bij nieuwe features
+
+Bij elke nieuwe feature verplicht:
+- ✅ Zod validatie voor alle user input
+- ✅ Analytics tracking voor belangrijke events
+- ✅ `logger` i.p.v. `console.log/error`
+- ✅ Toast notifications bij succes/fout
+- ✅ Skeleton loaders voor loading states
+- ✅ Keyboard support (ESC, pijlen) waar relevant
+- ✅ Dark mode support met theme-aware kleuren
+- ✅ Accessibility (`aria-labels`, keyboard navigatie)
+- ✅ Nederlandse teksten in de UI
+- ✅ Rolrechten gecontroleerd in UI én functies
+
+---
+
 ## Bekende beperkingen
 
 1. **Geen echte offline support** — Service Worker aanwezig maar app werkt niet zonder internetverbinding
@@ -259,6 +335,75 @@ Zie ook: `src/types.ts` voor volledige TypeScript interfaces.
 6. **`recharts` ongebruikt** — Dependency kan verwijderd worden
 7. **Geen brandColors.ts** — Kleuren hardcoded als Tailwind classes, moeilijk te theamen
 8. **`capture="environment"` werkt niet op desktop** — Browser-standaard: desktop browsers negeren dit attribuut altijd. Op mobiel werkt het correct via `<label htmlFor>` direct gekoppeld aan het input-element.
+
+---
+
+## Common Gotchas
+
+1. **HashRouter**: Gebruik `/#/path` — links en `useNavigate` werken correct out-of-the-box
+2. **Firestore Timestamps**: Converteer naar JavaScript `Date` voor weergave (`timestamp.toDate()`)
+3. **Context Updates**: Correcte dependency arrays in `useEffect`, anders stale data
+4. **File Uploads**: Valideer type en grootte client-side vóór upload
+5. **Map Cleanup**: Destroy Leaflet map instanties bij component unmount
+6. **AppContext Firestore writes**: Strip `undefined` values; gebruik `updateDoc` + `arrayUnion` niet `setDoc` voor updates
+7. **Viewer Overlay**: Aanwezig in `DossierPage`, `DossierDetailPage`, `IssuesPage`, `ProjectsPage` — hergebruik `getType`/`renderInline` helpers
+8. **Tijdelijk wachtwoord**: Nieuwe gebruikers krijgen standaard `Welkom01` — verplichte wijziging bij eerste login
+9. **Emulatorpoorten (huidig)**: Firestore **8083**, Storage **9201**, Auth **9100**, Functions **5101** — afwijkend van Firebase defaults
+10. **Zod + Firestore**: `validateOrThrow` voor server-side (Functions), `validate` voor client-side (dan toast de errors)
+
+---
+
+## Versie-overzicht
+
+| Versie | Datum       | Highlights                                                      |
+|--------|-------------|------------------------------------------------------------------|
+| v0.3.5 | 16 feb 2026 | Firebase Performance Monitoring, bundle analyse                  |
+| v0.3.4 | 16 feb 2026 | Bulk Actions (multi-select) in Meldingen                        |
+| v0.3.3 | 16 feb 2026 | Keyboard Shortcuts + Command Palette                            |
+| v0.3.2 | 16 feb 2026 | Debounced Search met loading indicators                         |
+| v0.3.1 | 16 feb 2026 | React Error Boundaries                                          |
+| v0.3.0 | 16 feb 2026 | Zod validatie, Firebase Analytics, monitoring                   |
+| v0.2.1 | 16 feb 2026 | Logger service, skeleton loaders, cleanup                       |
+| v0.2.0 | 16 feb 2026 | Statistics charts fixes, 2D heatmap improvements               |
+| v0.1.0 | 10 aug 2025 | Chat, admin tabs, statistieken pagina                           |
+
+---
+
+## Agent-instructies
+
+### Stijl & aanpak
+- Taal: Nederlands, kort en feitelijk
+- Begin met een mini-plan (1 zin of 2–3 bullets), voer direct uit, sluit af met korte status
+- Lees relevante bestanden voordat je wijzigt; stel max 1–2 verduidelijkingsvragen als essentieel
+- Kleine, gerichte patches — geen grote refactors zonder expliciete opdracht
+
+### Do's
+- Gebruik `logger` i.p.v. `console.log/error`
+- Voeg `toast.success/error` toe bij user-facing acties
+- Controleer altijd rolrechten in UI én functies
+- Voeg `aria-labels` en keyboard support (`ESC`, `←→`) toe
+- Gebruik Zod validatie voor alle user input
+- Test met `npm run build` na substantiële wijzigingen
+
+### Don'ts
+- Geen secrets committen; gebruik `.env.local` + `import.meta.env`
+- Geen directe Firestore calls buiten `services/` en `context/`
+- Geen inline styles (gebruik Tailwind)
+- Geen `any` types tenzij absoluut noodzakelijk
+
+### Antwoordformat
+1. **Plan** — 1–3 bullets wat je gaat doen
+2. **Acties** — compacte beschrijving van wijzigingen (bestanden + kern)
+3. **Validatie** — build/typecheck status in 1–2 regels
+4. **Notities** — randzaken of vervolgstappen
+
+### Na elke sessie verplicht
+```bash
+git add -A
+git commit -m "[type]: [beschrijving]"
+git push
+./scripts/sync-ssot.sh
+```
 
 ---
 
@@ -303,4 +448,4 @@ Zie ook: `src/types.ts` voor volledige TypeScript interfaces.
 
 ---
 
-*Bijgehouden door: Kevin (Webbiecorn) + GitHub Copilot | Laatst bijgewerkt: 4 maart 2026*
+*Bijgehouden door: Kevin (Webbiecorn) + GitHub Copilot | Laatst bijgewerkt: 4 maart 2026 — geconsolideerde SSOT (absorbeert .ai/project-context.md, README_agent.md, webbie-docs/Tech-Decisions)*

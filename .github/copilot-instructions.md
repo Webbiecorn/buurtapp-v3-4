@@ -1,12 +1,12 @@
 # GitHub Copilot Instructies - Buurtconciërge App
 
-## SSOT Referenties
+## SSOT — Lees altijd eerst
 
-Lees altijd eerst deze bestanden voordat je begint:
-- `~/Webbiecorn-bedrijf/WEBBIECORN-SSOT/buurtapp-v3-4/AI_CONTEXT.md` — projectoverzicht, tech-stack, Firestore collections
-- `~/Webbiecorn-bedrijf/WEBBIECORN-SSOT/_shared/docs/WEBBIECORN_STANDARDS.md` — Webbiecorn standaarden
-- `docs/ai/CURRENT_TASK.md` — huidige taak + voortgang
-- `docs/ai/PROJECT_HANDOFF.md` — architectuur + beslissingen
+**Stap 1 (verplicht):** `docs/ai/PROJECT_HANDOFF.md` — de leidende SSOT: architectuur, beslissingen, datamodel, services, gotchas, versie-overzicht, agent-instructies
+**Stap 2 (verplicht):** `docs/ai/CURRENT_TASK.md` — huidige taak + recente sessies
+**Stap 3 (optioneel):** `webbie-docs/01-BuurtApp/modules/<module>.md` — diepte-prompt per specifieke module
+
+> Alle andere AI-contextbestanden (`.ai/project-context.md`, `README_agent.md`, verouderde webbie-docs) zijn **gearchiveerd** in `docs/ai/archive/` en niet meer leidend.
 
 ---
 
