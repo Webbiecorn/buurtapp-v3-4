@@ -284,7 +284,14 @@ Zie ook: `src/types.ts` voor volledige TypeScript interfaces.
 - **Bugfix camera AchterpadenRegistratie stap 4**: `<button onClick={…}>` vervangen door `<label htmlFor>` direct gekoppeld aan `<input capture="environment">`. JS `.click()` werd door mobiele browsers als indirecte interactie beschouwd waardoor `capture` werd genegeerd. Label-aanpak is de enige browser-betrouwbare methode.
 - Hover-effect "Foto maken" knop verbeterd: `hover:bg-blue-900` i.p.v. nauwelijks-zichtbare `hover:bg-brand-primary/90`.
 - `openCamera` / `openGallery` functies en `cameraInputRef` / `galleryInputRef` refs verwijderd (niet meer nodig).
-- Deploy: Firebase Hosting → https://buurtapp-v3-4.web.app
+- **Uitnodigingssysteem uitgebreid**:
+  - `invites` collection in Firestore (status: pending/reminded/accepted/expired, expiresAt: 7 dagen)
+  - `sendInviteReminder` Cloud Function (callable): markeert invite als reminded, client stuurt verse reset-link
+  - `checkExpiredInvites` Cloud Function (scheduled dagelijks 08:00): herinnering na dag 3, verlopen na dag 7 + in-app notificatie
+  - AdminPage: "Openstaande uitnodigingen" tabel met status-badges (⏳/📧/⏰) en herinnering-knop
+  - AppContext: auto-acceptatie bij eerste inlog uitgenodigde gebruiker
+  - Gmail SMTP structuur voorbereid in `checkExpiredInvites.ts` (TODO-commentaar, klaar voor DNS + App Password)
+- Deploy: Firebase Hosting + Functions + Firestore Rules → https://buurtapp-v3-4.web.app
 
 ### 2 maart 2026
 - SSOT-audit uitgevoerd door GitHub Copilot

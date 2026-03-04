@@ -5,6 +5,37 @@
 
 ---
 
+## ✅ VOLTOOID: Uitnodigingssysteem uitgebreid (4 maart 2026)
+
+### Scope
+- Uitnodigingen worden nu bijgehouden in Firestore (`invites` collection)
+- Geldigheid uitgebreid naar **7 dagen** (Firebase Auth reset-link zelf is max 1 uur, maar we sturen bij herinnering een verse)
+- **Herinnering-knop** in AdminPage (≈ Beheer → Gebruikers, sectie "Openstaande uitnodigingen")
+- **Automatische herinnering** na 3 dagen (Cloud Function markeert `reminderDue: true`, in-app notificatie naar admin)
+- **Verlopen-notificatie** na 7 dagen: uitnodiging op `expired`, in-app notificatie naar verzendende beheerder
+- **Auto-acceptatie**: bij eerste inlog markeert AppContext de invite als `accepted`
+- **Gmail SMTP structuur** aangemaakt in `checkExpiredInvites.ts` (TODO-commentaar), klaar voor invullen zodra DNS-records beschikbaar zijn
+
+### Nieuwe bestanden
+- `functions/src/sendInviteReminder.ts` — callable Cloud Function
+- `functions/src/checkExpiredInvites.ts` — scheduled Cloud Function (dagelijks 08:00)
+
+### Gewijzigde bestanden
+- `functions/src/inviteUser.ts` — sla invite op in `invites` collection
+- `functions/src/index.ts` — export nieuwe functions
+- `src/pages/AdminPage.tsx` — invite-status tabel + herinnering-knop
+- `src/context/AppContext.tsx` — auto-acceptatie bij eerste inlog
+- `firestore.rules` — regels voor `invites` collection
+
+### Nog te doen: Gmail SMTP
+Zodra DNS-records + App Password beschikbaar:
+1. `firebase functions:secrets:set GMAIL_USER`
+2. `firebase functions:secrets:set GMAIL_APP_PASSWORD`
+3. Nodemailer installeren: `cd functions && npm install nodemailer @types/nodemailer`
+4. TODO-commentaar in `checkExpiredInvites.ts` activeren
+
+---
+
 ## ✅ VOLTOOID: Bugfix camera-knop achterpaden registratie stap 4 (4 maart 2026)
 
 ### Probleem
