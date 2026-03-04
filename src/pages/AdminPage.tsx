@@ -5,7 +5,7 @@ import { Modal, NewProjectForm } from '../components/ui';
 import { useSearchParams, Link } from 'react-router-dom';
 import { functions, db, auth } from '../firebase'; // Importeer Firebase functions, Firestore en Auth
 import { httpsCallable } from 'firebase/functions'; // Importeer de httpsCallable functie
-import { doc, updateDoc } from 'firebase/firestore'; // Importeer Firestore functies
+import { doc, updateDoc, collection, onSnapshot, query, where } from 'firebase/firestore'; // Importeer Firestore functies
 import { sendPasswordResetEmail } from 'firebase/auth'; // Importeer sendPasswordResetEmail
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, subDays, subWeeks, subMonths, formatDistanceToNow, startOfToday } from 'date-fns';
 import { nl } from 'date-fns/locale';
@@ -1027,6 +1027,48 @@ const AdminPage: React.FC = () => {
     const [selectedProjectForEdit, setSelectedProjectForEdit] = useState<Project | null>(null);
     const [activeTab, setActiveTab] = useState<AdminTab>('users');
 
+    // Openstaande uitnodigingen
+    const [invites, setInvites] = useState<any[]>([]);
+    const [reminderLoading, setReminderLoading] = useState<string | null>(null);
+    const [reminderMsg, setReminderMsg] = useState<{ uid: string; type: 'success' | 'error'; text: string } | null>(null);
+
+    // Laad openstaande uitnodigingen in real-time (alleen voor Beheerder)
+    useEffect(() => {
+        if (currentUser?.role !== UserRole.Beheerder) return;
+        const q = query(
+            collection(db, 'invites'),
+            where('status', 'in', ['pending', 'reminded'])
+        );
+        const unsub = onSnapshot(q, snap => {
+            setInvites(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+        return () => unsub();
+    }, [currentUser]);
+
+    // Stuur herinnering: Cloud Function markeert invite → client stuurt verse reset-link
+    const handleSendReminder = async (invite: any) => {
+        setReminderLoading(invite.id);
+        setReminderMsg(null);
+        try {
+            const fn = httpsCallable(functions, 'sendInviteReminder');
+            const result = await fn({ uid: invite.id });
+            const data = result.data as { success: boolean; email: string };
+            if (data.success && data.email) {
+                await new Promise(r => setTimeout(r, 1000));
+                await sendPasswordResetEmail(auth, data.email, {
+                    url: `${window.location.origin}/login`,
+                    handleCodeInApp: false,
+                });
+                setReminderMsg({ uid: invite.id, type: 'success', text: `✅ Herinnering verzonden naar ${data.email}` });
+            }
+        } catch (err: any) {
+            logger.error('Failed to send invite reminder', err, { uid: invite.id });
+            setReminderMsg({ uid: invite.id, type: 'error', text: err.message || 'Fout bij versturen herinnering' });
+        } finally {
+            setReminderLoading(null);
+        }
+    };
+
     // Project detail modal state
     const [selectedProjectDetail, setSelectedProjectDetail] = useState<Project | null>(null);
     const [isProjectDetailModalOpen, setIsProjectDetailModalOpen] = useState(false);
@@ -1770,6 +1812,119 @@ const AdminPage: React.FC = () => {
                                     </div>
                                 ))}
                             </div>
+
+                            {/* ── Openstaande uitnodigingen ───────────────────── */}
+                            {currentUser?.role === UserRole.Beheerder && (
+                                <div className="mt-8 border-t border-gray-200 dark:border-dark-border pt-6">
+                                    <h3 className="text-lg font-bold text-gray-900 dark:text-dark-text-primary mb-3 flex items-center gap-2">
+                                        📨 Openstaande uitnodigingen
+                                        {invites.length > 0 && (
+                                            <span className="px-2 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-sm rounded-full font-medium">
+                                                {invites.length}
+                                            </span>
+                                        )}
+                                    </h3>
+
+                                    {reminderMsg && (
+                                        <div className={`mb-3 p-3 rounded-lg text-sm ${reminderMsg.type === 'success' ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'}`}>
+                                            {reminderMsg.text}
+                                        </div>
+                                    )}
+
+                                    {invites.length === 0 ? (
+                                        <p className="text-sm text-gray-500 dark:text-dark-text-secondary italic">Geen openstaande uitnodigingen.</p>
+                                    ) : (
+                                        <>
+                                            {/* Desktop tabel */}
+                                            <div className="hidden md:block overflow-x-auto">
+                                                <table className="w-full text-left">
+                                                    <thead className="border-b border-gray-200 dark:border-dark-border">
+                                                        <tr>
+                                                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Naam</th>
+                                                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Email</th>
+                                                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Rol</th>
+                                                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Status</th>
+                                                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Verloopt</th>
+                                                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary text-right">Actie</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {invites.map(invite => {
+                                                            const expiresAt = invite.expiresAt?.toDate ? invite.expiresAt.toDate() : new Date(invite.expiresAt);
+                                                            const daysLeft = Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                                                            const isReminderDue = invite.reminderDue === true;
+                                                            const alreadyReminded = invite.status === 'reminded';
+                                                            return (
+                                                                <tr key={invite.id} className="border-b border-gray-200 dark:border-dark-border last:border-0 hover:bg-gray-50 dark:hover:bg-dark-bg">
+                                                                    <td className="p-3 text-gray-800 dark:text-dark-text-primary font-medium">{invite.name}</td>
+                                                                    <td className="p-3 text-gray-800 dark:text-dark-text-primary">{invite.email}</td>
+                                                                    <td className="p-3 text-gray-800 dark:text-dark-text-primary">{invite.role}</td>
+                                                                    <td className="p-3">
+                                                                        {isReminderDue
+                                                                            ? <span className="px-2 py-1 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded-full text-xs font-medium">⏰ Herinnering nodig</span>
+                                                                            : alreadyReminded
+                                                                                ? <span className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-full text-xs font-medium">📧 Herinnerd</span>
+                                                                                : <span className="px-2 py-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full text-xs font-medium">⏳ In afwachting</span>
+                                                                        }
+                                                                    </td>
+                                                                    <td className="p-3 text-sm text-gray-600 dark:text-dark-text-secondary">
+                                                                        {daysLeft > 0 ? `Nog ${daysLeft} dag${daysLeft === 1 ? '' : 'en'}` : 'Verlopen'}
+                                                                    </td>
+                                                                    <td className="p-3 text-right">
+                                                                        <button
+                                                                            onClick={() => handleSendReminder(invite)}
+                                                                            disabled={reminderLoading === invite.id}
+                                                                            className="px-3 py-1.5 bg-brand-primary hover:bg-blue-900 text-white text-sm rounded-lg font-medium transition disabled:opacity-50"
+                                                                        >
+                                                                            {reminderLoading === invite.id ? '...' : '📧 Herinnering sturen'}
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            {/* Mobile kaarten */}
+                                            <div className="md:hidden space-y-3">
+                                                {invites.map(invite => {
+                                                    const expiresAt = invite.expiresAt?.toDate ? invite.expiresAt.toDate() : new Date(invite.expiresAt);
+                                                    const daysLeft = Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                                                    const isReminderDue = invite.reminderDue === true;
+                                                    const alreadyReminded = invite.status === 'reminded';
+                                                    return (
+                                                        <div key={invite.id} className="bg-gray-50 dark:bg-dark-bg rounded-lg p-4 space-y-2">
+                                                            <div className="flex justify-between items-start gap-2">
+                                                                <div>
+                                                                    <p className="font-semibold text-gray-900 dark:text-dark-text-primary">{invite.name}</p>
+                                                                    <p className="text-sm text-gray-600 dark:text-dark-text-secondary">{invite.email}</p>
+                                                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                                        Verloopt: {daysLeft > 0 ? `nog ${daysLeft} dag${daysLeft === 1 ? '' : 'en'}` : 'verlopen'}
+                                                                    </p>
+                                                                </div>
+                                                                {isReminderDue
+                                                                    ? <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium shrink-0">⏰ Herinnering nodig</span>
+                                                                    : alreadyReminded
+                                                                        ? <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium shrink-0">📧 Herinnerd</span>
+                                                                        : <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium shrink-0">⏳ In afwachting</span>
+                                                                }
+                                                            </div>
+                                                            <button
+                                                                onClick={() => handleSendReminder(invite)}
+                                                                disabled={reminderLoading === invite.id}
+                                                                className="w-full px-3 py-2 bg-brand-primary hover:bg-blue-900 text-white text-sm rounded-lg font-medium transition disabled:opacity-50"
+                                                            >
+                                                                {reminderLoading === invite.id ? 'Versturen...' : '📧 Herinnering sturen'}
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 

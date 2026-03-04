@@ -21,5 +21,9 @@ export { inviteUser } from './inviteUser';
 // Exporteer de sendWelcomeEmail functie
 export { sendWelcomeEmail } from './sendWelcomeEmail';
 
+// Uitnodigingen: herinnering sturen (callable) + verlopen-check (dagelijks scheduled)
+export { sendInviteReminder } from './sendInviteReminder';
+export { checkExpiredInvites } from './checkExpiredInvites';
+
 
 

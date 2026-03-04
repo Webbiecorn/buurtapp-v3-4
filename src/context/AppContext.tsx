@@ -82,10 +82,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // 1. Haal gebruikersprofiel op
         const userDocRef = doc(db, 'users', authUser.uid);
+        let inviteAcceptanceChecked = false; // Slechts één keer per auth-sessie uitvoeren
         const unsubscribeProfile = onSnapshot(userDocRef, (userDocSnap) => {
           if (userDocSnap.exists()) {
             const userProfile = { id: userDocSnap.id, ...convertTimestamps(userDocSnap.data()) } as User;
             setCurrentUser(userProfile);
+
+            // Markeer uitnodiging als geaccepteerd bij eerste inlog (één keer per sessie)
+            if (!inviteAcceptanceChecked) {
+              inviteAcceptanceChecked = true;
+              const inviteRef = doc(db, 'invites', authUser.uid);
+              getDoc(inviteRef).then(inviteSnap => {
+                if (inviteSnap.exists() && ['pending', 'reminded'].includes(inviteSnap.data().status)) {
+                  updateDoc(inviteRef, { status: 'accepted', acceptedAt: new Date() }).catch(() => {});
+                }
+              }).catch(() => {}); // Stille fout: gebruiker kan geen oudere invite hebben
+            }
 
             // 2. Zodra profiel is geladen, start alle data listeners.
             // Deze worden alleen gestart als de gebruiker is ingelogd en een profiel heeft.

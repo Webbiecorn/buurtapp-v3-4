@@ -48,7 +48,7 @@ service cloud.firestore {
       allow read: if canRead(request.auth.uid);
       allow write: if isBeheerderOrConcierge(request.auth.uid);
     }
-    
+
     match /dossiers/{dossierId} {
       allow read: if canRead(request.auth.uid);
       allow write: if isBeheerderOrConcierge(request.auth.uid);
@@ -91,13 +91,22 @@ service cloud.firestore {
       allow write: if isBeheerderOrConcierge(request.auth.uid);
     }
 
+    // App-uitnodigingen (nieuwe gebruikers): alleen Beheerder mag aanmaken/lezen/bijwerken
+    // De uitgenodigde gebruiker mag zijn eigen invite-doc lezen (om geaccepteerd te markeren)
+    match /invites/{inviteId} {
+      allow read: if isBeheerder(request.auth.uid) || request.auth.uid == inviteId;
+      allow create: if isBeheerder(request.auth.uid);
+      allow update: if isBeheerder(request.auth.uid) || request.auth.uid == inviteId;
+      allow delete: if isBeheerder(request.auth.uid);
+    }
+
     match /notificaties/{notifId} {
   // Eigen notificaties lezen/bijwerken/verwijderen toegestaan
   allow read, update, delete: if resource.data.userId == request.auth.uid;
   // Aanmaken van notificaties toegestaan voor ingelogde gebruikers (voor systeem-/chatnotificaties)
   allow create: if request.auth != null;
     }
-    
+
     match /conversations/{convId} {
         // Lijsten van gesprekken toestaan voor ingelogde gebruikers; daadwerkelijke document-toegang wordt per doc gecontroleerd.
         allow list: if request.auth != null;

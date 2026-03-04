@@ -2,6 +2,10 @@ import { onCall, HttpsError, CallableRequest } from "firebase-functions/v2/https
 import { logger } from "firebase-functions";
 import { UserRole } from "./types";
 import { db, auth as adminAuth, serverTimestamp } from "./firebase-admin-init";
+import { Timestamp } from "firebase-admin/firestore";
+
+// Uitnodiging is 7 dagen geldig
+const INVITE_EXPIRY_DAYS = 7;
 
 /**
  * Cloud Function om nieuwe gebruikers uit te nodigen voor de Buurtapp
@@ -37,6 +41,9 @@ export const inviteUser = onCall(async (request: CallableRequest<any>) => {
       "Alleen beheerders kunnen nieuwe gebruikers uitnodigen."
     );
   }
+
+  const requesterEmail: string = userData.email || "";
+  const requesterName: string = userData.name || "Beheerder";
 
   // 2. Input Validatie
   const { email, name, role, allowedModules } = (data || {}) as {
@@ -90,6 +97,24 @@ export const inviteUser = onCall(async (request: CallableRequest<any>) => {
     }
 
     await db.collection("users").doc(userRecord.uid).set(newUserProfile);
+
+    // 4b. Uitnodiging registreren in de `invites` collection (7 dagen geldig)
+    const expiresAt = Timestamp.fromDate(
+      new Date(Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
+    );
+    await db.collection("invites").doc(userRecord.uid).set({
+      uid: userRecord.uid,
+      email,
+      name,
+      role,
+      invitedBy: requesterUid,
+      invitedByEmail: requesterEmail,
+      invitedByName: requesterName,
+      invitedAt: serverTimestamp(),
+      expiresAt,
+      status: "pending",       // pending | accepted | expired
+      reminderSentAt: null,
+    });
 
     // 5. Wachtwoord-reset-e-mail link genereren
     let passwordResetLink = "";
