@@ -5,6 +5,31 @@
 
 ---
 
+## ✅ VOLTOOID: Bugfix camera-knop achterpaden registratie stap 4 (4 maart 2026)
+
+### Probleem
+- Knop "Foto maken" opende de bestandskiezer in plaats van de camera op mobiel
+- Hover-effect was nauwelijks zichtbaar op de blauwe knop
+- Op laptop werd terecht de bestandskiezer geopend (browser-gedrag, niet te wijzigen)
+
+### Oorzaak
+- Implementatie gebruikte `cameraInputRef.current?.click()` via JavaScript
+- Moderne browsers beschouwen geprogrammeerde `.click()` als indirecte interactie en negeren dan `capture="environment"`
+- Input was verborgen via `className="hidden"` (`display:none`) — sommige mobiele browsers weigeren camera via display:none inputs
+
+### Oplossing
+- `<button onClick={openCamera}>` vervangen door `<label htmlFor="camera-capture-input">` direct gekoppeld aan `<input capture="environment">`
+- Een klik op een `<label>` is altijd een directe gebruikersinteractie → browser respecteert `capture`
+- Input verborgen via `className="sr-only"` (visueel verborgen maar aanwezig in DOM)
+- `openCamera` / `openGallery` functies en refs verwijderd (niet meer nodig)
+- Hover verbeterd: `hover:bg-blue-900` i.p.v. `hover:bg-brand-primary/90`
+- Deploy: `firebase deploy --only hosting` → live op https://buurtapp-v3-4.web.app
+
+### Technische notitie
+> `capture="environment"` werkt **alleen op mobiele apparaten**. Desktop browsers negeren dit attribuut altijd — dat is browser-standaard, niet een bug.
+
+---
+
 ## ✅ VOLTOOID: Bugfix foto-upload + feature "foto later toevoegen" achterpaden (2 maart 2026)
 
 ### Bugfix — AchterpadenRegistratie.tsx

@@ -258,6 +258,7 @@ Zie ook: `src/types.ts` voor volledige TypeScript interfaces.
 5. **Firebase Functions in `us-central1`** — Niet ideaal voor EU (AVG + latency)
 6. **`recharts` ongebruikt** — Dependency kan verwijderd worden
 7. **Geen brandColors.ts** — Kleuren hardcoded als Tailwind classes, moeilijk te theamen
+8. **`capture="environment"` werkt niet op desktop** — Browser-standaard: desktop browsers negeren dit attribuut altijd. Op mobiel werkt het correct via `<label htmlFor>` direct gekoppeld aan het input-element.
 
 ---
 
@@ -279,6 +280,12 @@ Zie ook: `src/types.ts` voor volledige TypeScript interfaces.
 - ProjectParticipantsModal toegevoegd
 - Dark mode contrast verbeterd
 
+### 4 maart 2026
+- **Bugfix camera AchterpadenRegistratie stap 4**: `<button onClick={…}>` vervangen door `<label htmlFor>` direct gekoppeld aan `<input capture="environment">`. JS `.click()` werd door mobiele browsers als indirecte interactie beschouwd waardoor `capture` werd genegeerd. Label-aanpak is de enige browser-betrouwbare methode.
+- Hover-effect "Foto maken" knop verbeterd: `hover:bg-blue-900` i.p.v. nauwelijks-zichtbare `hover:bg-brand-primary/90`.
+- `openCamera` / `openGallery` functies en `cameraInputRef` / `galleryInputRef` refs verwijderd (niet meer nodig).
+- Deploy: Firebase Hosting → https://buurtapp-v3-4.web.app
+
 ### 2 maart 2026
 - SSOT-audit uitgevoerd door GitHub Copilot
 - AI_CONTEXT.md aangemaakt in `~/Webbiecorn-bedrijf/WEBBIECORN-SSOT/buurtapp-v3-4/`
@@ -289,4 +296,4 @@ Zie ook: `src/types.ts` voor volledige TypeScript interfaces.
 
 ---
 
-*Bijgehouden door: Kevin (Webbiecorn) + GitHub Copilot*
+*Bijgehouden door: Kevin (Webbiecorn) + GitHub Copilot | Laatst bijgewerkt: 4 maart 2026*
