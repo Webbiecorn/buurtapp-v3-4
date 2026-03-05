@@ -5,6 +5,33 @@
 
 ---
 
+## ✅ VOLTOOID: Bugfixes uitnodiging + gebruikersprofiel bewerken (5 maart 2026 — namiddag)
+
+### Bugfixes
+1. **`toast is not defined`** — `react-hot-toast` geïnstalleerd + import toegevoegd aan `AdminPage.tsx`. `<Toaster />` toegevoegd aan `App.tsx`.
+2. **Zod v4 `.issues` fix** — `result.error.errors.map()` → `(result.error.issues ?? result.error.errors ?? []).map()` in `validation.ts`.
+3. **Zod v4 `z.record()` fix** — `z.record(z.object({...}))` → `z.record(z.string(), z.object({...}))` want Zod v4 interpreteert eerste arg als key-schema.
+4. **Dubbele uitnodigingsmail** — client-side `sendPasswordResetEmail()` verwijderd uit `AddUserModal`. `sendWelcomeEmail` Cloud Function regelt dit al via Firestore trigger. Verwijderde de tweede reset-link die de eerste ongeldig maakte.
+5. **`setSuccess is not defined`** — achtergebleven `setSuccess(null)` aanroep verwijderd na eerdere state cleanup.
+
+### Nieuwe features
+- **Toast bevestiging na uitnodigen** — modal sluit automatisch na succes, toast rechtsboven.
+- **UserDetailModal** — klik op gebruiker in Gebruikersbeheer → popup met profiel, analytics (sessies, laatste activiteit), module-overzicht (✓/✗ per module + ✏️ bewerkrechten), organisatie. Twee knoppen: Verwijderen + Bewerken.
+- **Gebruiker bewerken via profiel** — inline edit-modus in UserDetailModal: rol wijzigen, organisatie aanpassen, modules aan/uitzetten, bewerkrechten per module instellen. Opslaat direct naar Firestore.
+- Tabel-rijen en mobile-cards klikbaar gemaakt (cursor-pointer, hover highlight).
+- Rol-kolom in tabel is nu een badge (geen dropdown meer) — bewerken gaat via profielpopup.
+
+### Gewijzigde bestanden
+- `src/App.tsx` — `<Toaster position="top-right" />` toegevoegd + import react-hot-toast
+- `src/pages/AdminPage.tsx` — `UserDetailModal` component + state `selectedUserForDetail` + klikbare rijen + toast imports
+- `src/utils/validation.ts` — Zod v4 fixes (.issues, z.record key schema)
+- `package.json` — `react-hot-toast` toegevoegd
+
+### Firebase action URL (handmatige console actie)
+- Aanbevolen: zet de Firebase Auth action URL op `https://buurtapp-v3-4.web.app/__/auth/action` zodat uitnodigingslinks geen `firebaseapp.com` tonen. Te doen via: Firebase Console → Authentication → Templates → Password reset → Customize action URL.
+
+---
+
 ## ✅ VOLTOOID: Gebruikersinfo & Viewer-rechten uitgebreid (5 maart 2026)
 
 ### Scope

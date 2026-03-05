@@ -152,7 +152,7 @@ Aparte module voor registratie en beheer van achterpaden in de wijken. Eigen sub
 - ⚠️ Nog niet volledig getest door Kevin.
 
 ### Admin (`/admin`)
-Gebruikersbeheer (aanmaken/bewerken/verwijderen), rolbeheer, module-restrictie instellen.
+Gebruikersbeheer: uitnodigen, bekijken, bewerken en verwijderen van gebruikers. Klik op een gebruiker opent `UserDetailModal` met profiel, analytics (sessies, laatste activiteit), module-toegangsoverzicht en bewerkrechten. Via bewerken-knop: rol, organisatie, modules en bewerkrechten per module aanpassen (werkt voor alle rollen, bewerkrechten-optie alleen zichtbaar bij Viewer). Rolbeheer, module-restrictie en openstaande uitnodigingen (met herinnering-functie) beheerbaar via dezelfde pagina.
 
 ### Rapportages (`/reports`)
 PDF/Excel export van meldingen en statistieken.
