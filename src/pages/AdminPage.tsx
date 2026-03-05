@@ -6,7 +6,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { functions, db, auth } from '../firebase'; // Importeer Firebase functions, Firestore en Auth
 import { httpsCallable } from 'firebase/functions'; // Importeer de httpsCallable functie
 import { doc, updateDoc, deleteDoc, collection, onSnapshot, query, where } from 'firebase/firestore'; // Importeer Firestore functies
-import { sendPasswordResetEmail } from 'firebase/auth'; // Importeer sendPasswordResetEmail
+import { sendPasswordResetEmail } from 'firebase/auth'; // Importeer sendPasswordResetEmail (gebruikt voor herinnering)
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, subDays, subWeeks, subMonths, formatDistanceToNow, startOfToday } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import { DownloadIcon, ClockIcon, TrendingUpIcon, XIcon, UsersIcon, BriefcaseIcon } from '../components/Icons';
@@ -116,30 +116,9 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
             const data = result.data as InviteUserResult;
             if (data.success) {
-                // Na succesvolle gebruiker creatie, verstuur password reset email
-                if (data.needsPasswordReset && data.email) {
-                    try {
-                        // Wacht 2 seconden om zeker te zijn dat Firebase Auth de gebruiker heeft verwerkt
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-
-                        // Verstuur de password reset email via Firebase client SDK
-                        await sendPasswordResetEmail(auth, data.email, {
-                            url: `${window.location.origin}/login`,
-                            handleCodeInApp: false,
-                        });
-
-                        toast.success(`Gebruiker ${name} aangemaakt en uitnodigingsmail verzonden naar ${email}.`);
-                        onClose();
-                    } catch (emailError: any) {
-                        logger.error('Failed to send invitation email', emailError, { email });
-                        // Gebruiker is wel aangemaakt, maar email faalde
-                        toast.error(`Gebruiker ${name} aangemaakt maar uitnodigingsmail mislukt: ${emailError.message}`);
-                        onClose();
-                    }
-                } else {
-                    toast.success(data.message || `Gebruiker ${name} aangemaakt.`);
-                    onClose();
-                }
+                // sendWelcomeEmail Cloud Function stuurt automatisch de uitnodigingsmail via Firestore trigger
+                toast.success(`Gebruiker ${name} aangemaakt. Uitnodigingsmail wordt verzonden naar ${email}.`);
+                onClose();
 
                 // Track analytics
                 trackUserInvited(role);
