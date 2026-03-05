@@ -6,14 +6,14 @@
 
 ## Overzicht
 
-| Sleutel | Doel | Verplicht | Opslaan in |
-|---|---|---|---|
-| `VITE_FIREBASE_API_KEY` | Firebase (Auth, Firestore, Storage, Functions) | ✅ Ja | `.env.local` |
-| `VITE_GOOGLE_MAPS_API_KEY` | Kaarten in Statistieken, Achterpaden, Registratie | ✅ Ja | `.env.local` |
-| `VITE_GEMINI_API_KEY` | AI-samenvattingen & dagelijkse wijkupdates | ✅ Ja | `.env.local` |
-| `GMAIL_USER` | E-mail versturen (uitnodigingen, herinneringen) | ⏳ Optioneel* | Firebase Secrets |
-| `GMAIL_APP_PASSWORD` | Wachtwoord voor Gmail-app (niet je eigen wachtwoord) | ⏳ Optioneel* | Firebase Secrets |
-| `VITE_USE_EMULATORS` | Firebase emulators inschakelen tijdens ontwikkeling | 🔧 Dev only | `.env.local` |
+| Sleutel                    | Doel                                                 | Verplicht    | Opslaan in       |
+| -------------------------- | ---------------------------------------------------- | ------------ | ---------------- |
+| `VITE_FIREBASE_API_KEY`    | Firebase (Auth, Firestore, Storage, Functions)       | ✅ Ja         | `.env.local`     |
+| `VITE_GOOGLE_MAPS_API_KEY` | Kaarten in Statistieken, Achterpaden, Registratie    | ✅ Ja         | `.env.local`     |
+| `VITE_GEMINI_API_KEY`      | AI-samenvattingen & dagelijkse wijkupdates           | ✅ Ja         | `.env.local`     |
+| `GMAIL_USER`               | E-mail versturen (uitnodigingen, herinneringen)      | ⏳ Optioneel* | Firebase Secrets |
+| `GMAIL_APP_PASSWORD`       | Wachtwoord voor Gmail-app (niet je eigen wachtwoord) | ⏳ Optioneel* | Firebase Secrets |
+| `VITE_USE_EMULATORS`       | Firebase emulators inschakelen tijdens ontwikkeling  | 🔧 Dev only   | `.env.local`     |
 
 > *E-mail werkt zonder Gmail, maar uitnodigings- en herinneringsmails worden dan **niet** daadwerkelijk verstuurd. De HTML-versie wordt wel opgeslagen in Firestore (bruikbaar voor handmatige verzending).
 
@@ -159,12 +159,12 @@ VITE_ENABLE_LOGGING=true
 
 Als je `VITE_USE_EMULATORS=true` instelt, verbindt de app met lokale Firebase-emulators:
 
-| Dienst | Poort |
-|---|---|
-| Firestore | 8083 |
-| Storage | 9201 |
-| Auth | 9100 |
-| Functions | 5101 |
+| Dienst    | Poort |
+| --------- | ----- |
+| Firestore | 8083  |
+| Storage   | 9201  |
+| Auth      | 9100  |
+| Functions | 5101  |
 
 Start de emulators met:
 ```bash
@@ -180,12 +180,12 @@ npm run dev
 
 ## Samenvatting — prioriteiten
 
-| # | Wat | Urgentie |
-|---|---|---|
-| 1 | `VITE_FIREBASE_API_KEY` instellen | 🔴 Direct nodig |
-| 2 | `VITE_GOOGLE_MAPS_API_KEY` instellen | 🔴 Direct nodig (kaarten) |
-| 3 | `VITE_GEMINI_API_KEY` instellen | 🟡 Nodig voor AI-functies |
-| 4 | Gmail App-wachtwoord + Secrets instellen | 🟢 Later (e-mail werkt ook handmatig) |
+| #   | Wat                                      | Urgentie                             |
+| --- | ---------------------------------------- | ------------------------------------ |
+| 1   | `VITE_FIREBASE_API_KEY` instellen        | 🔴 Direct nodig                       |
+| 2   | `VITE_GOOGLE_MAPS_API_KEY` instellen     | 🔴 Direct nodig (kaarten)             |
+| 3   | `VITE_GEMINI_API_KEY` instellen          | 🟡 Nodig voor AI-functies             |
+| 4   | Gmail App-wachtwoord + Secrets instellen | 🟢 Later (e-mail werkt ook handmatig) |
 
 ---
 

@@ -1,9 +1,14 @@
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions";
-import { db } from "./firebase-admin-init";
+import nodemailer from "nodemailer";
+import { db, auth as adminAuth } from "./firebase-admin-init";
 import { Timestamp } from "firebase-admin/firestore";
-// emailTemplates imported via commented nodemailer block — activate when SMTP is configured:
-// import { buildReminderEmailHtml, buildReminderEmailSubject } from "./emailTemplates";
+import { buildReminderEmailHtml, buildReminderEmailSubject } from "./emailTemplates";
+
+const gmailUser = defineSecret("GMAIL_USER");
+const gmailPassword = defineSecret("GMAIL_APP_PASSWORD");
+const APP_NAME = "BuurtApp Lelystad";
 
 /**
  * Geplande Cloud Function — draait elke dag om 08:00 Amsterdam-tijd.
@@ -22,10 +27,19 @@ export const checkExpiredInvites = onSchedule(
   {
     schedule: "0 8 * * *",       // elke dag 08:00 UTC (= 09:00 / 10:00 Amsterdam)
     timeZone: "Europe/Amsterdam",
+    secrets: [gmailUser, gmailPassword],
   },
   async () => {
     const now = Timestamp.now();
     const threeDaysAgo = Timestamp.fromMillis(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: gmailUser.value(),
+        pass: gmailPassword.value(),
+      },
+    });
 
     // ─── A) Herinnering markeren na 3 dagen ───────────────────────────────────
     const reminderSnap = await db
@@ -51,6 +65,29 @@ export const checkExpiredInvites = onSchedule(
         targetId: inviteDoc.id,
         targetType: "melding",
       });
+
+      // Stuur herinneringsmail met verse reset-link
+      try {
+        const daysLeft = 7 - Math.floor((Date.now() - invite.invitedAt.toMillis()) / (1000 * 60 * 60 * 24));
+        const freshResetLink = await adminAuth.generatePasswordResetLink(invite.email, {
+          url: `https://buurtapp-v3-4.web.app/#/login`,
+        });
+        await transporter.sendMail({
+          from: `"${APP_NAME}" <${gmailUser.value()}>`,
+          to: invite.email,
+          subject: buildReminderEmailSubject(),
+          html: buildReminderEmailHtml({
+            name: invite.name,
+            email: invite.email,
+            role: invite.role,
+            freshPasswordResetLink: freshResetLink,
+            daysLeft: Math.max(0, daysLeft),
+          }),
+        });
+        logger.info(`📧 Herinneringsmail verstuurd naar ${invite.email}`);
+      } catch (mailErr) {
+        logger.warn(`⚠️ Herinneringsmail mislukt voor ${invite.email}:`, mailErr);
+      }
 
       reminderCount++;
       logger.info(`📧 reminderDue gezet voor ${invite.email}`);
@@ -80,51 +117,23 @@ export const checkExpiredInvites = onSchedule(
         targetType: "melding",
       });
 
+      // Stuur melding naar beheerder dat uitnodiging is verlopen
+      try {
+        await transporter.sendMail({
+          from: `"${APP_NAME}" <${gmailUser.value()}>`,
+          to: invite.invitedByEmail,
+          subject: `Uitnodiging verlopen — ${invite.name}`,
+          html: `<p>De uitnodiging voor <strong>${invite.name}</strong> (${invite.email}) is verlopen.</p>
+                 <p><a href="https://buurtapp-v3-4.web.app/#/admin?tab=users">Stuur een nieuwe uitnodiging →</a></p>`,
+        });
+        logger.info(`📧 Verlopen-mail verstuurd naar ${invite.invitedByEmail}`);
+      } catch (mailErr) {
+        logger.warn(`⚠️ Verlopen-mail mislukt voor ${invite.email}:`, mailErr);
+      }
+
       expiredCount++;
       logger.info(`⏱️ Uitnodiging verlopen voor ${invite.email}`);
     }
-
-    // ─── TODO: Gmail e-mail verzenden ─────────────────────────────────────────
-    // Zodra je DNS-records en een Gmail App Password hebt:
-    //   1. Voeg toe aan Firebase Secrets:
-    //      firebase functions:secrets:set GMAIL_USER
-    //      firebase functions:secrets:set GMAIL_APP_PASSWORD
-    //   2. Verwijder onderstaand commentaar en installeer nodemailer:
-    //      cd functions && npm install nodemailer @types/nodemailer
-    //
-    // import nodemailer from "nodemailer";
-    // const transporter = nodemailer.createTransport({
-    //   service: "gmail",
-    //   auth: {
-    //     user: process.env.GMAIL_USER,
-    //     pass: process.env.GMAIL_APP_PASSWORD,
-    //   },
-    // });
-    //
-    // A) Stuur herinnering bij reminderDue (gebruik buildReminderEmailHtml):
-    // const daysLeft = 7 - Math.floor((Date.now() - invite.invitedAt.toMillis()) / (1000 * 60 * 60 * 24));
-    // const freshResetLink = "https://buurtapp-v3-4.web.app/#/set-password";
-    // await transporter.sendMail({
-    //   from: `"Buurtconciërge App" <${process.env.GMAIL_USER}>`,
-    //   to: invite.email,
-    //   subject: buildReminderEmailSubject(),
-    //   html: buildReminderEmailHtml({
-    //     name: invite.name,
-    //     email: invite.email,
-    //     role: invite.role,
-    //     freshPasswordResetLink: freshResetLink,
-    //     daysLeft: Math.max(0, daysLeft),
-    //   }),
-    // });
-    //
-    // B) Stuur mail bij verlopen uitnodiging:
-    // await transporter.sendMail({
-    //   from: `"Buurtconciërge App" <${process.env.GMAIL_USER}>`,
-    //   to: invite.invitedByEmail,
-    //   subject: "Uitnodiging verlopen — ${invite.name}",
-    //   html: `<p>De uitnodiging voor <strong>${invite.name}</strong> (${invite.email}) is verlopen.</p>
-    //          <p><a href="https://buurtapp-v3-4.web.app/#/admin?tab=users">Stuur een nieuwe uitnodiging →</a></p>`,
-    // });
 
     logger.info(
       `✅ checkExpiredInvites klaar — ${reminderCount} herinnering(en) gepland, ${expiredCount} uitnodiging(en) verlopen`

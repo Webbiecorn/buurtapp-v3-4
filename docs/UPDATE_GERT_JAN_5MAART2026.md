@@ -76,21 +76,21 @@ Het uitnodigingssysteem is volledig vernieuwd:
 
 Het systeem controleert elke dag automatisch openstaande uitnodigingen:
 
-| Wanneer | Wat gebeurt er |
-|---|---|
+| Wanneer        | Wat gebeurt er                                                                                                                                        |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Na 3 dagen** | Je ontvangt een melding in de app dat de uitnodiging nog niet is geaccepteerd. Je kunt dan via de knop **"Stuur herinnering"** een verse link sturen. |
-| **Na 7 dagen** | De uitnodiging verloopt automatisch. Je ontvangt een melding in de app. Je kunt dan een nieuwe uitnodiging sturen. |
+| **Na 7 dagen** | De uitnodiging verloopt automatisch. Je ontvangt een melding in de app. Je kunt dan een nieuwe uitnodiging sturen.                                    |
 
 ### Statusoverzicht in de app
 
 In **Beheer → Gebruikers** zie je onder de gebruikerstabel een sectie **"Openstaande uitnodigingen"** met de volgende statussen:
 
-| Status | Betekenis |
-|---|---|
-| ⏳ In afwachting | Uitnodiging verstuurd, nog niet geaccepteerd |
-| 📧 Herinnerd | Er is een herinnering verstuurd |
-| ✅ Geaccepteerd | Gebruiker heeft ingelogd en is actief |
-| ❌ Verlopen | Uitnodiging niet op tijd geaccepteerd — stuur een nieuwe |
+| Status          | Betekenis                                                |
+| --------------- | -------------------------------------------------------- |
+| ⏳ In afwachting | Uitnodiging verstuurd, nog niet geaccepteerd             |
+| 📧 Herinnerd     | Er is een herinnering verstuurd                          |
+| ✅ Geaccepteerd  | Gebruiker heeft ingelogd en is actief                    |
+| ❌ Verlopen      | Uitnodiging niet op tijd geaccepteerd — stuur een nieuwe |
 
 ---
 
@@ -113,18 +113,18 @@ De herinneringsmail (die verstuurd wordt als iemand de uitnodiging nog niet heef
 
 ## Samenvatting nieuw in één oogopslag
 
-| #   | Nieuwe functie                                 | Werkt nu? | Waar te vinden                                          |
-| --- | ---------------------------------------------- | --------- | ------------------------------------------------------- |
-| 1   | Uitnodigingen 7 dagen geldig (was: 1 uur)      | ✅ Ja     | Automatisch                                             |
-| 2   | Automatische herinnering na 3 dagen            | ✅ Ja     | Beheer → Gebruikers → Openstaande uitnodigingen         |
-| 3   | Uitnodiging verloopt na 7 dagen met melding    | ✅ Ja     | Beheer → Gebruikers → Openstaande uitnodigingen         |
-| 4   | Statusoverzicht openstaande uitnodigingen      | ✅ Ja     | Beheer → Gebruikers (sectie onderaan)                   |
-| 5   | Laatste activiteit per gebruiker               | ✅ Ja     | Beheer → Gebruikers (kolom "Laatste activiteit")        |
-| 6   | Sessieteller per gebruiker                     | ✅ Ja     | Beheer → Gebruikers (kolom "Sessies")                   |
-| 7   | Actief/Inactief badge                          | ✅ Ja     | Beheer → Gebruikers (naast de naam)                     |
-| 8   | Organisatieveld bij gebruiker                  | ✅ Ja     | Beheer → Gebruikers → Nieuwe gebruiker uitnodigen       |
-| 9   | Bewerktoegang per module voor Viewers          | ✅ Ja     | Beheer → Gebruikers → Nieuwe gebruiker uitnodigen       |
-| 10  | Verbeterde uitnodigings- en herinneringsmail   | ⏳ Binnenkort | Automatisch (zodra e-mailkoppeling actief is)       |
+| #   | Nieuwe functie                               | Werkt nu?    | Waar te vinden                                    |
+| --- | -------------------------------------------- | ------------ | ------------------------------------------------- |
+| 1   | Uitnodigingen 7 dagen geldig (was: 1 uur)    | ✅ Ja         | Automatisch                                       |
+| 2   | Automatische herinnering na 3 dagen          | ✅ Ja         | Beheer → Gebruikers → Openstaande uitnodigingen   |
+| 3   | Uitnodiging verloopt na 7 dagen met melding  | ✅ Ja         | Beheer → Gebruikers → Openstaande uitnodigingen   |
+| 4   | Statusoverzicht openstaande uitnodigingen    | ✅ Ja         | Beheer → Gebruikers (sectie onderaan)             |
+| 5   | Laatste activiteit per gebruiker             | ✅ Ja         | Beheer → Gebruikers (kolom "Laatste activiteit")  |
+| 6   | Sessieteller per gebruiker                   | ✅ Ja         | Beheer → Gebruikers (kolom "Sessies")             |
+| 7   | Actief/Inactief badge                        | ✅ Ja         | Beheer → Gebruikers (naast de naam)               |
+| 8   | Organisatieveld bij gebruiker                | ✅ Ja         | Beheer → Gebruikers → Nieuwe gebruiker uitnodigen |
+| 9   | Bewerktoegang per module voor Viewers        | ✅ Ja         | Beheer → Gebruikers → Nieuwe gebruiker uitnodigen |
+| 10  | Verbeterde uitnodigings- en herinneringsmail | ⏳ Binnenkort | Automatisch (zodra e-mailkoppeling actief is)     |
 
 ---
 

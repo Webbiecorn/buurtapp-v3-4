@@ -221,13 +221,13 @@ firebase deploy --only functions
 
 ## Problemen oplossen
 
-| Probleem | Oorzaak | Oplossing |
-|---|---|---|
-| `Error: Invalid login` | Verkeerd wachtwoord of geen App-wachtwoord | Controleer of je `GMAIL_APP_PASSWORD` het gegenereerde App-wachtwoord is, niet je gewone wachtwoord |
-| `Error: Less secure app access` | Gmail blokkeert inlog zonder App-wachtwoord | Gebruik altijd een App-wachtwoord, niet het gewone wachtwoord |
-| `GMAIL_USER is not defined` | Secret niet goed ingesteld | Voer `firebase functions:secrets:list` uit en controleer de namen exact |
-| Mail komt niet aan | Spam-filter | Controleer de spam-map; voeg het verzendadres toe aan contacten |
-| Functions build mislukt | Nodemailer niet geïnstalleerd | Controleer of `npm install nodemailer @types/nodemailer` is uitgevoerd in de `functions/` map |
+| Probleem                        | Oorzaak                                     | Oplossing                                                                                           |
+| ------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `Error: Invalid login`          | Verkeerd wachtwoord of geen App-wachtwoord  | Controleer of je `GMAIL_APP_PASSWORD` het gegenereerde App-wachtwoord is, niet je gewone wachtwoord |
+| `Error: Less secure app access` | Gmail blokkeert inlog zonder App-wachtwoord | Gebruik altijd een App-wachtwoord, niet het gewone wachtwoord                                       |
+| `GMAIL_USER is not defined`     | Secret niet goed ingesteld                  | Voer `firebase functions:secrets:list` uit en controleer de namen exact                             |
+| Mail komt niet aan              | Spam-filter                                 | Controleer de spam-map; voeg het verzendadres toe aan contacten                                     |
+| Functions build mislukt         | Nodemailer niet geïnstalleerd               | Controleer of `npm install nodemailer @types/nodemailer` is uitgevoerd in de `functions/` map       |
 
 ---
 

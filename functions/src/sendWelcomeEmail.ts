@@ -1,20 +1,23 @@
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions";
+import nodemailer from "nodemailer";
 import { auth as adminAuth } from "./firebase-admin-init";
 import { buildInviteEmailHtml, buildInviteEmailSubject } from "./emailTemplates";
+
+const gmailUser = defineSecret("GMAIL_USER");
+const gmailPassword = defineSecret("GMAIL_APP_PASSWORD");
+const APP_NAME = "BuurtApp Lelystad";
 
 /**
  * Cloud Function die triggert wanneer een nieuw gebruikersdocument wordt aangemaakt in Firestore.
  * Genereert een uitnodigingsmail (HTML + tekst) en slaat deze op in het gebruikersdocument.
  *
- * EMAIL VERZENDING — ACTIVEREN:
- * 1. firebase functions:secrets:set GMAIL_USER
- * 2. firebase functions:secrets:set GMAIL_APP_PASSWORD
- * 3. cd functions && npm install nodemailer @types/nodemailer
- * 4. Uncomment het nodemailer blok hieronder
+ * Verstuurt een uitnodigingsmail via Gmail zodra een nieuw gebruikersprofiel is aangemaakt.
+ * Secrets GMAIL_USER + GMAIL_APP_PASSWORD zijn ingesteld via Firebase Secrets.
  */
 export const sendWelcomeEmail = onDocumentCreated(
-  "users/{userId}",
+  { document: "users/{userId}", secrets: [gmailUser, gmailPassword] },
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
@@ -60,27 +63,20 @@ export const sendWelcomeEmail = onDocumentCreated(
         inviteEmailSubject: emailSubject,
       });
 
-      // ── NODEMAILER (activeren zodra GMAIL_USER + GMAIL_APP_PASSWORD beschikbaar zijn) ──
-      // const nodemailer = require('nodemailer');
-      // const transporter = nodemailer.createTransport({
-      //   service: 'gmail',
-      //   auth: {
-      //     user: process.env.GMAIL_USER,
-      //     pass: process.env.GMAIL_APP_PASSWORD,
-      //   },
-      // });
-      // await transporter.sendMail({
-      //   from: `"${APP_NAME}" <${process.env.GMAIL_USER}>`,
-      //   to: userData.email,
-      //   subject: emailSubject,
-      //   text: emailText,
-      //   html: emailHtml,
-      // });
-      // logger.info(`✅ Uitnodigingsmail verzonden naar ${userData.email}`);
-
-      logger.info(`✅ Uitnodigings-HTML gegenereerd voor ${userData.email}`);
-      logger.info(`🔗 Reset-link: ${resetLink}`);
-      logger.info(`📧 Activeer nodemailer om emails te versturen (zie TODO in sendWelcomeEmail.ts)`);
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: gmailUser.value(),
+          pass: gmailPassword.value(),
+        },
+      });
+      await transporter.sendMail({
+        from: `"${APP_NAME}" <${gmailUser.value()}>`,
+        to: userData.email,
+        subject: emailSubject,
+        html: emailHtml,
+      });
+      logger.info(`✅ Uitnodigingsmail verzonden naar ${userData.email}`);
 
       return { success: true };
     } catch (error) {
