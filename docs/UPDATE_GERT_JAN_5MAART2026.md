@@ -94,7 +94,7 @@ In **Beheer → Gebruikers** zie je onder de gebruikerstabel een sectie **"Opens
 
 ---
 
-## 5. Verbeterde uitnodigingsmails (voorbereid)
+## 5. Verbeterde uitnodigingsmails
 
 ### Wat is er veranderd?
 De uitnodigingsmail die nieuwe gebruikers ontvangen is volledig opnieuw opgebouwd. De nieuwe mail bevat:
@@ -107,7 +107,7 @@ De uitnodigingsmail die nieuwe gebruikers ontvangen is volledig opnieuw opgebouw
 
 De herinneringsmail (die verstuurd wordt als iemand de uitnodiging nog niet heeft geaccepteerd) is op dezelfde manier opgeknapt en vermeldt ook hoeveel dagen de uitnodiging nog geldig is.
 
-> **Let op:** De e-mails worden momenteel nog niet automatisch verzonden. De inhoud wordt al wel aangemaakt en opgeslagen. Zodra de e-mailkoppeling (Gmail) is ingesteld, gaan de mails automatisch de deur uit. Kevin werkt dit op korte termijn af.
+> **De e-mails worden nu automatisch verstuurd** zodra een beheerder een nieuwe gebruiker uitnodigt.
 
 ---
 
@@ -124,7 +124,7 @@ De herinneringsmail (die verstuurd wordt als iemand de uitnodiging nog niet heef
 | 7   | Actief/Inactief badge                        | ✅ Ja         | Beheer → Gebruikers (naast de naam)               |
 | 8   | Organisatieveld bij gebruiker                | ✅ Ja         | Beheer → Gebruikers → Nieuwe gebruiker uitnodigen |
 | 9   | Bewerktoegang per module voor Viewers        | ✅ Ja         | Beheer → Gebruikers → Nieuwe gebruiker uitnodigen |
-| 10  | Verbeterde uitnodigings- en herinneringsmail | ⏳ Binnenkort | Automatisch (zodra e-mailkoppeling actief is)     |
+| 10  | Verbeterde uitnodigings- en herinneringsmail   | ✅ Ja     | Automatisch verstuurd bij uitnodiging              |
 
 ---
 
