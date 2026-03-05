@@ -355,19 +355,19 @@ Bij elke nieuwe feature verplicht:
 
 ## Versie-overzicht
 
-| Versie | Datum       | Highlights                                                                          |
-| ------ | ----------- | ----------------------------------------------------------------------------------- |
+| Versie | Datum       | Highlights                                                                         |
+| ------ | ----------- | ---------------------------------------------------------------------------------- |
 | v0.4.1 | 5 mrt 2026  | lastSeen, sessionCount, organisatie, modulePermissions Viewer, Gmail e-mail actief |
-| v0.4.0 | 4 mrt 2026  | Uitnodigingssysteem (invites, checkExpiredInvites, sendInviteReminder)              |
-| v0.3.5 | 16 feb 2026 | Firebase Performance Monitoring, bundle analyse                                     |
-| v0.3.4 | 16 feb 2026 | Bulk Actions (multi-select) in Meldingen                                            |
-| v0.3.3 | 16 feb 2026 | Keyboard Shortcuts + Command Palette                                                |
-| v0.3.2 | 16 feb 2026 | Debounced Search met loading indicators                                             |
-| v0.3.1 | 16 feb 2026 | React Error Boundaries                                                              |
-| v0.3.0 | 16 feb 2026 | Zod validatie, Firebase Analytics, monitoring                                       |
-| v0.2.1 | 16 feb 2026 | Logger service, skeleton loaders, cleanup                                           |
-| v0.2.0 | 16 feb 2026 | Statistics charts fixes, 2D heatmap improvements                                    |
-| v0.1.0 | 10 aug 2025 | Chat, admin tabs, statistieken pagina                                               |
+| v0.4.0 | 4 mrt 2026  | Uitnodigingssysteem (invites, checkExpiredInvites, sendInviteReminder)             |
+| v0.3.5 | 16 feb 2026 | Firebase Performance Monitoring, bundle analyse                                    |
+| v0.3.4 | 16 feb 2026 | Bulk Actions (multi-select) in Meldingen                                           |
+| v0.3.3 | 16 feb 2026 | Keyboard Shortcuts + Command Palette                                               |
+| v0.3.2 | 16 feb 2026 | Debounced Search met loading indicators                                            |
+| v0.3.1 | 16 feb 2026 | React Error Boundaries                                                             |
+| v0.3.0 | 16 feb 2026 | Zod validatie, Firebase Analytics, monitoring                                      |
+| v0.2.1 | 16 feb 2026 | Logger service, skeleton loaders, cleanup                                          |
+| v0.2.0 | 16 feb 2026 | Statistics charts fixes, 2D heatmap improvements                                   |
+| v0.1.0 | 10 aug 2025 | Chat, admin tabs, statistieken pagina                                              |
 
 ---
 

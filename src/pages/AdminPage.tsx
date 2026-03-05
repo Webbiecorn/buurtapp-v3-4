@@ -5,7 +5,7 @@ import { Modal, NewProjectForm } from '../components/ui';
 import { useSearchParams, Link } from 'react-router-dom';
 import { functions, db, auth } from '../firebase'; // Importeer Firebase functions, Firestore en Auth
 import { httpsCallable } from 'firebase/functions'; // Importeer de httpsCallable functie
-import { doc, updateDoc, collection, onSnapshot, query, where } from 'firebase/firestore'; // Importeer Firestore functies
+import { doc, updateDoc, deleteDoc, collection, onSnapshot, query, where } from 'firebase/firestore'; // Importeer Firestore functies
 import { sendPasswordResetEmail } from 'firebase/auth'; // Importeer sendPasswordResetEmail
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, subDays, subWeeks, subMonths, formatDistanceToNow, startOfToday } from 'date-fns';
 import { nl } from 'date-fns/locale';
@@ -1114,6 +1114,18 @@ const AdminPage: React.FC = () => {
         }
     };
 
+    // Verwijder een openstaande uitnodiging
+    const handleDeleteInvite = async (invite: any) => {
+        if (!window.confirm(`Wil je de uitnodiging voor ${invite.name} (${invite.email}) verwijderen?`)) return;
+        try {
+            await deleteDoc(doc(db, 'invites', invite.id));
+            toast.success(`Uitnodiging voor ${invite.name} verwijderd`);
+        } catch (err: any) {
+            logger.error('Failed to delete invite', err, { uid: invite.id });
+            toast.error('Fout bij verwijderen uitnodiging');
+        }
+    };
+
     // Project detail modal state
     const [selectedProjectDetail, setSelectedProjectDetail] = useState<Project | null>(null);
     const [isProjectDetailModalOpen, setIsProjectDetailModalOpen] = useState(false);
@@ -1940,7 +1952,7 @@ const AdminPage: React.FC = () => {
                                                             <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Rol</th>
                                                             <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Status</th>
                                                             <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary">Verloopt</th>
-                                                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary text-right">Actie</th>
+                                                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-dark-text-secondary text-right">Acties</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -1966,13 +1978,21 @@ const AdminPage: React.FC = () => {
                                                                         {daysLeft > 0 ? `Nog ${daysLeft} dag${daysLeft === 1 ? '' : 'en'}` : 'Verlopen'}
                                                                     </td>
                                                                     <td className="p-3 text-right">
-                                                                        <button
-                                                                            onClick={() => handleSendReminder(invite)}
-                                                                            disabled={reminderLoading === invite.id}
-                                                                            className="px-3 py-1.5 bg-brand-primary hover:bg-blue-900 text-white text-sm rounded-lg font-medium transition disabled:opacity-50"
-                                                                        >
-                                                                            {reminderLoading === invite.id ? '...' : '📧 Herinnering sturen'}
-                                                                        </button>
+                                                                        <div className="flex justify-end gap-2">
+                                                                            <button
+                                                                                onClick={() => handleSendReminder(invite)}
+                                                                                disabled={reminderLoading === invite.id}
+                                                                                className="px-3 py-1.5 bg-brand-primary hover:bg-blue-900 text-white text-sm rounded-lg font-medium transition disabled:opacity-50"
+                                                                            >
+                                                                                {reminderLoading === invite.id ? '...' : '📧 Herinnering sturen'}
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleDeleteInvite(invite)}
+                                                                                className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 text-sm rounded-lg font-medium transition"
+                                                                            >
+                                                                                Verwijderen
+                                                                            </button>
+                                                                        </div>
                                                                     </td>
                                                                 </tr>
                                                             );
@@ -2011,6 +2031,12 @@ const AdminPage: React.FC = () => {
                                                                 className="w-full px-3 py-2 bg-brand-primary hover:bg-blue-900 text-white text-sm rounded-lg font-medium transition disabled:opacity-50"
                                                             >
                                                                 {reminderLoading === invite.id ? 'Versturen...' : '📧 Herinnering sturen'}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteInvite(invite)}
+                                                                className="w-full px-3 py-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 text-sm rounded-lg font-medium transition"
+                                                            >
+                                                                Verwijderen
                                                             </button>
                                                         </div>
                                                     );
