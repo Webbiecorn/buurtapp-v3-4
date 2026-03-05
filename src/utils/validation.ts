@@ -36,7 +36,7 @@ export const inviteUserSchema = z.object({
   role: userRoleSchema,
   organisatie: z.string().optional(),
   allowedModules: z.array(z.string()).optional(),
-  modulePermissions: z.record(z.object({ canEdit: z.boolean() })).optional(),
+  modulePermissions: z.record(z.string(), z.object({ canEdit: z.boolean() })).optional(),
 });
 
 export const updateUserSchema = z.object({
