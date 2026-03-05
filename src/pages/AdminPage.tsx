@@ -75,7 +75,6 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
-        setSuccess(null);
 
         // Zod validatie
         const validation = validate(inviteUserSchema, {
