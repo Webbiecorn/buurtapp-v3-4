@@ -274,6 +274,245 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     );
 };
 
+// Gebruiker Detail + Bewerk Modal
+const UserDetailModal: React.FC<{ user: User; onClose: () => void; onDelete: () => void }> = ({ user, onClose, onDelete }) => {
+    const [editMode, setEditMode] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+    // Edit state
+    const [role, setRole] = useState<UserRole>(user.role);
+    const [organisatie, setOrganisatie] = useState(user.organisatie || '');
+    const [restrictModules, setRestrictModules] = useState(!!(user.allowedModules && user.allowedModules.length > 0));
+    const [selectedModules, setSelectedModules] = useState<string[]>(user.allowedModules || []);
+    const [moduleCanEdit, setModuleCanEdit] = useState<{ [key: string]: boolean }>(
+        Object.fromEntries(Object.entries(user.modulePermissions || {}).map(([k, v]) => [k, v.canEdit]))
+    );
+
+    const availableModules = [
+        { key: 'dashboard', label: 'Dashboard' },
+        { key: 'meldingen', label: 'Meldingen' },
+        { key: 'projecten', label: 'Projecten' },
+        { key: 'dossiers', label: 'Woningdossiers' },
+        { key: 'urenregistratie', label: 'Urenregistratie' },
+        { key: 'statistieken', label: 'Statistieken' },
+        { key: 'rapportages', label: 'Rapportages' },
+        { key: 'contacten', label: 'Contacten' },
+        { key: 'achterpaden', label: 'Achterpaden' },
+        { key: 'updates', label: 'Updates' },
+        { key: 'admin', label: 'Beheer' },
+    ];
+
+    const lastSeen = user.lastSeen ? new Date(user.lastSeen as any) : null;
+    const daysSince = lastSeen ? Math.floor((Date.now() - lastSeen.getTime()) / (1000 * 60 * 60 * 24)) : null;
+    const isInactive = daysSince !== null && daysSince > 14;
+
+    const toggleModule = (key: string) => {
+        setSelectedModules(prev =>
+            prev.includes(key) ? prev.filter(m => m !== key) : [...prev, key]
+        );
+        if (selectedModules.includes(key)) {
+            setModuleCanEdit(prev => { const n = { ...prev }; delete n[key]; return n; });
+        }
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const updates: any = {
+                role,
+                organisatie: organisatie || null,
+            };
+            if (restrictModules && selectedModules.length > 0) {
+                updates.allowedModules = selectedModules;
+                if (role === UserRole.Viewer && Object.keys(moduleCanEdit).length > 0) {
+                    updates.modulePermissions = Object.fromEntries(
+                        Object.entries(moduleCanEdit)
+                            .filter(([k]) => selectedModules.includes(k))
+                            .map(([k, v]) => [k, { canEdit: v }])
+                    );
+                } else {
+                    updates.modulePermissions = null;
+                }
+            } else {
+                updates.allowedModules = null;
+                updates.modulePermissions = null;
+            }
+            await updateDoc(doc(db, 'users', user.id), updates);
+            toast.success(`${user.name} bijgewerkt`);
+            setEditMode(false);
+        } catch (err: any) {
+            toast.error('Opslaan mislukt: ' + (err.message || 'Onbekende fout'));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setRole(user.role);
+        setOrganisatie(user.organisatie || '');
+        setRestrictModules(!!(user.allowedModules && user.allowedModules.length > 0));
+        setSelectedModules(user.allowedModules || []);
+        setModuleCanEdit(Object.fromEntries(Object.entries(user.modulePermissions || {}).map(([k, v]) => [k, v.canEdit])));
+        setEditMode(false);
+    };
+
+    return (
+        <Modal isOpen={true} onClose={onClose} title={editMode ? `${user.name} bewerken` : 'Gebruikersprofiel'}>
+            <div className="space-y-5">
+                {/* Header: avatar + basisinfo */}
+                <div className="flex items-center gap-4">
+                    <img src={user.avatarUrl} alt={user.name} className="h-16 w-16 rounded-full ring-2 ring-brand-primary/30" />
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-dark-text-primary">{user.name}</h3>
+                        <p className="text-sm text-gray-500 dark:text-dark-text-secondary">{user.email}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                                user.role === UserRole.Beheerder ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
+                                user.role === UserRole.Concierge ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                            }`}>{user.role}</span>
+                            {isInactive
+                                ? <span className="px-2 py-0.5 text-xs bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-full">Inactief</span>
+                                : lastSeen
+                                    ? <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-full">Actief</span>
+                                    : <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 rounded-full">Nog niet ingelogd</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                {/* Analytics */}
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-gray-50 dark:bg-dark-bg rounded-lg p-3 text-center">
+                        <p className="text-2xl font-bold text-gray-900 dark:text-dark-text-primary">{user.sessionCount ?? 0}</p>
+                        <p className="text-xs text-gray-500 dark:text-dark-text-secondary mt-0.5">Sessies</p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-dark-bg rounded-lg p-3 text-center col-span-2">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-dark-text-primary">
+                            {lastSeen ? formatDistanceToNow(lastSeen, { addSuffix: true, locale: nl }) : '—'}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-dark-text-secondary mt-0.5">Laatste activiteit</p>
+                    </div>
+                </div>
+
+                {editMode ? (
+                    /* ── Edit mode ── */
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-1">Rol</label>
+                            <select value={role} onChange={e => setRole(e.target.value as UserRole)}
+                                className="block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md py-2 px-3">
+                                {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-1">Organisatie / instelling <span className="text-gray-400">(optioneel)</span></label>
+                            <input type="text" value={organisatie} onChange={e => setOrganisatie(e.target.value)}
+                                placeholder="bijv. Centrada, Gemeente Lelystad"
+                                className="block w-full bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md py-2 px-3" />
+                        </div>
+                        <div>
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="checkbox" checked={restrictModules} onChange={e => setRestrictModules(e.target.checked)} className="rounded" />
+                                <span className="text-sm font-medium text-gray-700 dark:text-dark-text-secondary">Beperk toegang tot specifieke modules</span>
+                            </label>
+                        </div>
+                        {restrictModules && (
+                            <div className="bg-gray-50 dark:bg-dark-bg rounded-lg p-3 space-y-2">
+                                <p className="text-xs text-gray-500 dark:text-dark-text-secondary mb-2">Selecteer de modules waartoe deze gebruiker toegang heeft:</p>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                    {availableModules.map(mod => (
+                                        <div key={mod.key}>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" checked={selectedModules.includes(mod.key)} onChange={() => toggleModule(mod.key)} className="rounded" />
+                                                <span className="text-sm text-gray-700 dark:text-dark-text-primary">{mod.label}</span>
+                                            </label>
+                                            {selectedModules.includes(mod.key) && role === UserRole.Viewer && (
+                                                <label className="flex items-center gap-2 ml-5 mt-0.5 cursor-pointer">
+                                                    <input type="checkbox"
+                                                        checked={moduleCanEdit[mod.key] || false}
+                                                        onChange={() => setModuleCanEdit(prev => ({ ...prev, [mod.key]: !prev[mod.key] }))}
+                                                        className="rounded" />
+                                                    <span className="text-xs text-brand-primary">Mag bewerken</span>
+                                                </label>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                                {selectedModules.length > 0 && (
+                                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ {selectedModules.length} module(s) geselecteerd</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    /* ── View mode ── */
+                    <div className="space-y-3">
+                        {user.organisatie && (
+                            <div>
+                                <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Organisatie</p>
+                                <p className="text-sm text-gray-800 dark:text-dark-text-primary mt-0.5">{user.organisatie}</p>
+                            </div>
+                        )}
+                        <div>
+                            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Module toegang</p>
+                            {(!user.allowedModules || user.allowedModules.length === 0) ? (
+                                <p className="text-sm text-gray-600 dark:text-dark-text-secondary">Volledige toegang tot alle modules</p>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-1.5">
+                                    {availableModules.map(mod => {
+                                        const hasAccess = user.allowedModules!.includes(mod.key);
+                                        const canEdit = user.modulePermissions?.[mod.key]?.canEdit;
+                                        return (
+                                            <div key={mod.key} className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs ${
+                                                hasAccess ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-gray-50 dark:bg-dark-bg text-gray-400 dark:text-gray-600'
+                                            }`}>
+                                                <span className="flex items-center gap-1.5">
+                                                    <span>{hasAccess ? '✓' : '✗'}</span>
+                                                    <span>{mod.label}</span>
+                                                </span>
+                                                {hasAccess && canEdit && (
+                                                    <span className="text-xs text-brand-primary font-medium">✏️</span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Footer */}
+                <div className={`flex ${editMode ? 'justify-end gap-2' : 'justify-between'} pt-2 border-t border-gray-200 dark:border-dark-border`}>
+                    {!editMode ? (
+                        <>
+                            <button onClick={onDelete}
+                                className="px-4 py-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-800/30 rounded-lg font-medium transition-colors">
+                                Verwijderen
+                            </button>
+                            <button onClick={() => setEditMode(true)}
+                                className="px-5 py-2 text-sm bg-brand-primary text-white hover:bg-brand-secondary rounded-lg font-medium transition-colors">
+                                Bewerken
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button onClick={handleCancelEdit} className="px-4 py-2 text-sm bg-gray-100 dark:bg-dark-bg text-gray-700 dark:text-dark-text-primary hover:bg-gray-200 dark:hover:bg-dark-border rounded-lg font-medium transition-colors">
+                                Annuleren
+                            </button>
+                            <button onClick={handleSave} disabled={saving}
+                                className="px-5 py-2 text-sm bg-brand-primary text-white hover:bg-brand-secondary disabled:opacity-50 rounded-lg font-medium transition-colors">
+                                {saving ? 'Opslaan...' : 'Opslaan'}
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
 // Project Participants Modal Component
 const ProjectParticipantsModal: React.FC<{
     project: Project | null;
@@ -1052,6 +1291,7 @@ const AdminPage: React.FC = () => {
     const [isProjectEditModalOpen, setIsProjectEditModalOpen] = useState(false);
     const [selectedProjectForEdit, setSelectedProjectForEdit] = useState<Project | null>(null);
     const [activeTab, setActiveTab] = useState<AdminTab>('users');
+    const [selectedUserForDetail, setSelectedUserForDetail] = useState<User | null>(null);
 
     // Openstaande uitnodigingen
     const [invites, setInvites] = useState<any[]>([]);
@@ -1795,28 +2035,24 @@ const AdminPage: React.FC = () => {
                                             const daysSinceLastSeen = lastSeen ? Math.floor((Date.now() - lastSeen.getTime()) / (1000 * 60 * 60 * 24)) : null;
                                             const isInactive = daysSinceLastSeen !== null && daysSinceLastSeen > 14;
                                             return (
-                                            <tr key={user.id} className="border-b border-gray-200 dark:border-dark-border last:border-0 hover:bg-gray-50 dark:hover:bg-dark-bg">
+                                            <tr key={user.id} onClick={() => setSelectedUserForDetail(user)} className="border-b border-gray-200 dark:border-dark-border last:border-0 hover:bg-blue-50 dark:hover:bg-dark-bg cursor-pointer transition-colors">
                                                 <td className="p-3 text-gray-800 dark:text-dark-text-primary flex items-center">
                                                     <img src={user.avatarUrl} alt={user.name} className="h-8 w-8 rounded-full mr-3" />
                                                     <div>
-                                                        <div>{user.name}</div>
+                                                        <div className="font-medium">{user.name}</div>
                                                         {user.allowedModules && user.allowedModules.length > 0 && (
                                                             <div className="text-xs text-gray-400 dark:text-dark-text-secondary">{user.allowedModules.length} module{user.allowedModules.length !== 1 ? 's' : ''}</div>
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="p-3 text-gray-800 dark:text-dark-text-primary">{user.email}</td>
+                                                <td className="p-3 text-gray-600 dark:text-dark-text-secondary text-sm">{user.email}</td>
                                                 <td className="p-3 text-gray-600 dark:text-dark-text-secondary text-sm">{user.organisatie || <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
                                                 <td className="p-3">
-                                                    <select
-                                                        value={user.role}
-                                                        onChange={(e) => handleRoleChange(user.id, e.target.value as UserRole)}
-                                                        className="bg-gray-50 dark:bg-dark-bg border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-1 px-2 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
-                                                    >
-                                                        {Object.values(UserRole).map(role => (
-                                                            <option key={role} value={role} className="bg-white dark:bg-dark-surface">{role}</option>
-                                                        ))}
-                                                    </select>
+                                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                                        user.role === UserRole.Beheerder ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
+                                                        user.role === UserRole.Concierge ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                                        'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                                                    }`}>{user.role}</span>
                                                 </td>
                                                 <td className="p-3">
                                                     <div className="flex items-center gap-2">
@@ -1838,10 +2074,8 @@ const AdminPage: React.FC = () => {
                                                 <td className="p-3 text-center">
                                                     <span className="text-sm font-medium text-gray-700 dark:text-dark-text-primary">{user.sessionCount ?? 0}</span>
                                                 </td>
-                                                <td className="p-3 text-right">
-                                                    <button onClick={() => handleRemoveUser(user.id)} className="text-red-500 hover:text-red-400 font-semibold text-sm">
-                                                        Verwijderen
-                                                    </button>
+                                                <td className="p-3 text-right text-gray-400 dark:text-gray-600">
+                                                    <span className="text-lg">›</span>
                                                 </td>
                                             </tr>
                                             );
@@ -1857,7 +2091,7 @@ const AdminPage: React.FC = () => {
                                     const daysSinceLastSeen = lastSeen ? Math.floor((Date.now() - lastSeen.getTime()) / (1000 * 60 * 60 * 24)) : null;
                                     const isInactive = daysSinceLastSeen !== null && daysSinceLastSeen > 14;
                                     return (
-                                    <div key={user.id} className="bg-gray-50 dark:bg-dark-bg rounded-lg p-4 space-y-3">
+                                    <div key={user.id} onClick={() => setSelectedUserForDetail(user)} className="bg-gray-50 dark:bg-dark-bg rounded-lg p-4 space-y-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-dark-border transition-colors">
                                         <div className="flex items-center space-x-3">
                                             <img src={user.avatarUrl} alt={user.name} className="h-10 w-10 rounded-full" />
                                             <div className="flex-1 min-w-0">
@@ -1865,36 +2099,19 @@ const AdminPage: React.FC = () => {
                                                 <p className="text-sm text-gray-600 dark:text-dark-text-secondary truncate">{user.email}</p>
                                                 {user.organisatie && <p className="text-xs text-gray-400 dark:text-gray-500">{user.organisatie}</p>}
                                             </div>
-                                            <div className="flex flex-col items-end gap-1">
+                                            <div className="flex flex-col items-end gap-1.5">
                                                 {isInactive && <span className="px-1.5 py-0.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 text-xs rounded-full">Inactief</span>}
                                                 {lastSeen && !isInactive && <span className="px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 text-xs rounded-full">Actief</span>}
-                                                <span className="text-xs text-gray-400">{user.sessionCount ?? 0} sessies</span>
+                                                <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                                                    user.role === UserRole.Beheerder ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
+                                                    user.role === UserRole.Concierge ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                                    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                                                }`}>{user.role}</span>
                                             </div>
                                         </div>
-                                        {lastSeen && (
-                                            <p className="text-xs text-gray-500 dark:text-dark-text-secondary">
-                                                Laatste activiteit: {formatDistanceToNow(lastSeen, { addSuffix: true, locale: nl })}
-                                            </p>
-                                        )}
-                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
-                                            <div className="flex-1">
-                                                <label className="block text-xs font-medium text-gray-500 dark:text-dark-text-secondary mb-1">Rol</label>
-                                                <select
-                                                    value={user.role}
-                                                    onChange={(e) => handleRoleChange(user.id, e.target.value as UserRole)}
-                                                    className="w-full sm:w-auto bg-white dark:bg-dark-surface border border-gray-300 dark:border-dark-border rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
-                                                >
-                                                    {Object.values(UserRole).map(role => (
-                                                        <option key={role} value={role} className="bg-white dark:bg-dark-surface">{role}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <button
-                                                onClick={() => handleRemoveUser(user.id)}
-                                                className="w-full sm:w-auto sm:ml-3 px-3 py-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md font-medium transition-colors"
-                                            >
-                                                Verwijderen
-                                            </button>
+                                        <div className="flex justify-between items-center text-xs text-gray-400 dark:text-gray-500">
+                                            <span>{lastSeen ? formatDistanceToNow(lastSeen, { addSuffix: true, locale: nl }) : 'Nooit ingelogd'}</span>
+                                            <span>{user.sessionCount ?? 0} sessies · Bekijk profiel ›</span>
                                         </div>
                                     </div>
                                     );
@@ -2706,6 +2923,22 @@ const AdminPage: React.FC = () => {
                 <NewProjectForm onClose={() => setIsNewProjectModalOpen(false)} />
             </Modal>
             {isAddUserModalOpen && <AddUserModal onClose={() => setIsAddUserModalOpen(false)} />}
+            {selectedUserForDetail && (() => {
+                // Gebruik altijd de live user data uit de users-lijst
+                const liveUser = users.find(u => u.id === selectedUserForDetail.id) ?? selectedUserForDetail;
+                return (
+                    <UserDetailModal
+                        user={liveUser}
+                        onClose={() => setSelectedUserForDetail(null)}
+                        onDelete={() => {
+                            if (confirm(`Weet je zeker dat je ${liveUser.name} wilt verwijderen?`)) {
+                                removeUser(liveUser.id);
+                                setSelectedUserForDetail(null);
+                            }
+                        }}
+                    />
+                );
+            })()}
             <ProjectEditModal
                 project={selectedProjectForEdit}
                 isOpen={isProjectEditModalOpen}
