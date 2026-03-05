@@ -40,7 +40,6 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const [moduleCanEdit, setModuleCanEdit] = useState<{ [key: string]: boolean }>({});
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
 
     const availableModules = [
         { key: 'dashboard', label: 'Dashboard' },
@@ -129,14 +128,17 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                             handleCodeInApp: false,
                         });
 
-                        setSuccess(`✅ Gebruiker ${name} aangemaakt en uitnodigingsmail verzonden naar ${email}. De gebruiker ontvangt een link om een wachtwoord in te stellen.`);
+                        toast.success(`Gebruiker ${name} aangemaakt en uitnodigingsmail verzonden naar ${email}.`);
+                        onClose();
                     } catch (emailError: any) {
                         logger.error('Failed to send invitation email', emailError, { email });
                         // Gebruiker is wel aangemaakt, maar email faalde
-                        setSuccess(`⚠️ Gebruiker ${name} aangemaakt met standaard wachtwoord: Welkom01. Email kon niet worden verzonden: ${emailError.message}. De gebruiker kan een wachtwoord reset aanvragen op de login pagina.`);
+                        toast.error(`Gebruiker ${name} aangemaakt maar uitnodigingsmail mislukt: ${emailError.message}`);
+                        onClose();
                     }
                 } else {
-                    setSuccess(data.message || `✅ Gebruiker ${name} aangemaakt.`);
+                    toast.success(data.message || `Gebruiker ${name} aangemaakt.`);
+                    onClose();
                 }
 
                 // Track analytics
@@ -271,7 +273,7 @@ const AddUserModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 </div>
 
                 {error && <p className="text-red-500 text-sm">{error}</p>}
-                {success && <p className="text-green-600 text-sm">{success}</p>}
+
 
                 <div className="flex justify-end pt-4">
                     <button
