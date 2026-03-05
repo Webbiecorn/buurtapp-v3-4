@@ -28,12 +28,17 @@ Vijf nieuwe features op verzoek van Kevin:
 - `functions/src/sendWelcomeEmail.ts` — herschreven met HTML templates
 - `functions/src/checkExpiredInvites.ts` — template import klaar (commented), TODO-blok bijgewerkt
 
-### Volgende stap: Gmail SMTP activeren
-Zodra DNS-records + App Password beschikbaar:
-1. `firebase functions:secrets:set GMAIL_USER`
-2. `firebase functions:secrets:set GMAIL_APP_PASSWORD`
-3. `cd functions && npm install nodemailer @types/nodemailer`
-4. Uncomment nodemailer blok in `sendWelcomeEmail.ts` + `checkExpiredInvites.ts`
+### Gmail e-mail: ✅ ACTIEF
+- `GMAIL_USER` = kevin@buurtteamlelystad.nl (later te vervangen door Gert Jan zijn adres)
+- `GMAIL_APP_PASSWORD` ingesteld als Firebase Secret
+- Nodemailer actief in `sendWelcomeEmail.ts` + `checkExpiredInvites.ts`
+- Alle functions + hosting gedeployed → https://buurtapp-v3-4.web.app
+
+### Nog te doen
+- Gmail-adres vervangen door Gert Jan zijn adres zodra bekend:
+  `firebase functions:secrets:set GMAIL_USER` → nieuw adres invoeren
+  `firebase functions:secrets:set GMAIL_APP_PASSWORD` → bijbehorend App-wachtwoord
+  `firebase deploy --only functions`
 
 ---
 

@@ -357,7 +357,7 @@ Bij elke nieuwe feature verplicht:
 
 | Versie | Datum       | Highlights                                                                          |
 | ------ | ----------- | ----------------------------------------------------------------------------------- |
-| v0.4.1 | 5 mrt 2026  | lastSeen, sessionCount, organisatie, modulePermissions Viewer, HTML email templates |
+| v0.4.1 | 5 mrt 2026  | lastSeen, sessionCount, organisatie, modulePermissions Viewer, Gmail e-mail actief |
 | v0.4.0 | 4 mrt 2026  | Uitnodigingssysteem (invites, checkExpiredInvites, sendInviteReminder)              |
 | v0.3.5 | 16 feb 2026 | Firebase Performance Monitoring, bundle analyse                                     |
 | v0.3.4 | 16 feb 2026 | Bulk Actions (multi-select) in Meldingen                                            |
@@ -454,8 +454,10 @@ git push
   - `buildReminderEmailHtml(data)` — herinnerings-email met verse reset-link en resterende dagen
   - `buildReminderEmailSubject()` — onderwerpregel herinnering
   - `export { APP_URL }` beschikbaar voor toekomstig SMTP-gebruik
-- **sendWelcomeEmail.ts herschreven**: Genereert nu HTML via `buildInviteEmailHtml`, slaat `inviteEmailHtml` + `inviteEmailSubject` op in Firestore voor preview/debug. Nodemailer blok uitgecommentarieerd (klaar voor activeren zodra GMAIL_USER + GMAIL_APP_PASSWORD secrets beschikbaar zijn).
-- **checkExpiredInvites.ts bijgewerkt**: TODO-blok verwijst nu naar `buildReminderEmailHtml` (commented import klaar). Reminder-mail voorbeeld toont `daysLeft` + `freshPasswordResetLink` patroon.
+- **sendWelcomeEmail.ts herschreven**: Genereert HTML via `buildInviteEmailHtml`, verstuurt uitnodigingsmail via nodemailer (Gmail). Secrets via `defineSecret()`.
+- **checkExpiredInvites.ts bijgewerkt**: Verstuurt herinneringsmail (dag 3) en verlopen-melding (dag 7) via nodemailer. Template import actief.
+- **Gmail geactiveerd**: `GMAIL_USER` + `GMAIL_APP_PASSWORD` ingesteld als Firebase Secrets. Nodemailer geïnstalleerd. Alle functions gedeployed.
+- **Deploy**: Firebase Hosting + Functions → https://buurtapp-v3-4.web.app
 
 ### 2 maart 2026
 - SSOT-audit uitgevoerd door GitHub Copilot
@@ -467,4 +469,4 @@ git push
 
 ---
 
-*Bijgehouden door: Kevin (Webbiecorn) + GitHub Copilot | Laatst bijgewerkt: 5 maart 2026 — lastSeen tracking, organisatie veld, modulePermissions, HTML email templates*
+*Bijgehouden door: Kevin (Webbiecorn) + GitHub Copilot | Laatst bijgewerkt: 5 maart 2026 — Gmail actief, alle features gedeployed*
