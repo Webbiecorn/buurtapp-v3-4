@@ -15,6 +15,7 @@ import autoTable from 'jspdf-autotable';
 import { generateDailyUpdate } from '../services/dailyUpdateAI';
 import { logger } from '../services/logger';
 import { validate, inviteUserSchema } from '../utils/validation';
+import { toast } from 'react-hot-toast';
 import { trackUserInvited } from '../services/analytics';
 import { useSearchDebounce } from '../hooks/useDebounce';
 

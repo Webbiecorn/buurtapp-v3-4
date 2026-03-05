@@ -1,5 +1,6 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { AppShell } from './components/AppShell';
 import { UserRole } from './types';
@@ -190,6 +191,7 @@ const App: React.FC = () => {
           <AppRoutes />
         </ReactRouterDOM.HashRouter>
       </AppProvider>
+      <Toaster position="top-right" />
     </ErrorBoundary>
   );
 };
